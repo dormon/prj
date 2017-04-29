@@ -1,0 +1,34 @@
+#ifndef BUTIL_INTEGER_ADDITION_H_INCLUDED
+#define BUTIL_INTEGER_ADDITION_H_INCLUDED
+
+#include <butil/integer/detail/add.h>
+
+#include <cassert>
+
+#include <type_traits>
+
+#include <boost/integer_traits.hpp>
+
+namespace butil {
+namespace integer {
+
+template<typename X>
+constexpr X add(X a, X b)
+{
+    static_assert(std::is_integral<X>::value, "");
+    return assert(!add_overflow(a, b)), a+b;
+}
+
+template<typename X>
+constexpr X saturate_add(X a, X b)
+{
+    static_assert(std::is_integral<X>::value, "");
+    return add_negative_overflow(a, b)
+        ? boost::integer_traits<X>::const_min
+    return assert(!add_overflow(a, b)), a+b;
+}
+
+}//namespace integer
+}//namespace butil
+
+#endif//BUTIL_INTEGER_ADDITION_H_INCLUDED

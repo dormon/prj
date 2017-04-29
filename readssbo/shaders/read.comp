@@ -1,0 +1,23 @@
+#version 450 core
+
+#ifndef WORKGROUP_SIZE
+#define WORKGROUP_SIZE 64
+#endif//WORKGROUP_SIZE
+
+#ifndef FLOATS_PER_THREAD
+#define FLOATS_PER_THREAD 4
+#endif//FLOATS_PER_THREAD
+
+layout(std430,binding=0)buffer Data{float readBuffer[];};
+
+layout(local_size_x=WORKGROUP_SIZE)in;
+
+void main(){
+  float data = 0;
+  const uint N=FLOATS_PER_THREAD;
+  for(uint i=0;i<N;++i)
+    data += readBuffer[gl_WorkGroupID.x*N*gl_WorkGroupSize.x+gl_LocalInvocationID.x+gl_WorkGroupSize.x*i];
+
+  if(data==3233.323f)
+    readBuffer[gl_GlobalInvocationID.x]=1.f;
+}

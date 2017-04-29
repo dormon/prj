@@ -1,0 +1,42 @@
+#ifndef BUTIL_INTEGER_VALUE_H_INCLUDED
+#define BUTIL_INTEGER_VALUE_H_INCLUDED
+
+#include <butil/integer/interval.h>
+#include <butil/integer/intset.h>
+
+namespace butil {
+namespace integer {
+
+template<typename Set, typename Int = typename intset_type<Set>::least>
+class intset_value
+{
+    static_assert(std::is_integral<Int>::value, "");
+    static_assert(interval_includes<Int, Set>::value, "");
+public :
+    static constexpr Int min = intset_traits<Set>::min;
+    static constexpr Int max = intset_traits<Set>::max;
+
+    explicit constexpr intset_value(Int x) noexcept
+        : m_value(x) {}
+
+    constexpr intset_value(intset_value &&) = default;
+
+    intset_value & operator=(intset_value const &) = delete;
+
+    Int value() const noexcept
+    {
+        return m_value;
+    }
+
+    explicit operator Int() const noexcept
+    {
+        return value();
+    }
+private :
+    Int m_value;
+};
+
+}//namespace integer
+}//namespace butil
+
+#endif//BUTIL_INTEGER_VALUE_H_INCLUDED

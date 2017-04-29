@@ -1,0 +1,366 @@
+#ifndef BUTIL_INTEGER_INTERVAL_H_INCLUDED
+#define BUTIL_INTEGER_INTERVAL_H_INCLUDED
+
+#include <butil/integer/cast.h>
+#include <butil/integer/cmp.h>
+#include <butil/integer/intset.h>
+
+#include <butil/integer/detail/abs.h>
+#include <butil/integer/detail/add.h>
+#include <butil/integer/detail/max.h>
+#include <butil/integer/detail/min.h>
+#include <butil/integer/detail/mul.h>
+#include <butil/integer/detail/neg.h>
+#include <butil/integer/detail/sub.h>
+
+#include <type_traits>
+
+#include <boost/integer_traits.hpp>
+
+namespace butil {
+namespace integer {
+
+/** \brief Compile-time interval of integer values.
+ *
+ * Boundaries are stored as intmax_t or uintmax_t, according to the sign of Type.
+ *
+ * !!! Instances with different type may represent the same interval.
+ */
+template<typename Type,
+    Type Min = boost::integer_traits<Type>::const_min,
+    Type Max = boost::integer_traits<Type>::const_max>
+struct interval
+{
+    static_assert(std::is_integral<Type>::value, "Type must be integer");
+    static_assert(Min <= Max, "Invalid interval (min > max)");
+
+    // Store interval boundaries as [u]intmax_t, according to Type sign
+    using boundary_type = std::conditional_t<
+        std::is_unsigned<Type>::value, uintmax_t, intmax_t>;
+
+    static constexpr boundary_type min = Min;
+    static constexpr boundary_type max = Max;
+};
+
+template<typename I>
+using interval_is_degenerate = std::integral_constant<bool, intset_traits<I>::min == intset_traits<I>::max>;
+
+//------------------------------------------------------------------------------
+// -- Type casts of interval boundaries --
+//
+// I hope, this will stay as an implementation detail
+//------------------------------------------------------------------------------
+
+namespace detail {
+    
+/** \brief Change interval type to [u]intmax_t.
+ * 
+ * Will compile only for [u]intmax_t.
+ */
+template<typename T, typename I>
+struct interval_boundary_cast;
+
+template<typename I>
+struct interval_boundary_cast<intmax_t, I>
+{
+    static_assert(intset_traits<I>::max <= INTMAX_MAX,
+        "Interval contains values outside signed integer range.");
+    using type = interval<intmax_t, intset_traits<I>::min, intset_traits<I>::max>;
+};
+
+template<typename I>
+struct interval_boundary_cast<uintmax_t, I>
+{
+    static_assert(intset_traits<I>::min >= 0,
+            "Interval contains values outside unsigned integer range.");
+    using type = interval<uintmax_t, intset_traits<I>::min, intset_traits<I>::max>;
+};
+
+}//namespace detail
+
+//------------------------------------------------------------------------------
+// -- Get corresponding interval for any intset --
+//------------------------------------------------------------------------------
+
+template<typename I, typename B = typename intset_traits<I>::value_type>
+using intset_interval = interval<B, intset_traits<I>::min, intset_traits<I>::max>;
+
+//------------------------------------------------------------------------------
+// -- Relation operators --
+//
+// equivalence - boundaries are equal
+// ordering - A < B <=> forall a in A, b in B : a < b
+//------------------------------------------------------------------------------
+
+/** \brief Interval boundaries are equal.
+ */
+template<typename A, typename B>
+using interval_equal = std::integral_constant<bool,
+      cmp::eq(intset_traits<A>::min, intset_traits<B>::min) &&
+      cmp::eq(intset_traits<A>::max, intset_traits<B>::max)>;
+
+/** \brief Interval boundaries are not equal.
+ */
+template<typename A, typename B>
+using interval_not_equal = std::integral_constant<bool, !interval_equal<A, B>::value>;
+#if 0
+template<typename A, typename B>
+using interval_less = intset_less<A, B>;
+
+template<typename A, typename B>
+using interval_less_equal = intset_less_equal<A, B>;
+
+template<typename A, typename B>
+using interval_greater = intset_greater<A, B>;
+
+template<typename A, typename B>
+using interval_greater_equal = intset_greater_equal<A, B>;
+#endif
+//------------------------------------------------------------------------------
+// -- Interval as set --
+//------------------------------------------------------------------------------
+
+namespace detail {
+
+template<typename X, X Min, X Max>
+struct interval_size_impl
+{
+    // Size of full [u]intmax_t range is not representable.
+    static_assert(
+            (Min > boost::integer_traits<X>::const_min) ||
+            (Max < boost::integer_traits<X>::const_max),
+            "Interval size is not representable"
+        );
+    // Cast to uintmax_t to use modular arithmetics (two's complement)
+    static constexpr uintmax_t value = static_cast<uintmax_t>(Max)-Min+1;
+};
+
+template<typename A, typename B>
+struct interval_meet_impl
+{
+    static constexpr bool need_signed   = (A::min < 0) && (B::min < 0);
+    static constexpr bool need_unsigned = (A::max > INTMAX_MAX) && (B::max > INTMAX_MAX);
+    static_assert(!need_signed || !need_unsigned, "This just can't happen. BUG!");
+    // prefer unsigned boundary
+    using common = std::conditional_t<need_signed, intmax_t, uintmax_t>;
+    using type = interval<common,
+            integral_max<common,
+                    saturate_cast<common>(A::min),
+                    saturate_cast<common>(B::min)
+                >::value,
+            integral_min<common,
+                    saturate_cast<common>(A::max),
+                    saturate_cast<common>(B::max)
+                >::value>;
+};
+
+template<typename A, typename B, typename ... Args>
+struct interval_join_impl;
+
+template<typename A, typename B>
+struct interval_join_impl<A, B>
+{
+    static constexpr bool need_signed   = (A::min < 0) || (B::min < 0);
+    static constexpr bool need_unsigned = (A::max > INTMAX_MAX) || (B::max > INTMAX_MAX);
+    static_assert(!need_signed || !need_unsigned, "Interval join is not representable");
+    // prefer unsigned boundary if possible
+    using common = std::conditional_t<need_signed, intmax_t, uintmax_t>;
+    // common can handle values from both A and B, we can convert
+    using type = interval<common,
+            integral_min<common, A::min, B::min>::value,
+            integral_max<common, A::max, B::max>::value>;
+};
+
+template<typename A, typename B, typename C, typename ... Args>
+struct interval_join_impl<A, B, C, Args...>
+    : interval_join_impl<
+        typename interval_join_impl<A, B>::type, C, Args...>
+{
+};
+
+}//namespace detail
+
+/** \brief Lower bound.
+ */
+template<typename I, typename T = typename intset_type<I>::least>
+using interval_minimum = std::integral_constant<T, intset_traits<I>::min>;
+
+/** \brief Upper bound.
+ */
+template<typename I, typename T = typename intset_type<I>::least>
+using interval_maximum = std::integral_constant<T, intset_traits<I>::max>;
+
+/** \brief Number of interval elements.
+ */
+template<typename I>
+using interval_size = std::integral_constant<uintmax_t,
+    detail::interval_size_impl<
+            typename int_max_t<typename intset_traits<I>::value_type>::type,
+            intset_traits<I>::min, intset_traits<I>::max
+        >::value>;
+
+/** \brief Is interval B subset of interval A?
+ */
+template<typename A, typename B>
+using interval_includes = std::integral_constant<bool,
+    cmp::le(intset_traits<A>::min, intset_traits<B>::min) &&
+    cmp::le(intset_traits<B>::max, intset_traits<A>::max)>;
+
+/** \brief Are intervals disjoint?
+ */
+template<typename A, typename B>
+using interval_meet_empty = std::integral_constant<bool,
+      cmp::lt(intset_traits<A>::max, intset_traits<B>::min) ||
+      cmp::lt(intset_traits<B>::max, intset_traits<A>::min)>;
+
+/** \brief Intersection of A and B.
+ */
+template<typename ... Args>
+using interval_meet = typename detail::interval_meet_impl<intset_interval<Args>...>::type;
+
+/** \brief Is the interval union representable?
+ */
+template<typename A, typename B>
+using interval_join_valid = std::integral_constant<bool,
+      ((intset_traits<A>::min > 0) && (intset_traits<B>::min > 0)) ||
+      ((intset_traits<A>::max <= INTMAX_MAX) && (intset_traits<B>::max <= INTMAX_MAX))>;
+
+/** \brief Union of A and B.
+ */
+template<typename ... Args>
+using interval_join = typename detail::interval_join_impl<intset_interval<Args>...>::type;
+
+template<typename I, typename T>
+constexpr bool interval_contains(T x) noexcept
+{
+    static_assert(std::is_integral<T>::value, "");
+    return interval_includes<I, T>::value
+        || (!interval_meet_empty<I, T>::value
+            && cmp::le(intset_traits<I>::min, x, intset_traits<I>::max));
+}
+
+//------------------------------------------------------------------------------
+// --  --
+//------------------------------------------------------------------------------
+
+template<typename ... Args>
+using interval_type = intset_type<interval_join<Args...>>;
+
+//------------------------------------------------------------------------------
+// -- Interval arithmetics (additive) --
+//------------------------------------------------------------------------------
+
+namespace detail {
+
+template<typename I>
+struct interval_upper_dec_impl
+{
+    static_assert(I::min < I::max, "Interval is degenerate");
+    using type = interval<typename I::boundary_type, I::min, I::max-1>;
+};
+
+template<typename A, typename B>
+struct interval_add_impl
+{
+    // prefer uintmax_t
+    using common = typename intset_type<interval_join<A,B>, prefer_unsigned>::max;
+    // [a,b]+[c,d] = [a+c,b+d]
+    using type = interval<common,
+            integral_add<common, A::min, B::min>::value,
+            integral_add<common, A::max, B::max>::value>;   
+};
+
+template<typename A>
+struct interval_neg_impl
+{
+    // prefer intmax_t
+    using common = typename intset_type<A, prefer_signed>::max;
+    // -[a,b] = [-b,-a]
+    using type = interval<common,
+            integral_neg<common, A::max>::value,
+            integral_neg<common, A::min>::value>;
+};
+
+template<typename A, typename B>
+struct interval_sub_impl
+{
+    // prefer intmax_t
+    using common = typename intset_type<interval_join<A,B>, prefer_signed>::max;
+    // [a,b]-[c,d] = [a,b]+[-d,-c] = [a-d,b-c]
+    using type = interval<common,
+            integral_sub<common, A::min, B::max>::value,
+            integral_sub<common, A::max, B::min>::value>;
+};
+
+template<typename A>
+struct interval_abs_impl
+{
+    using type = interval<uintmax_t,
+        (A::max < 0 ? uabs(A::max) : A::min < 0 ? 0 : A::min),
+        integral_max<uintmax_t, uabs(A::min), uabs(A::max)>::value>;
+    static_assert(type::min >= 0, "Bug!");
+};
+
+}//namespace detail
+
+template<typename I>
+using interval_upper_dec = typename detail::interval_upper_dec_impl<I>::type;
+
+/** \brief Interval addition ([a,b]+[c,d] = [a+c,b+d]).
+ */
+template<typename ... Args>
+using interval_add = typename detail::interval_add_impl<intset_interval<Args>...>::type;
+
+/** \brief Interval negation (-[a,b] = [-b,-a]).
+ */
+template<typename A>
+using interval_neg = typename detail::interval_neg_impl<intset_interval<A>>::type;
+
+/** \brief Interval subtraction ([a,b]-[c,d] = [a-d,b-c]).
+ */
+template<typename A, typename B>
+using interval_sub = typename detail::interval_sub_impl<intset_interval<A>, intset_interval<B>>::type;
+
+/** \brief Interval absolute value.
+ */
+template<typename A>
+using interval_abs = typename detail::interval_abs_impl<intset_interval<A>>::type;
+
+//------------------------------------------------------------------------------
+// -- Interval arithmetics (multiplicative) --
+//------------------------------------------------------------------------------
+
+namespace detail {
+
+template<typename A, typename B>
+struct interval_mul_impl
+{
+    // prefer uintmax_t
+    using common = typename intset_type<interval_join<A,B>, prefer_unsigned>::max;
+
+    using type = interval<common,
+        integral_min<common,
+            integral_mul<common, A::min, B::min>::value,
+            integral_mul<common, A::min, B::max>::value,
+            integral_mul<common, A::max, B::min>::value,
+            integral_mul<common, A::max, B::max>::value
+        >::value,
+        integral_max<common,
+            integral_mul<common, A::min, B::min>::value,
+            integral_mul<common, A::min, B::max>::value,
+            integral_mul<common, A::max, B::min>::value,
+            integral_mul<common, A::max, B::max>::value
+        >::value>;
+};
+
+}//namespace detail
+
+/** \brief Interval multiplication.
+ */
+template<typename ... Args>
+using interval_mul = typename detail::interval_mul_impl<intset_interval<Args>...>::type;
+
+}//namespace integer
+}//namespace butil
+
+#endif//BUTIL_INTEGER_INTERVAL_H_INCLUDED

@@ -1,0 +1,48 @@
+
+cos(x)               , sin(x)
+cos(x)*cos(y)        , sin(x)*cos(y)        , sin(y)
+cos(x)*cos(y)*cos(z) , sin(x)*cos(y)*cos(z) , sin(y)*cos(z) , sin(z)
+
+x=(x0,x1,x2), |x| = 1
+
+(x,y,z,{0,1,2,3})
+
+kazdy bod na kouli neni jen bod ale cyklicka dimenze
+kazdy bod na kouli muze byt v ruzne fazi, prostor fazi je cyklicky
+znamena to v podstate natoceni x,y osy tecne roviny v danem bode na kouli
+kdyz se hybeme po povrchu koule hybme se i v prostoru fazi
+do jineho bodu muzeme dojit ruznymi cestami a tedy vysledna faze muze byt ruzna
+
+
+
+orthograficka projekce
+A je na kouli, ktery je nejblize pozorovateli
+B je na severnim polu koule
+C je na nejpravejsim bodu koule
+
+geodesicka cesta
+A->B se dostane do bodu B s jinou fazi nez sled geodesickych cest A->C->B faze se lisi o 90°
+spojita cesta po kouli, ktera se vselijak krivi zachovava uhly bazovych vektoru tecne roviny v kazdem bode cesty se smerovym vektorem cesty v danem bode
+
+
+vlasnosti myslenky, ktera je nakazliva:
+musi nutit lidi aby ji predavali nepozmenenou
+Nuceni muze byt pozitivne i negativne motivovane
+Pokud neco neudelame, dojde ke zhorseni naseho stavu nebo k iluzi zhorseni
+Pokud neco udelame, dojde ke zlepseni naseho stavu nebo k iluzi zlepseni
+Musi se neustale pripominat
+
+
+
+musi mit korozivni system proti ostatnim nakazlivym myslenkam nebo asimilacni system
+musi mit obrany system proti odstaneni, (casto vyuziva vestavenych ochranych systemu tela)
+Lide se automaticky brani, pokud jim neco ublizuje, nebo se tomu snazi uniknout
+Nakazliva myslenka vyuzije tento system tak, ze pokud se ji snazime odstranim, oslabit vyvolava v tele pocit, ze se snazime odstranit, poskodit, oslabit telo.
+
+
+
+musi
+
+
+
+

@@ -1,0 +1,30 @@
+#ifndef BUTIL_INTEGER_ABSOLUTE_H_INCLUDED
+#define BUTIL_INTEGER_ABSOLUTE_H_INCLUDED
+
+#include <butil/integer/detail/abs.h>
+
+#include <cassert>
+#include <cstdlib>
+#include <cinttypes>
+
+#include <type_traits>
+
+#include <boost/integer_traits.hpp>
+
+namespace butil {
+namespace integer {
+
+/** \brief Signed abs that can't collide with cmath abs.
+ */
+template<typename X>
+constexpr X sabs(X x) noexcept
+{
+    static_assert(std::is_integral<X>::value, "");
+    return std::is_unsigned<X>::value ? x :
+        (assert(!abs_overflow(x)), (x < 0 ? -x : x));
+}
+
+}//namespace integer
+}//namespace butil
+
+#endif//BUTIL_INTEGER_ABSOLUTE_H_INCLUDED

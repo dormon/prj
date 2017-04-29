@@ -1,0 +1,62 @@
+template<typename TYPE>
+class NodeValue{
+  protected:
+    TYPE _value;
+  public:
+    NodeValue(){};
+    NodeValue(const TYPE&value){this->set(value);}
+    inline TYPE&get(){return this->_value;}
+    inline void set(const TYPE&value){this->_value = value;}
+};
+
+template<typename NODE>
+class RawNode{
+  protected:
+    std::set<std::shared_ptr<NODE>>_next;
+  public:
+    typedef typename std::set<std::shared_ptr<NODE>>::iterator Iterator;
+    inline Iterator insert(const std::shared_ptr<NODE>&node){return this->_next.insert(node).first;}
+    inline void     remove(const std::shared_ptr<NODE>&node){this->_next.erase(node);}
+    inline Iterator find  (const std::shared_ptr<NODE>&node){return this->_next.find(node);}
+    inline Iterator begin(){return this->_next.begin();}
+    inline Iterator end  (){return this->_next.end();}
+    inline bool     contain(const std::shared_ptr<NODE>&node){return this->_next.find(node)!=this->_next.end();}
+    inline void     clear(){this->_next.clear();}
+    inline unsigned size(){return this->_next.size();}
+    inline std::shared_ptr<NODE>&operator[](unsigned index){Iterator ii=this->begin();for(unsigned i=0;i<index;++i)ii++;return ii.first;}
+};
+
+class Node: public RawNode<Node>{};
+
+
+template<typename CHILDNODE,typename PARENTNODE>
+class PCNode{
+  protected:
+    std::set<std::shared_ptr<PARENTNODE>>_parents ;
+    std::set<std::shared_ptr<CHILDNODE >>_children;
+  public:
+    typedef typename std::set<std::shared_ptr<PARENTNODE>>::iterator ParentIterator;
+    typedef typename std::set<std::shared_ptr<CHILDNODE >>::iterator ChildIterator;
+    inline ParentIterator addParent   (const std::shared_ptr<PARENTNODE>&parent){return this->_parents .insert(parent).first;}
+    inline void           removeParent(const std::shared_ptr<PARENTNODE>&parent){       this->_parents .erase (parent)      ;}
+    inline ChildIterator  addChild    (const std::shared_ptr<CHILDNODE >&child ){return this->_children.insert(child ).first;}
+    inline void           removeChild (const std::shared_ptr<CHILDNODE >&child ){       this->_children.erase (child )      ;}
+    inline unsigned getNofChildren(){return this->_children.size();}
+    inline unsigned getNofParents (){return this->_parents .size();}
+    inline ChildIterator  childBegin    (){return this->_children.begin();}
+    inline ChildIterator  childEnd      (){return this->_children.end  ();}
+    inline ParentIterator parentBegin   (){return this->_parents.begin ();}
+    inline ParentIterator parentEnd     (){return this->_parents.end   ();}
+    inline ParentIterator findParent   (const std::shared_ptr<PARENTNODE>&parent){return this->_parents .find(parent);}
+    inline ChildIterator  findChild    (const std::shared_ptr<CHILDNODE >&child ){return this->_children.find(child );}
+    inline bool           containParent(const std::shared_ptr<PARENTNODE>&parent){return this->_parents .find(parent)!=this->_parents .end();}
+    inline bool           containChild (const std::shared_ptr<CHILDNODE >&child ){return this->_children.find(child )!=this->_children.end();}
+    inline void           clearParents (){this->_parents .clear();}
+    inline void           clearChildren(){this->_children.clear();}
+};
+
+class Data;
+class Action:public PCNode<Data  ,Data  >{};
+class Data  :public PCNode<Action,Action>{};
+
+

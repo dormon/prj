@@ -1,0 +1,142 @@
+START, \t\r\n,START
+START,+,START,+
+START,-,START,-
+START,*,START,*
+START,/,SLASH
+START,%,START,%
+START,<,LESSER
+START,>,GREATER
+START,=,ASSIGNMENT
+START,!,EXCLAMATION
+START,&,AMPERSAND
+START,|,BAR
+START,^,START,^
+START,(,START,(
+START,),START,)
+START,{,START,{
+START,},START,}
+START,[,START,[
+START,],START,]
+START,~,START,~
+START,;,START,;
+START,\,,START,\,
+START,_a\\-zA\\-Z,IDENTIFIER,,b
+START,",DOUBLE_QUOTES,,b
+START,',QUOTES,,b
+START,.,DOT,,b
+START,0\\-9,DIGIT,,b
+START,\\e,END
+START,,,unexpected symbol
+
+SLASH,_a\\-zA\\-Z0\\-9.\,!(){}[]~;"',START,/,g
+SLASH, \t\r\n,START,/
+SLASH,/,COMMENT0
+SLASH,*,COMMENT1
+SLASH,\\e,END,/
+SLASH,,,expected / or *
+
+LESSER,_a\\-zA\\-Z0\\-9.\,!(){}[]~;"',START,<,g
+LESSER, \t\r\n,START,<
+LESSER,=,START,<=
+LESSER,<,START,<<
+LESSER,/,SLASH,<
+LESSER,\\e,END,<
+LESSER,,,expected = or <
+
+GREATER,_a\\-zA\\-Z0\\-9.\,!(){}[]~;"',START,>,g
+GREATER, \t\r\n,START,>
+GREATER,=,START,>=
+GREATER,>,START,>>
+GREATER,/,SLASH,>
+GREATER,\\e,END,>
+GREATER,,,expected = or >
+
+ASSIGNMENT,_a\\-zA\\-Z0\\-9.\,!(){}[]~;"',START,=,g
+ASSIGNMENT, \t\r\n,START,= 
+ASSIGNMENT,=,START,==
+ASSIGNMENT,/,SLASH,=
+ASSIGNMENT,\\e,END,=
+ASSIGNMENT,,,expected =
+
+EXCLAMATION,_a\\-zA\\-Z0\\-9.\,!(){}[]~;"',START,!,g
+EXCLAMATION, \t\r\n,START,!
+EXCLAMATION,=,START,!=
+EXCLAMATION,!,START,!!
+EXCLAMATION,/,SLASH,!
+EXCLAMATION,\\e,END,!
+EXCLAMATION,,,expected = or !
+
+AMPERSAND,_a\\-zA\\-Z0\\-9.\,!(){}[]~;"',START,&,g
+AMPERSAND, \t\r\n,START,&
+AMPERSAND,&,START,&&
+AMPERSAND,/,SLASH,&
+AMPERSAND,\\e,END,&
+AMPERSAND,,,expected &
+
+BAR,_a\\-zA\\-Z0\\-9.\,!(){}[]~;"',START,|,g
+BAR, \t\r\n,START,|
+BAR,|,START,||
+BAR,/,SLASH,|
+BAR,\\e,END,|
+BAR,,,expected |
+
+IDENTIFIER,_a\\-zA\\-Z0\\-9,IDENTIFIER
+IDENTIFIER, \t\r\n,START,identifier for while if else bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 void string struct typedef return _kernel_vars _kernel_types _kernel_functions,e
+IDENTIFIER,,START,identifier for while if else bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 void string struct typedef return _kernel_vars _kernel_types _kernel_functions,eg
+
+DOUBLE_QUOTES,\\\\,DQ_BACKSLASH
+DOUBLE_QUOTES,",START,string-value,e
+DOUBLE_QUOTES,,DOUBLE_QUOTES
+DOUBLE_QUOTES,\\e,,unexpected end of file in string
+
+DQ_BACKSLASH,\\.,DOUBLE_QUOTES
+DQ_BACKSLASH,\\e,,unexpected end of file after backslash
+
+QUOTES,\\\\,Q_BACKSLASH
+QUOTES,',START,char,e
+QUOTES,,QUOTES
+QUOTES,\\e,,unexpected end of file in char
+Q_BACKSLASH,\\.,QUOTES
+Q_BACKSLASH,\\e,,unexpected end of file after backslash
+
+DOT,0\\-9,FRACTION
+DOT,\\e,END,.
+DOT,,START,.,g
+
+DIGIT,0\\-9,DIGIT
+DIGIT,eE,EXPONENT
+DIGIT,.,FRACTION
+DIGIT,\\e,END,integer-value
+DIGIT,,START,integer-value,eg
+
+FRACTION,0\\-9,FRACTION
+FRACTION,eE,EXPONENT
+FRACTION,\\e,END,float-value
+FRACTION,,START,float-value,eg
+
+EXPONENT,+-,EXP_SIGN
+EXPONENT,0\\-9,EXP_DIGIT
+EXPONENT,\\e,,unexpected end of file in float exponent
+EXPONENT,,,expected + or - or digit in float exponent
+
+EXP_SIGN,0\\-9,EXP_DIGIT
+EXP_SIGN,\\e,,unexpected end of file in float exponent
+EXP_SIGN,,,expected digit in float exponent
+
+EXP_DIGIT,0\\-9,EXP_DIGIT
+EXP_DIGIT,\\e,END,float-value
+EXP_DIGIT,,START,float-value,eg
+
+COMMENT0,\r\n,START
+COMMENT0,\\e,END
+COMMENT0,,COMMENT0
+
+COMMENT1,*,COMMENT1_STAR
+COMMENT1,\\e,END
+COMMENT1,,COMMENT1
+
+COMMENT1_STAR,/,START
+COMMENT1_STAR,*,COMMENT1_STAR
+COMMENT1_STAR,\\e,END
+COMMENT1_STAR,,COMMENT1
+

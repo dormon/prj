@@ -1,0 +1,7 @@
+#version 440
+
+flat out uint vID;
+
+void main(){
+  vID=gl_VertexID+1;
+}

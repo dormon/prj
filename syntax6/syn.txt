@@ -1,0 +1,120 @@
+statement-declaration STATEMENT TYPE identifier ;
+statement-function STATEMENT TYPE identifier ( COMMA-DECL-LIST ) { BODY }
+statement-return STATEMENT return EXPRESSION ;
+statement-expression STATEMENT EXPRESSION ;
+statement-ifelse STATEMENT if ( EXPRESSION ) STATEMENT else STATEMENT
+statement-if STATEMENT if ( EXPRESSION ) STATEMENT
+statement-while STATEMENT while ( EXPRESSION ) STATEMENT
+statement-{} STATEMENT { BODY }
+statement-typedef-struct STATEMENT typedef struct { DECL-LIST } identifier ;
+statement-typedef-array STATEMENT typedef TYPE [ integer-value ] identifier ;
+
+exp-assign-pass EXPRESSION EXP-OR
+exp-assign EXPRESSION EXPRESSION ASSIGN-OPER EXP-OR
+
+exp-or-pass EXP-OR EXP-AND
+exp-or EXP-OR EXP-AND || EXP-OR
+
+exp-and-pass EXP-AND EXP-BOR
+exp-and EXP-AND EXP-BOR && EXP-AND
+
+exp-bor-pass EXP-BOR EXP-XOR
+exp-bor EXP-BOR EXP-XOR | EXP-BOR
+
+exp-xor-pass EXP-XOR EXP-BAND
+exp-xor EXP-XOR EXP-BAND ^ EXP-XOR
+
+exp-band-pass EXP-BAND EXP-EQUALITY
+exp-band EXP-BAND EXP-EQUALITY & EXP-BAND
+
+exp-equality-pass EXP-EQUALITY EXP-RELATIONAL
+exp-equality EXP-EQUALITY EXP-RELATIONAL EQUALITY-OPER EXP-EQUALITY
+
+exp-relational-pass EXP-RELATIONAL EXP-SHIFT
+exp-relational EXP-RELATIONAL EXP-SHIFT RELATIONAL-OPER EXP-RELATIONAL
+
+exp-shift-pass EXP-SHIFT EXP-ADDITIVE
+exp-shift EXP-SHIFT EXP-ADDITIVE SHIFT-OPER EXP-SHIFT
+
+exp-additive-pass EXP-ADDITIVE EXP-MULTIPLICATIVE
+exp-additive EXP-ADDITIVE EXP-MULTIPLICATIVE ADDITIVE-OPER EXP-ADDITIVE
+
+exp-multiplicative-pass EXP-MULTIPLICATIVE EXP-UNARY
+exp-multiplicative EXP-MULTIPLICATIVE EXP-UNARY MULTIPLICATIVE-OPER EXP-MULTIPLICATIVE
+
+exp-unary-pass EXP-UNARY EXP-TERM
+exp-unary EXP-UNARY UNARY-OPER EXP-TERM
+
+exp-() EXP-TERM ( EXPRESSION )
+exp-identifier EXP-TERM identifier
+exp-value EXP-TERM VALUE
+exp-function EXP-TERM identifier ( COMMA-EXP-LIST )
+
+comma-exp-list-term COMMA-EXP-LIST EXPRESSION
+comma-exp-list COMMA-EXP-LIST EXPRESSION , COMMA-EXP-LIST
+
+body-term BODY STATEMENT
+body BODY STATEMENT BODY
+
+decl-list-term DECL-LIST TYPE identifier ;
+decl-list DECL-LIST TYPE identifier ; DECL-LIST
+
+comma-decl-list-term COMMA-DECL-LIST TYPE identifier
+comma-decl-list COMMA-DECL-LIST TYPE identifier , COMMA-DECL-LIST
+
+comma-list-term COMMA-LIST identifier
+comma-list COMMA-LIST identifier , COMMA-LIST
+
+value-float VALUE float-value
+value-integer VALUE integer-value
+value-string VALUE string-value
+
+type-bool TYPE bool
+type-i8 TYPE i8
+type-i16 TYPE i16
+type-i32 TYPE i32
+type-i64 TYPE i64
+type-u8 TYPE u8
+type-u16 TYPE u16
+type-u32 TYPE u32
+type-u64 TYPE u64
+type-f32 TYPE f32
+type-f64 TYPE f64
+type-string TYPE string
+type-identifier TYPE identifier
+
+assign-= ASSIGN-OPER =
+assign-+= ASSIGN-OPER +=
+assign--= ASSIGN-OPER -=
+assign-*= ASSIGN-OPER *=
+assign-/= ASSIGN-OPER /=
+assign-%= ASSIGN-OPER %=
+assign-&= ASSIGN-OPER &=
+assign-|= ASSIGN-OPER |=
+assign-^= ASSIGN-OPER ^=
+assign-<<= ASSIGN-OPER <<=
+assign->>= ASSIGN-OPER >>=
+
+equality-== EQUALITY-OPER ==
+equality-!= EQUALITY-OPER !=
+
+relational-< RELATIONAL-OPER <
+relational-> RELATIONAL-OPER >
+relational-<= RELATIONAL-OPER <=
+relational->= RELATIONAL-OPER >=
+
+shift-<< SHIFT-OPER <<
+shift->> SHIFT-OPER >>
+
+additive-+ ADDITIVE-OPER +
+additive-- ADDITIVE-OPER -
+
+multiplicative-* MULTIPLICATIVE-OPER *
+multiplicative-/ MULTIPLICATIVE-OPER /
+multiplicative-% MULTIPLICATIVE-OPER %
+
+unary-+ UNARY-OPER +
+unary-- UNARY-OPER -
+unary-~ UNARY-OPER ~
+unary-! UNARY-OPER !
+

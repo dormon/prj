@@ -1,0 +1,10 @@
+#version 450 core
+
+layout(location=0)in vec2 pos;
+
+out vec2 vPos;
+out flat int  vID;
+void main(){
+  vPos = pos;
+  vID = gl_VertexID;
+}

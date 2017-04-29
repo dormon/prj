@@ -1,0 +1,63 @@
+#version 440 core
+
+#ifndef READ_BINDING_TEXTURE
+#define READ_BINDING_TEXTURE 0
+#endif//READ_BINDING_TEXTURE
+
+#ifndef READTEXTURE_SIZE_X
+#define READTEXTURE_SIZE_X 1024
+#endif//READTEXTURE_SIZE_X
+
+#ifndef READTEXTURE_SIZE_Y
+#define READTEXTURE_SIZE_Y 1024
+#endif//READTEXTURE_SIZE_Y
+
+#ifndef WORKGROUP_SIZE_X
+#define WORKGROUP_SIZE_X 8
+#endif//WORKGROUP_SIZE_X
+
+#ifndef WORKGROUP_SIZE_Y
+#define WORKGROUP_SIZE_Y 8
+#endif//WORKGROUP_SIZE_Y
+
+#ifndef NOF_CHANNELS
+#define NOF_CHANNELS 4
+#endif//NOF_CHANNELS
+
+#if   NOF_CHANNELS == 1
+#define INTERNALFORMAT r32f
+#elif NOF_CHANNELS == 2
+#define INTERNALFORMAT rg32f
+#elif NOF_CHANNELS == 3
+#define INTERNALFORMAT rgba32f
+#else
+#define INTERNALFORMAT rgba32f
+#endif
+
+#if   NOF_CHANNELS == 1
+#define DATATYPE float
+#elif NOF_CHANNELS == 2
+#define DATATYPE vec2
+#elif NOF_CHANNELS == 3
+#define DATATYPE vec3
+#else
+#define DATATYPE vec4
+#endif
+
+layout(INTERNALFORMAT,binding=READ_BINDING_READTEXTURE)uniform image2D readTexture;
+
+void main(){
+  ivec2 localCoord  = ivec2((gl_VertexID%READTEXTURE_SIZE_X)%WORKGROUP_SIZE_X,(gl_VertexID/READTEXTURE_SIZE_X)%WORKGROUP_SIZE_Y);
+  ivec2 workGroupId = ivec2((gl_VertexID%READTEXTURE_SIZE_X)/WORKGROUP_SIZE_X,(gl_VertexID/READTEXTURE_SIZE_X)/WORKGROUP_SIZE_Y);
+  ivec2 globalCoord = workGroupId*ivec2(WORKGROUP_SIZE_X,WORKGROUP_SIZE_Y)+localCoord;
+  DATATYPE data = DATATYPE(imageLoad(readTexture,globalCoord));
+#if   NOF_CHANNELS == 1
+  gl_Position=vec4(data+10000,data+10000,data+10000,1);
+#elif NOF_CHANNELS == 2
+  gl_Position=vec4(data+10000,10000,1);
+#elif NOF_CHANNELS == 3
+  gl_Position=vec4(data+10000,1);
+#else
+  gl_Position=vec4(data.xyz+10000,1);
+#endif
+}

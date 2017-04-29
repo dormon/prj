@@ -1,0 +1,15 @@
+#include"ibm.h"
+
+using namespace ge::gl::ibm;
+
+PFNGLFLUSHSTATICDATAIBMPROC           glFlushStaticDataIBM           = NULL;
+PFNGLFOGCOORDPOINTERLISTIBMPROC       glFogCoordPointerListIBM       = NULL;
+PFNGLVERTEXPOINTERLISTIBMPROC         glVertexPointerListIBM         = NULL;
+PFNGLMULTIMODEDRAWELEMENTSIBMPROC     glMultiModeDrawElementsIBM     = NULL;
+PFNGLINDEXPOINTERLISTIBMPROC          glIndexPointerListIBM          = NULL;
+PFNGLNORMALPOINTERLISTIBMPROC         glNormalPointerListIBM         = NULL;
+PFNGLSECONDARYCOLORPOINTERLISTIBMPROC glSecondaryColorPointerListIBM = NULL;
+PFNGLTEXCOORDPOINTERLISTIBMPROC       glTexCoordPointerListIBM       = NULL;
+PFNGLMULTIMODEDRAWARRAYSIBMPROC       glMultiModeDrawArraysIBM       = NULL;
+PFNGLEDGEFLAGPOINTERLISTIBMPROC       glEdgeFlagPointerListIBM       = NULL;
+PFNGLCOLORPOINTERLISTIBMPROC          glColorPointerListIBM          = NULL;

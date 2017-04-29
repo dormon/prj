@@ -1,0 +1,79 @@
+#version 440 core
+
+#pragma optimize(on)
+#pragma debug(off)
+
+#ifndef READ_BINDING_TEXTURE
+#define READ_BINDING_TEXTURE 0
+#endif//READ_BINDING_TEXTURE
+
+#ifndef WORKGROUP_SIZE
+#define WORKGROUP_SIZE 64
+#endif//WORKGROUP_SIZE
+
+#ifndef NOF_CHANNELS
+#define NOF_CHANNELS 4
+#endif//NOF_CHANNELS
+
+
+#if   NOF_CHANNELS == 1
+#define DATATYPE float
+#elif NOF_CHANNELS == 2
+#define DATATYPE vec2
+#elif NOF_CHANNELS == 3
+#define DATATYPE vec3
+#else
+#define DATATYPE vec4
+#endif
+
+
+//layout(std430,binding=READ_BINDING_READBUFFER)buffer Data{vec4 readBuffer[];};
+layout(std430,binding=READ_BINDING_READBUFFER)buffer Data{float readBuffer[];};
+
+layout(local_size_x=WORKGROUP_SIZE)in;
+
+#define SIZE 16u
+
+#define    copy2(x)          x           x
+#define    copy4(x)    copy2(x)    copy2(x)
+#define    copy8(x)    copy4(x)    copy4(x)
+#define   copy16(x)    copy8(x)    copy8(x)
+#define   copy32(x)   copy16(x)   copy16(x)
+#define   copy64(x)   copy32(x)   copy32(x)
+#define  copy128(x)   copy64(x)   copy64(x)
+#define  copy256(x)  copy128(x)  copy128(x)
+#define  copy512(x)  copy256(x)  copy256(x)
+#define copy1024(x)  copy512(x)  copy512(x)
+#define copy2048(x) copy1024(x) copy1024(x)
+#define copy4096(x) copy2048(x) copy2048(x)
+
+#define    callN2(x,o)           x(o+0);          x(o+1   );
+#define    callN4(x,o)    callN2(x,o+0)    callN2(x,o+2   )
+#define    callN8(x,o)    callN4(x,o+0)    callN4(x,o+4   )
+#define   callN16(x,o)    callN8(x,o+0)    callN8(x,o+8   )
+#define   callN32(x,o)   callN16(x,o+0)   callN16(x,o+16  )
+#define   callN64(x,o)   callN32(x,o+0)   callN32(x,o+32  )
+#define  callN128(x,o)   callN64(x,o+0)   callN64(x,o+64  )
+#define  callN256(x,o)  callN128(x,o+0)  callN128(x,o+128 )
+#define  callN512(x,o)  callN256(x,o+0)  callN256(x,o+256 )
+#define callN1024(x,o)  callN512(x,o+0)  callN512(x,o+512 )
+#define callN2048(x,o) callN1024(x,o+0) callN1024(x,o+1024)
+#define callN4096(x,o) callN2048(x,o+0) callN2048(x,o+2048)
+
+#define callInst(x) data=data*(x)
+
+#define TYPE float
+
+void main(){
+  TYPE data=TYPE(gl_LocalInvocationID.x);
+  
+//  callN2048(callInst,0)
+  copy2048(data=fma(data,data,data);)
+//  copy4096(data*=data;)
+
+  if(data==2){
+    readBuffer[gl_GlobalInvocationID.x]=1;
+  }
+
+}
+

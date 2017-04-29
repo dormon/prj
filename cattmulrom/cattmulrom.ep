@@ -1,0 +1,24 @@
+#version 450 core
+
+layout(isolines,equal_spacing)in;
+
+patch in vec2 cPos[4];
+
+float cattmulrom(float a,float b,float c,float d,float t1){
+  float t2=t1*t1;
+  float t3=t2*t1;
+  return\
+    ( -.5*t3 +    t2 - .5*t1 + 0 )*a+
+    ( 1.5*t3 -2.5*t2 + 0     + 1.)*b+
+    (-1.5*t3 +  2*t2 + .5*t1 + 0.)*c+
+    (  .5*t3 - .5*t2 + 0     + 0.)*d;
+}
+
+
+
+void main(){
+  float xx=cattmulrom(cPos[0].x,cPos[1].x,cPos[2].x,cPos[3].x,gl_TessCoord.x);
+  float yy=cattmulrom(cPos[0].y,cPos[1].y,cPos[2].y,cPos[3].y,gl_TessCoord.x);
+  gl_Position=vec4(xx,yy,0,1);
+//  gl_Position=vec4(gl_TessCoord.x,0,0,1);
+}

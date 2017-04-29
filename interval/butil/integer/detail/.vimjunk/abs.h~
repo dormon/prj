@@ -1,0 +1,44 @@
+#ifndef BUTIL_INTEGER_DETAIL_ABS_H_INCLUDED
+#define BUTIL_INTEGER_DETAIL_ABS_H_INCLUDED
+
+#include <cstdlib>
+#include <cinttypes>
+
+#include <type_traits>
+
+#include <boost/integer_traits.hpp>
+
+namespace butil {
+namespace integer {
+
+template<typename X>
+constexpr bool abs_positive_overflow(X a) noexcept
+{
+    static_assert(std::is_integral<X>::value, "");
+    return std::is_signed<X>::value
+        && (a == boost::integer_traits<X>::const_min);
+}
+
+template<typename X>
+constexpr bool abs_overflow(X a) noexcept
+{
+    return abs_positive_overflow<X>(a);
+}
+
+/** \brief Unsigned absolute value that can't overflow.
+ */
+template<typename X>
+constexpr std::make_unsigned_t<X> uabs(X a) noexcept
+{
+    static_assert(std::is_unsigned<X>::value
+        || (boost::integer_traits<X>::const_min == -boost::integer_traits<X>::const_max-1), "");
+    return std::is_unsigned<X>::value ? x :
+        abs_overflow(a)
+            ? (boost::integer_traits<X>::const_max+1u)//casts X to unsigned type
+            : std::abs(a);
+}
+
+}//namespace integer
+}//namespace butil
+
+#endif//BUTIL_INTEGER_DETAIL_ABS_H_INCLUDED

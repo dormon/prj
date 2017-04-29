@@ -1,0 +1,42 @@
+#ifndef BUTIL_INTEGER_DETAIL_MAX_H_INCLUDED
+#define BUTIL_INTEGER_DETAIL_MAX_H_INCLUDED
+
+#include <type_traits>
+
+namespace butil {
+namespace integer {
+
+template<typename T, T A, T B, T ... Args>
+struct static_min;
+
+template<typename T, T A, T B>
+struct static_min<T, A, B>
+    : std::integral_constant<T, (A<B) ? A : B>
+{
+};
+
+template<typename T, T A, T B, T C, T ... Args>
+struct static_min<T, A, B, C, Args...>
+    : static_min<T, static_min<T, A, B>::value, C, Args...>
+{
+};
+
+template<typename T, T A, T B, T ... Args>
+struct static_max;
+
+template<typename T, T A, T B>
+struct static_max<T, A, B>
+    : std::integral_constant<T, (A<B) ? B : A>
+{
+};
+
+template<typename T, T A, T B, T C, T ... Args>
+struct static_max<T, A, B, C, Args...>
+    : static_max<T, static_max<T, A, B>::value, C, Args...>
+{
+};
+
+}//namespace integer
+}//namespace butil
+
+#endif//BUTIL_INTEGER_DETAIL_MAX_H_INCLUDED

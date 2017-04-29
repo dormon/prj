@@ -1,0 +1,26 @@
+State has some transitions to other states
+Transition can be based on single value or range
+There can also be special transition - else transition - that is applied if every other transition cannot be applied
+Else Transition always takes 1 byte of data.
+Lenght of transition values can vary.
+Range is described using two values with same length.
+There has to be tree of transitions values in order to find correct transition quickly.
+
+How to build the tree:
+Every path from any node to leaf nodes has have same length.
+
+Examble
+
+acdf
+ade
+bc-de
+ijk
+ill
+
+a{cdf,de},[b-d]{c,e},i{jk,ll}
+
+[a-f]
+[aa-af] -> a{[a-f]}
+aabc-aafb -> aa{b[c-],[c-e]_,f[-b]}
+
+a{a{[b-f]}}

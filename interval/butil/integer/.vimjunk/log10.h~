@@ -1,0 +1,31 @@
+#ifndef BUTIL_INTEGER_LOG10_H_INCLUDED
+#define BUTIL_INTEGER_LOG10_H_INCLUDED
+
+#include <butil/integer/intset.h>
+#include <butil/integer/cmp.h>
+#include <butil/integer/detail/mul.h>
+
+namespace butil {
+namespace integer {
+
+template<typename T>
+auto log10(T x)
+{
+    assert(x > 0);
+    using type = typename intset_traits<T>::value_type;
+    type y = 0;
+    type m = 10;// next value to test
+    while(lt(m, x))
+    {
+        y += 1;
+        if(mul_overflow<T>(m, 10))
+            break;
+        m *= 10;
+    }
+    return y;
+}
+
+}//namespace integer
+}//namespace butil
+
+#endif//BUTIL_INTEGER_LOG10_H_INCLUDED

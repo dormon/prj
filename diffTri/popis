@@ -1,0 +1,11 @@
+a,b x
+
+fab(x) = acos((a-x)*(b-x)/(sqrt((a-x)^2)*sqrt((b-x)^2)))/2pi
+
+
+((ax-xx)*(bx-xx)+(ay-xy)*(by-xy))/sqrt((ax-xx)*(ax-xx)+(ay-xy)*(ay-xy))/sqrt((bx-xx)*(bx-xx)+(by-xy)*(by-xy))
+
+ax*bx + xx*xx - xx*(ax+bx) + ay*by + xy*xy - xy*(ay+by)
+ax*bx + ay*by + xx*xx + xy*xy - xx*(ax+bx) - xy*(ay+by)
+
+integrate((fcd(x)-fab(x))^2,x)

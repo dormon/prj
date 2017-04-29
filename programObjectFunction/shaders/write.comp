@@ -1,0 +1,42 @@
+#version 440 core
+
+#ifndef READ_BINDING_TEXTURE
+#define READ_BINDING_TEXTURE 0
+#endif//READ_BINDING_TEXTURE
+
+#ifndef WORKGROUP_SIZE
+#define WORKGROUP_SIZE 64
+#endif//WORKGROUP_SIZE
+
+#ifndef NOF_CHANNELS
+#define NOF_CHANNELS 4
+#endif//NOF_CHANNELS
+
+#if   NOF_CHANNELS == 1
+#define DATATYPE float
+#elif NOF_CHANNELS == 2
+#define DATATYPE vec2
+#elif NOF_CHANNELS == 3
+#define DATATYPE vec3
+#else
+#define DATATYPE vec4
+#endif
+
+layout(std430,binding=READ_BINDING_READBUFFER)buffer Data{float readBuffer[];};
+
+layout(local_size_x=WORKGROUP_SIZE)in;
+
+void main(){
+readBuffer[gl_WorkGroupID.x*4*WORKGROUP_SIZE+gl_LocalInvocationID.x+0*gl_WorkGroupSize.x]=1;
+readBuffer[gl_WorkGroupID.x*4*WORKGROUP_SIZE+gl_LocalInvocationID.x+1*gl_WorkGroupSize.x]=1;
+readBuffer[gl_WorkGroupID.x*4*WORKGROUP_SIZE+gl_LocalInvocationID.x+2*gl_WorkGroupSize.x]=1;
+readBuffer[gl_WorkGroupID.x*4*WORKGROUP_SIZE+gl_LocalInvocationID.x+3*gl_WorkGroupSize.x]=1;
+
+/*
+#if    NOF_CHANNELS == 1
+  readBuffer[gl_GlobalInvocationID.x]=1;
+#else//NOF_CHANNELS
+  readBuffer[gl_GlobalInvocationID.x]=DATATYPE(1);
+#endif//NOF_CHANNELS
+*/
+}
