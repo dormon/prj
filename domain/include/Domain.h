@@ -10,6 +10,80 @@
 #include<geCore/ValuePrinter.h>
 #include<geCore/ErrorPrinter.h>
 
+// Necessary 
+// if
+// while
+// body
+// DEC
+// bool
+//
+// if, while depend on bool
+//
+// Model Value;
+// Model Array: array<Value>;
+// Model Real: Value;
+// Model Integer: Real;
+// Model Natural: Integer;
+// Model PositiveNatural: Natural;
+//
+//
+// +(out Real r,in Real a,in Real b){
+//   =(r,a);
+//   DECLARE(Real,i);
+//   DECLARE(Bool,c);
+//   0(i);
+//   0(c);
+//   <(c,i,b);
+//   while(c){
+//     ++(i);
+//     ++(r);
+//     <(c,i,b);
+//   }
+// }
+//
+//
+// Model RealArray = array<Real>;
+// Model RealVector3D: RealArray;
+// Model RealVector1D = Real;
+// Model IntegerVector = array<Integer>;
+// Model RealPosition = RealVector;
+// Model RealPosition3D: Position;
+// Model RealNormal3D: RealVector;
+// Model RealNormal3D: RealVector3D;
+// Model RealSize3D: RealVector3D;
+// Model RealAABB3D = {RealPosition3D,RealSize3D};
+//
+// What is the difference between RealVector and RealVector3D?
+// RealVector3D : RealVector;
+//
+// DECLARE(PositiveNatural,a);
+// DECLARE(RealVector3D,b);
+// getDimension(a,b);
+// a == 3
+// getDimension(out PositiveNatural a,in RealVector   b);
+//
+// getDimension(out PositiveNatural a,in RealVector3D b){
+//   =(a,3);
+// }
+//
+// getDimension(out PositiveNatural a,in RealVector2D b){
+//   =(a,2);
+// }
+//
+// forall b
+//
+//
+//
+// Position namespace{
+// }
+//
+// 3D namespace{
+// }
+//
+// Real namespace{
+// }
+//
+//
 // ######################
 // Atomics:
 // ######################
@@ -19,9 +93,9 @@
 // 3. <(r,a,b)
 // 4. nand(r,a,b)
 //
+// ######################
 // Composite:
-//
-//
+// ######################
 // !(r,a){
 //   nand(r,a,a);
 // }
@@ -43,9 +117,13 @@
 // ==(r,a,b){
 //   DEC(x);
 //   DEC(y);
+//   DEC(xx);
+//   DEC(yy);
 //   <(x,a,b);
 //   <(y,b,a);
-//   &&(r,x,y);
+//   !(xx,x);
+//   !(yy,y);
+//   &&(r,xx,yy);
 // }
 //
 // !=(r,a,b){
@@ -212,6 +290,24 @@ class Domain{
         std::set<ModelId>const&baseModels ,
         std::set<ModelId>const&innerModels);
 
+    ModelId addAtomicModel(
+        std::string          const&name ,
+        std::set<std::string>const&bases);
+
+    ModelId addVectorModel(
+        std::string          const&name      ,
+        std::set<std::string>const&baseModels,
+        std::string          const&innerModel);
+
+    ModelId addCompositeModel(
+        std::string          const&name       ,
+        std::set<std::string>const&baseModels ,
+        std::set<std::string>const&innerModels);
+
+
+
+    ModelId getModelId(std::string const&name)const;
+
     CommandId addAtomicCommand(
         std::string              const&name  ,
         std::vector<CommandInput>const&inputs);
@@ -221,6 +317,17 @@ class Domain{
         std::vector<CommandId>          const&cmds   ,
         std::vector<std::vector<size_t>>const&mapping);
 
+    CommandId addAtomicCommand(
+        std::string             const&name    ,
+        std::vector<std::string>const&models  ,
+        std::string             const&accesses);
+
+
+
+    template<typename...ARGUMENTS>
+      ModelId addAtomicModel(
+          std::string const&   name ,
+          ARGUMENTS   const&...bases);
         
   protected:
     bool _checkBaseModels(
@@ -232,3 +339,11 @@ class Domain{
         std::string        const&name   ,
         CommandDescription*const&command);
 };
+
+template<typename...ARGUMENTS>
+ModelId Domain::addAtomicModel(
+    std::string const&   name ,
+    ARGUMENTS   const&...bases){
+  return this->addAtomicModel(name,{this->getModelId(bases)...});
+}
+
