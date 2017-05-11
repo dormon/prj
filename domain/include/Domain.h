@@ -26,22 +26,6 @@
 // Model Natural: Integer;
 // Model PositiveNatural: Natural;
 //
-//
-// +(out Real r,in Real a,in Real b){
-//   =(r,a);
-//   DECLARE(Real,i);
-//   DECLARE(Bool,c);
-//   0(i);
-//   0(c);
-//   <(c,i,b);
-//   while(c){
-//     ++(i);
-//     ++(r);
-//     <(c,i,b);
-//   }
-// }
-//
-//
 // Model RealArray = array<Real>;
 // Model RealVector3D: RealArray;
 // Model RealVector1D = Real;
