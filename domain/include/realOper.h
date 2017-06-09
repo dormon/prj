@@ -204,10 +204,61 @@
 //   <(anegative,a,i);
 //   <(bnegative,b,i);
 //   DECLARE(Bool,oneNegative);
-//   ~(oneNegative,anegative,bnegative);
+//   ^(oneNegative,anegative,bnegative);
 //   if(oneNegative)
 //     -(r,r);
 // }
 //
 //
+// Loop transform:
+//
+// 1. Loop swapping:
+// while(a){
+//   while(b){
+//     f(x0,x1,...);
+//   }
+// }
+//
+// ->
+// 
+// while(b){
+//   while(a){
+//     f(x0,x1,...);
+//   }
+// }
+//
+//
+// 2. Loop distribution:
+// while(a){
+//   f(x0,x1,...);
+//   g(y0,y1,...);
+// }
+//
+// ->
+//
+// while(a){
+//   f(x0,x1,...);
+// }
+// while(a){
+//   f(y0,y1,...);
+// }
+//
+// 3. Loop elimination
+// while(a){
+//   f(in^out x0,in^out x1,in^out ...);
+// }
+//
+// ->
+//
+// f(in^out x0,in^out x1,in^out ...}
+//
+// 1. statement swapping:
+// Swap two statements order if they are independent to each other
+// S0;
+// S1;
+//
+// ->
+//
+// S1;
+// S0;
 
