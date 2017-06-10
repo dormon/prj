@@ -261,4 +261,22 @@
 //
 // S1;
 // S0;
-
+//
+// class Value;
+// class Number: Value;
+// class Bool: Number;
+//
+// 0.) p € C <=> p is an atomic command, axiom
+// 1.) p € C <=> p = {q,r} and q € C and r € C
+// 2.) p € C <=> p = if(c)q and q € C and c € inputs(p) and forall x: x € inputs(q) <=> x € inputs(p) and modelOf(c) = Bool
+// 3.) p € C <=> p = while(c)q and q € C and c € inputs(p) and forall x: x € inputs(q) <=> x € inputs(p) and modelOf(c) = Bool
+//
+// 0.) m € M <=> m is an atomic model
+// 1.) m € M <=> m = n[] and n € M, array
+// 2.) m € M <=> m = {n0,n1,...} and ni € M
+//
+// getElement(out Value n,in Value m,in Number i)
+//
+//
+//
+//
