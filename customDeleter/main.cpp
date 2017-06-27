@@ -45,5 +45,7 @@ int main(){
   sc->print();
   ssc.print();
 
+  std::shared_ptr<int>(new int,[](int*ptr){std::cout<<"delete int"<<std::endl;delete ptr;});
+
   return 0;
 }
