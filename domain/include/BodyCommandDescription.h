@@ -1,14 +1,16 @@
 #pragma once
 
+#include<array>
+
 #include<CommandDescription.h>
 
 class BodyCommandDescription: public CommandDescription{
   public:
-    std::vector<CommandId>          commands    ;
-    std::vector<std::vector<size_t>>inputMapping;
+    std::array<CommandId,2>                       commands    ; 
+    std::vector<std::array<std::vector<size_t>,2>>inputMapping;
     BodyCommandDescription(
-        std::vector<CommandInput>       const&inputs ,
-        std::vector<CommandId>          const&cmds   ,
-        std::vector<std::vector<size_t>>const&mapping);
+        std::vector<CommandInput>                     const&inputs ,
+        std::array<CommandId,2>                       const&cmds   ,
+        std::vector<std::array<std::vector<size_t>,2>>const&mapping);
     virtual ~BodyCommandDescription();
 };

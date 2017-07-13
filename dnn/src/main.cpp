@@ -3,6 +3,8 @@
 #include<cstdlib>
 #include<cassert>
 #include<vector>
+#include<limits>
+#include<functional>
 #include<map>
 
 // Calculus:
@@ -194,52 +196,175 @@
 //
 //
 
+// f<p>(x)
+//
+// (f<p>(x(0)) - y(0))^2
+//
+// p[n+1] = p[n] - s*diff((f<p>(x[e])-y[e])^2,p)(p[n])
+// p[n+1] = p[n] - s*2*((f<p>(x[e])-y[e])*diff(f<p>(x[e]),p))(p[n])
+// p[n+1] = p[n] - s*2*(f<p[n]>(x[e])-y[e]) * (diff(f<p>(x[e]),p))(p[n])
+//
+// f[layer][neuronInLayer]<parameters>(inputs) = g(z[layer][neuronInlayer]<parameters>(inputs))
+//
+// f[l][k]<p>(x) = g(z[l][k]<p>(x))
+//
+// diff(f[l][k]<p>(x),p) = diff(g[l][k]<p>(x),p) = h(z[l][k]<p>(x)) * diff(z[l][k]<p>(x),p)
+//
+// z[l+1][k]<p>(x) = sum(f[l][i]<q[i]>(x)*a[l][k][i];i=0;i<L[l])-w[l+1][k] , p = union(q[i];i=0;i<L[l]) + {w[l+1][k]} + {a[l][k][i];i=0;i<L[l]}
+//
+// diff(z[l+1][k]<p>(x),p) = { 
+//   diff(z[l+1][k]<p>(x),w[k]                  )
+//   diff(z[l+1][k]<p>(x),{a[i];i=0;i<L[l]}     )
+//   diff(z[l+1][k]<p>(x),union(q[i];i=0;i<L[l]))
+// }
+//
+// diff(z[l+1][k]<p>(x),w[k]) = -1
+// 
+// diff(z[l+1][k]<p>(x),{a[i];i=0;i<L[l]}) = 
+// diff(sum(f[l][i]<q[i]>(x)*a[i];i=0;i<L[l])-w[k],{a[i];i=0;i<L[l]}) = 
+// diff(sum(f[l][i]<q[i]>(x)*a[i];i=0;i<L[l]),{a[i];i=0;i<L[l]}) = 
+// {f[l][i]<q[i]>(x);i=0;i<L[l]}
+//
+// diff(z[l+1][k]<p>(x),union(q[i];i=0;i<L[l])) = 
+// diff(sum(f[l][i]<q[i]>(x)*a[i];i=0;i<L[l])-w[k],{a[i];i=0;i<L[l]},union(q[i];i=0;i<L[l])) = 
+// diff(sum(f[l][i]<q[i]>(x)*a[i];i=0;i<L[l]),{a[i];i=0;i<L[l]},union(q[i];i=0;i<L[l])) = 
+// {diff(f[l][i]<q[i]>(x),q[i])*a[i];i=0;i<L[l]}
+//
+//
+// f[l+1][k]<p>(x) = g(sum(f[l][i]<q[i]>(x)*a[i],i)-w[k]), p = union(q[i]) + {w[k]} + {a[i]}
+// f[l+1][k]<p>(x) = g(z<p>(x))
+//
+// diff(f[l+1][k]<p>(x),p) = {
+//   g(sum(f[l][i]<q[i]>(x)*a[i],i)-w[k])
+//   union(g(sum(f[l][i]<q[i]>(x)*a[i],i)-w[k])*f[l][j]<q[i]>(x),j)
+// }
+//
+// f[0][k]<p>(x) = x[k]
+//
+// for x i get y but expect r:
+// y = f(x), r
+// error is:
+// e = y-r
+// what is error on x?
+// x-g(e), f(g(x))=x
+// x-g(y-r)
+//
+//
+// min(g,x,N,s){
+//   let x[0] = 0
+//   let x[n+1] = x[n] - s*diff(g,x)(x[n])
+//   return x[N]
+// }
+//
+// 
+//
+//
+//
+//
 
+template<typename TYPE>
 class Layer{
   public:
-    virtual ~Layer(){}
-};
-
-class Connection{
-  public:
-    Connection(
-        size_t const&inputSize ,
-        size_t const&outputSize){
+    Layer(size_t nofNeurons){
       assert(this != nullptr);
-      this->_weights.resize(outputSize);
-      for(auto&row:this->_weights)
-        row.resize(inputSize,0.f);
+      y.resize(nofNeurons,0);
+      z.resize(nofNeurons,0);
+      e.resize(nofNeurons,0);
+    }
+    void setOutput(std::vector<TYPE>const&x){
+      assert(this != nullptr);
+      assert(getNofNeurons() == x.size());
+      y = x;
+    }
+    virtual ~Layer(){}
+    size_t getNofNeurons()const{
+      assert(this != nullptr);
+      return y.size();
+    }
+    bool isInputLayer()const{
+      assert(this != nullptr);
+      return !previousLayer;
+    }
+    bool isOutputLayer()const{
+      assert(this != nullptr);
+      return !nextLayer;
+    }
+    size_t getNofInputNeurons()const{
+      assert(this != nullptr);
+      if(isInputLayer())return 0;
+      return previousLayer->getNofNeurons();
+    }
+    TYPE& getY(size_t i){
+      assert(this != nullptr);
+      assert(i < y.size());
+      return y.at(i);
+    }
+    TYPE& getZ(size_t i){
+      assert(this != nullptr);
+      assert(i < z.size());
+      return z.at(i);
+    }
+    TYPE& getE(size_t i){
+      assert(this != nullptr);
+      assert(i < e.size());
+      return e.at(i);
+    }
+    TYPE getW(size_t i,size_t k)const{
+      assert(this != nullptr);
+      assert(k < weights.size());
+      assert(i < weights.at(k).size());
+      return weights.at(k).at(i);
+    }
+    TYPE getB(size_t k)const{
+      assert(this != nullptr);
+      assert(k < biases.size());
+      return biases.at(k);
+    }
+    void computeZ(size_t k){
+      assert(this != nullptr);
+      assert(k < getNofNeurons());
+      getZ(k) = 0;
+      for(size_t i = 0; i < getNofInputNeurons(); ++i)
+        getZ(k) += previousLayer->getY(i) * getW(i,k);
+      getZ(k) -= getB(k);
+    }
+    void computeZ(){
+      assert(this != nullptr);
+      if(isInputLayer())return;
+      previousLayer->computeY();
+      for(size_t k = 0; k < getNofNeurons(); ++k)
+        computeZ(k);
+    }
+    void computeY(){
+      assert(this != nullptr);
+      if(isInputLayer())return;
+      computeZ();
+      for(size_t k = 0; k < getNofNeurons(); ++k)
+        getY(k) = g(getZ(k));
+    }
+    void backPropagate(std::vector<TYPE>const&v){
+      assert(this != nullptr);
+      if(isOutputLayer()){
+        for(size_t k = 0; k < getNofNeurons(); ++k)
+          getE(k) = getY(k) - v.at(k);
+      }else{
+
+      }
     }
   protected:
-    std::vector<std::vector<float>>_weights;
+    Layer<TYPE>*previousLayer = nullptr;
+    Layer<TYPE>*nextLayer     = nullptr;
+    std::vector<TYPE>biases;
+    std::vector<std::vector<TYPE>>weights;
+    std::vector<TYPE>y;
+    std::vector<TYPE>z;
+    std::vector<TYPE>e;
+    std::function<TYPE(TYPE)>g = [](TYPE v){if(v>0)return v;};
+    std::function<TYPE(TYPE)>h = [](TYPE v){if(v>0)return 1;return 0;};
 };
 
-class InputLayer: public Layer{
-  public:
-    InputLayer(size_t const&n):_nofInputs(n){}
-    virtual ~InputLayer(){}
-  protected:
-    size_t _nofInputs;
-};
-
-class HiddenLayer: public Layer{
-  public:
-    HiddenLayer(size_t const&n){
-      this->biases.resize(n,0.f);
-    }
-    virtual ~HiddenLayer(){}
-  protected:
-    std::vector<float>biases;
-};
-
-class OutputLayer: public Layer{
-  public:
-    OutputLayer(size_t const&n):_nofOutputs(n){}
-    virtual ~OutputLayer(){}
-  protected:
-    size_t _nofOutputs;
-};
-
+/*
+template<typename TYPE>
 class DNN{
   public:
     DNN(
@@ -248,13 +373,19 @@ class DNN{
         std::vector<size_t>const&hiddenLayers){
       assert(this != nullptr);
       assert(hiddenLayers.size() > 0);
-      this->_layers.emplace_back(new InputLayer(nofInputs));
+
+      this->_layers.emplace_back(new InputLayer<TYPE>(nofInputs));
+
       for(auto const&layerSize:hiddenLayers)
-        this->_layers.emplace_back(new HiddenLayer(layerSize));
-      this->_layers.emplace_back(new OutputLayer(nofOutputs));
-      this->_connections.emplace_back(nofInputs,hiddenLayers.at(0));
+        this->_layers.emplace_back(new HiddenLayer<TYPE>(layerSize));
+
+      this->_layers.emplace_back(new OutputLayer<TYPE>(nofOutputs));
+
+      this->_connections.emplace_back(nofInputs,hiddenLayers.front());
+
       for(size_t l=0;l+1<hiddenLayers.size();++l)
         this->_connections.emplace_back(hiddenLayers[l],hiddenLayers[l+1]);
+
       this->_connections.emplace_back(hiddenLayers.back(),nofOutputs);
     }
     ~DNN(){
@@ -263,9 +394,10 @@ class DNN{
         delete l;
     }
   protected:
-    std::vector<Layer*>_layers;
+    std::vector<Layer<TYPE>*>_layers;
     std::vector<Connection>_connections;
 };
+*/
 
 int main(){
   return 0;
