@@ -256,12 +256,161 @@
 //   return x[N]
 // }
 //
+// C(y2,y)
 // 
+// y[0][k] = x[k]
+// y[l+1][k](p[l+1][k]) = f<p[l][k]>[l][k](y[l]()
+// y[L-1][k]
 //
 //
+// C(W,B) = (f(W⋅x-B)-y) ⋅ (f(W⋅x-B)-y)^T
+//
+// ∂C(W,B)
+// ─────── = {(f(W⋅x-B)-y) * g(W⋅x-B)} × x^T
+//   ∂W
+//
+// ∂f(W⋅x)
+// ─────── = g(W.x) × x^T
+//   ∂W    
+//
+// ∂f(w*x)
+// ─────── = g(w*x) * x
+//   ∂w   
+//
+// ∂f(w×x^T)
+// ───────── = g(w×x^T)
+//    ∂w   
+//
+//  (|w0|        )   |f(w0*x0) f(w0*x1)|   |(g(w0*x0)*x0,0          ,0          ) (g(w0*x1)*x1,0          ,0          )|
+//  (|w1|        )   |f(w1*x0) f(w1*x1)|   |(0          ,g(w1*x0)*x0,0          ) (0          ,g(w1*x1)*x1,0          )|
+// f(|w2|×|x0 x1|) = |f(w2*x0) f(w2*x1)| = |(0          ,0          ,g(w2*x0)*x0) (0          ,0          ,g(w2*x0)*x0)|
+//
+//
+// ∂C(W,B)   ∂(f(W⋅x-B)-y) ⋅ (f(W⋅x-B)-y)^T   ∂(f(W⋅x-B)-y)                                 ∂(f(W⋅x-B)-y)^T
+// ─────── = ────────────────────────────── = ─────────────⋅(f(W⋅x-B)-y)^T  +  (f(W⋅x-B)-y)⋅───────────────
+//   ∂W                   ∂W                       ∂W                                             ∂W      
+//
+//          ∂W⋅x-B
+// g(W⋅x-B)⋅──────
+//            ∂W  
+//
+//
+// ∂(f(x0 x1) g(x0 x1) h(x0 x1))   (∂(f(x0 x1) g(x0 x1) h(x0 x1)) ∂(f(x0 x1) g(x0 x1) h(x0 x1)))
+// ───────────────────────────── = (───────────────────────────── ─────────────────────────────) =
+//          ∂(x0 x1)               (              ∂x0                           ∂x1            )
+//
+// ((F<x0>(x0 x1) G<x0>(x0 x1) H<x0>(x0 x1)) (F<x1>(x0 x1) G<x1>(x0 x1) H<x1>(x0 x1)))
+//
+// ∂(f(x0 x1) g(x0 x1) h(x0 x1))   |(F<x0>(x0 x1) G<x0>(x0 x1) H<x0>(x0 x1))|   |F<x0>(x0 x1) G<x0>(x0 x1) H<x0>(x0 x1)|
+// ───────────────────────────── = |(F<x1>(x0 x1) G<x1>(x0 x1) H<x1>(x0 x1))| = |F<x1>(x0 x1) G<x1>(x0 x1) H<x1>(x0 x1)|
+//          ∂(x0 x1)^T           
+//
+//
+//
+//
+//
+//
+// ∂(x0 x1 x2) ⋅ (y0 y1 y2)^T
+// ────────────────────────── = (y0 y1 y2)
+//        ∂(x0 x1 x2)
+//
+//
+// ∂(x0 x1 x2) ⋅ (y0 y1 y2)^T
+// ────────────────────────── = (y0 y1 y2)^T
+//       ∂(x0 x1 x2)^T
 //
 //
 
+template<typename TYPE>
+class Function{
+  public:
+    using FceImpl = std::function<TYPE(std::vector<TYPE>const&,std::vector<TYPE>const&)>;
+    Function(FceImpl const&fce,size_t nofParams):fce(fce){
+      assert(this != nullptr);
+      parameters.resize(nofParams,static_cast<TYPE>(0));
+    }
+    TYPE operator()(std::vector<TYPE>const&i)const{
+      assert(this != nullptr);
+      assert(fce != nullptr);
+      return fce(parameters,i);
+    }
+    std::vector<TYPE>parameters;
+    FceImpl fce;
+};
+
+template<typename TYPE>
+class Layer{
+  public:
+    Layer(size_t nofNeurons):nofNeurons(nofNeurons){}
+    ~Layer(){
+      assert(this != nullptr);
+      if(isInputLayer())return;
+      delete output;
+    }
+    void initAsInputLayer(){}
+    void initAsHiddenLayer(){
+      assert(this != nullptr);
+      output = new std::vector<TYPE>;
+      output->resize(getNofNeurons(),static_cast<TYPE>(0));
+    }
+    void initAsOutputLayer(){
+      assert(this != nullptr);
+      initAsHiddenLayer();
+    }
+    void setNeighbourLayers(Layer<TYPE>*const&previous,Layer<TYPE>*const&next){
+      assert(this != nullptr);
+      previousLayer = previous;
+      nextLayer     = next    ;
+    }
+    void setFunctions(typename Function<TYPE>::FceImpl const&fce){
+      assert(this != nullptr);
+      if(isInputLayer())return;
+      for(size_t k = 0; k < getNofNeurons(); ++k)
+        functions.emplace_back(fce,getNofInputNeurons());
+    }
+    bool isInputLayer()const{
+      assert(this != nullptr);
+      return !previousLayer;
+    }
+    bool isOutputLayer()const{
+      assert(this != nullptr);
+      return !nextLayer;
+    }
+    size_t getNofNeurons()const{
+      assert(this != nullptr);
+      return nofNeurons;
+    }
+    size_t getNofInputNeurons()const{
+      assert(this != nullptr);
+      if(isInputLayer())return 0;
+      return previousLayer->getNofNeurons();
+    }
+    void computeOutput(){
+      assert(this != nullptr);
+      if(isInputLayer())return;
+      previousLayer->computeOutput();
+      for(size_t k = 0; k < getNofNeurons(); ++k)
+        output->at(k) = functions.at(k)(previousLayer->getOutput());
+    }
+    void setOutput(std::vector<TYPE>const*const&o){
+      assert(this != nullptr);
+      assert(!isInputLayer());
+      output = o;
+    }
+    std::vector<TYPE>const& getOutput()const{
+      assert(this != nullptr);
+      assert(output != nullptr);
+      return *output;
+    }
+  protected:
+    size_t            nofNeurons    = 0      ;
+    Layer<TYPE>      *previousLayer = nullptr;
+    Layer<TYPE>      *nextLayer     = nullptr;
+    std::vector<TYPE>*output        = nullptr;
+    std::vector<Function<TYPE>>functions;
+};
+
+/*
 template<typename TYPE>
 class Layer{
   public:
@@ -362,7 +511,7 @@ class Layer{
     std::function<TYPE(TYPE)>g = [](TYPE v){if(v>0)return v;};
     std::function<TYPE(TYPE)>h = [](TYPE v){if(v>0)return 1;return 0;};
 };
-
+*/
 /*
 template<typename TYPE>
 class DNN{
