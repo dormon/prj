@@ -63,6 +63,7 @@ class Type{
       REFERENCE,
       CONST    ,
       POINTER  ,
+      ARRAY    ,
     };
     Type(TypeType type,TypeId id):id(id),type(type){}
     virtual ~Type(){}
@@ -85,6 +86,8 @@ class Type{
 #define ENABLE_IF_POINTER(type)\
   typename std::enable_if_t<std::is_pointer<T>::value && !std::is_reference<T>::value && !std::is_const<T>::value,char>
 
+#define ENABLE_IF_ARRAY(type)\
+  typename std::enable_if_t<std::is_array<T>::value && !std::is_const<T>::value,char>
 
 class TypeRegister{
   public:
@@ -92,7 +95,7 @@ class TypeRegister{
     }
     template<typename T>
       TypeId add(){
-        auto const existingId = has<T>();
+        auto const existingId = hasType<T>();
         if(existingId != notAType)return existingId;
         return addType<T>();
       }
@@ -101,38 +104,25 @@ class TypeRegister{
     template<typename T,ENABLE_IF_CPP_ATOMIC(T) = 0>
       TypeId addType();
     template<typename T,ENABLE_IF_CPP_ATOMIC(T) = 0>
-      TypeId has();
+      TypeId hasType();
 
-    template<typename T,ENABLE_IF_REFERENCE (T) = 0>
-      TypeId addType(){
-        using InnerType = typename std::remove_reference<T>::type;
-        return addReferenceOrConstOrPointerType<InnerType,Type::TypeType::REFERENCE>();
-      }
-    template<typename T,ENABLE_IF_REFERENCE (T) = 0>
-      TypeId has(){
-        using InnerType = typename std::remove_reference<T>::type;
-        return hasReferenceOrConstOrPointerType<InnerType,Type::TypeType::REFERENCE>();
-      }
-    template<typename T,ENABLE_IF_CONST     (T) = 0>
-      TypeId addType(){
-        using InnerType = typename std::remove_const<T>::type;
-        return addReferenceOrConstOrPointerType<InnerType,Type::TypeType::CONST>();
-      }
-    template<typename T,ENABLE_IF_CONST     (T) = 0>
-      TypeId has(){
-        using InnerType = typename std::remove_const<T>::type;
-        return hasReferenceOrConstOrPointerType<InnerType,Type::TypeType::CONST>();
-      }
-    template<typename T,ENABLE_IF_POINTER   (T) = 0>
-      TypeId addType(){
-        using InnerType = typename std::remove_pointer<T>::type;
-        return addReferenceOrConstOrPointerType<InnerType,Type::TypeType::POINTER>();
-      }
-    template<typename T,ENABLE_IF_POINTER     (T) = 0>
-      TypeId has(){
-        using InnerType = typename std::remove_pointer<T>::type;
-        return hasReferenceOrConstOrPointerType<InnerType,Type::TypeType::CONST>();
-      }
+#define DEFINE_ADD_OR_HAS(FCE,REMOVE,TYPE)\
+  template<typename T,ENABLE_IF_##TYPE (T) = 0>\
+    TypeId FCE##Type(){\
+      using InnerType = typename std::remove_##REMOVE<T>::type;\
+      return FCE##ReferenceOrConstOrPointerType<InnerType,Type::TypeType::TYPE>();\
+    }
+
+    DEFINE_ADD_OR_HAS(add,reference,REFERENCE)//;
+    DEFINE_ADD_OR_HAS(has,reference,REFERENCE)//;
+    DEFINE_ADD_OR_HAS(add,const    ,CONST    )//;
+    DEFINE_ADD_OR_HAS(has,const    ,CONST    )//;
+    DEFINE_ADD_OR_HAS(add,pointer  ,POINTER  )//;
+    DEFINE_ADD_OR_HAS(has,pointer  ,POINTER  )//;
+    template<typename T,ENABLE_IF_ARRAY(T) = 0>
+      TypeId addType();
+    template<typename T,ENABLE_IF_ARRAY(T) = 0>
+      TypeId hasType();
 
     template<typename INNER_TYPE,Type::TypeType type>
       TypeId addReferenceOrConstOrPointerType();
@@ -146,7 +136,10 @@ TypeId const TypeRegister::notAType = std::numeric_limits<TypeId>::max();
 
 class AtomicType: public Type{
   public:
-    AtomicType(TypeId id):Type(TypeType::ATOMIC,id){}
+    AtomicType(TypeId id,size_t atomicId):Type(TypeType::ATOMIC,id),atomicId(atomicId){}
+    size_t getAtomicId()const{return atomicId;}
+  protected:
+    size_t atomicId;
 };
 
 template<Type::TypeType type>
@@ -160,20 +153,38 @@ class ReferenceOrConstOrPointerType: public Type{
     TypeId innerType;
 };
 
+class ArrayType: public Type{
+  public:
+    ArrayType(
+        TypeId const&id   ,
+        TypeId const&inner,
+        size_t const&size ):Type(TypeType::ARRAY,id),innerType(inner),size(size){}
+    TypeId getInnerType()const{return innerType;}
+    size_t getSize     ()const{return size     ;}
+  protected:
+    TypeId innerType;
+    size_t size     ;
+};
+
+class StructType: public Type{
+  public:
+    StructType();
+};
+
 template<typename T,ENABLE_IF_CPP_ATOMIC(T)>
 TypeId TypeRegister::addType(){
   auto const id = types.size();
-  types[id] = new AtomicType(CppAtomicTypes::toId<T>());
+  types[id] = new AtomicType(id,CppAtomicTypes::toId<T>());
   return id;
 }
 
 template<typename T,ENABLE_IF_CPP_ATOMIC(T)>
-TypeId TypeRegister::has(){
+TypeId TypeRegister::hasType(){
   for(auto const&x:types)
     if(x.second->getType() == Type::TypeType::ATOMIC){
       auto const existingType = dynamic_cast<AtomicType*>(x.second);
-      if(existingType->getId() == CppAtomicTypes::toId<T>())
-        return existingType->getId();
+      if(existingType->getAtomicId() != CppAtomicTypes::toId<T>())continue;
+      return existingType->getId();
     }
   return notAType;
 }
@@ -188,12 +199,40 @@ TypeId TypeRegister::addReferenceOrConstOrPointerType(){
 
 template<typename INNER_TYPE,Type::TypeType type>
 TypeId TypeRegister::hasReferenceOrConstOrPointerType(){
-  auto const innerTypeId = add<INNER_TYPE>();
+  auto const innerTypeId = hasType<INNER_TYPE>();
+  if(innerTypeId == notAType)return notAType;
   for(auto const&x:types)
     if(x.second->getType() == type){
       auto const existingType = dynamic_cast<ReferenceOrConstOrPointerType<type>*>(x.second);
-      if(existingType->getInnerType() == innerTypeId)
-        return existingType->getId();
+      if(existingType->getInnerType() != innerTypeId)continue;
+      return existingType->getId();
+    }
+  return notAType;
+}
+
+
+template<typename T,ENABLE_IF_ARRAY(T)>
+TypeId TypeRegister::addType(){
+  using InnerType = typename std::remove_extent_t<T>;
+  auto const id = types.size();
+  auto const innerType = add<InnerType>();
+  auto const size = std::extent<T>::value;
+  
+  types[id] = new ArrayType(CppAtomicTypes::toId<T>(),innerType,size);
+  return id;
+}
+
+template<typename T,ENABLE_IF_ARRAY(T)>
+TypeId TypeRegister::hasType(){
+  using InnerType = typename std::remove_extent_t<T>;
+  auto const innerTypeId = hasType<InnerType>();
+  auto const size = std::extent<T>::value;
+  for(auto const&x:types)
+    if(x.second->getType() == Type::TypeType::ARRAY){
+      auto const existingType = dynamic_cast<ArrayType*>(x.second);
+      if(existingType->getInnerType() != innerTypeId)continue;
+      if(existingType->getSize     () != size       )continue;
+      return existingType->getId();
     }
   return notAType;
 }
@@ -202,7 +241,7 @@ int main(){
   std::cout << CppAtomicTypes::toId<signed   char>() << std::endl;
   std::cout << CppAtomicTypes::toId<         char>() << std::endl;
   std::cout << CppAtomicTypes::toId<unsigned char>() << std::endl;
-  std::cout << CppAtomicTypes::toId<float>() << std::endl;
+  std::cout << CppAtomicTypes::toId<float        >() << std::endl;
   using TypeList = TypeList<void,int,float,double>;
   std::cout << typeid(TypeList::type<0>).name() << std::endl;
 
@@ -245,5 +284,11 @@ int main(){
   tr.add<int const*     &>();
   tr.add<int      *const&>();
   tr.add<int const*const&>();
+
+  tr.add<int[2]>();
+  tr.add<int[2][2]>();
+  tr.add<int const*[2]>();
+  tr.add<int const*const[2]>();
+  tr.add<int*[2]>();
   return 0;
 }

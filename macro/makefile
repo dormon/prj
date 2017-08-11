@@ -9,7 +9,7 @@ all: ${BIN}
 ${BIN}: ${OBJ}
 	${CPP} ${OBJ} -o ${BIN} ${LIB}
 
-%.o: %.cpp
+%.o: %.cpp *.h
 	${CPP} -o $@ ${CPPFLAGS} -c $<
 
 run: ${BIN}
