@@ -28,6 +28,7 @@ set(INCLUDES
   include/VectorModelDescription.h
   include/CompositeModelDescription.h
   include/Domain.h
+  include/Number.h
   )
 
 SET(CMAKE_CXX_STANDARD 14)

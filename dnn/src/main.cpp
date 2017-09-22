@@ -398,9 +398,9 @@
 // ─────── = - ─────── * y^T[L-2]       ##
 // ∂W[L-2]     ∂B[L-2]                  ##
 //                                      ##
-//    ∂C          ∂C                       ##
-// ─────── = - ─────── * y^T[l-1]          ##
-// ∂W[l-1]     ∂B[L-2]                     ##
+//    ∂C          ∂C                    ##
+// ─────── = - ─────── * y^T[l-1]       ##
+// ∂W[l-1]     ∂B[L-2]                  ##
 //
 //
 //
@@ -426,14 +426,84 @@ class Function{
     FceImpl fce;
 };
 
+template<typename TYPE>void swap(TYPE&a,TYPE&b){TYPE z=a;a=b;b=z;}
 
 template<typename TYPE>
 class Matrix{
   public:
-    Matrix(size_t rows,size_t cols);
-    
-  protected:
+    Matrix(size_t rows,size_t cols):rows(rows),cols(cols){
+      data.resize(rows*cols,static_cast<TYPE>(0));
+    }
+    TYPE const&get(size_t row,size_t col)const{return data.at(row*cols+col);}
+    TYPE      &get(size_t row,size_t col)     {return data.at(row*cols+col);}
+    void transpose(){
+      for(size_t i=0;i<data.size()/2;++i){
+        size_t const inRow  = i%cols;
+        size_t const inCol  = i/cols;
+        size_t const outRow = i%rows;
+        size_t const outCol = i/rows;
+        swap(get(inRow,inCol),get(outRow,outCol));
+      }
+    }
+    void forAll(Matrix<TYPE>&matrix,std::function<void(size_t,size_t)>const&fce){
+      for(size_t r=0;r<matrix.rows;++r)
+        for(size_t c=0;c<matrix.cols;++c)
+          fce(r,c);
+    }
+    Matrix<TYPE>operator*(Matrix<TYPE>const&other)const{
+      if(cols == other.rows){
+        Matrix<TYPE>result(this->rows,other.cols);
+        forAll(result,[&](size_t r,size_t c){
+            TYPE v = static_cast<TYPE>(0);
+            for(size_t i=0;i<this->cols;++i)
+              v += get(r,i) * other.get(i,c);
+            result.get(r,c) = v;
+            });
+        return result;
+      }
+      if(cols == 1 && other.rows == 1){//vectors to matrix
+        Matrix<TYPE>result(rows,other.cols);
+        forAll(result,[&](size_t r,size_t c){result.get(r,c) = get(r,0) * other.get(0,c);});
+        return result;
+      }
+      if(cols == other.cols && rows == other.rows){//per component
+        Matrix<TYPE>result(rows,cols);
+        forAll(result,[&](size_t r,size_t c){result.get(r,c) = get(r,c) * other.get(r,c);});
+        return result;
+      }
+      throw std::string("cannot be multiplied, wrong dimensions");
+    }
+    Matrix<TYPE>operator*(TYPE const&other)const{
+      Matrix<TYPE>result(rows,cols);
+      forAll(result,[&](size_t r,size_t c){result.get(r,c) = get(r,c) * other;});
+      return result;
+    }
+    Matrix<TYPE>operator+(Matrix<TYPE>const&other)const{
+      if(rows != other.rows || cols != other.cols)
+        throw std::string("incompatible dimensions for addition");
+      Matrix<TYPE>result(rows,cols);
+      forAll(result,[&](size_t r,size_t c){result.get(r,c) = get(r,c) + other.get(r,c);});
+      return result;
+    }
+    Matrix<TYPE>operator-(Matrix<TYPE>const&other)const{
+      if(rows != other.rows || cols != other.cols)
+        throw std::string("incompatible dimensions for substraction");
+      Matrix<TYPE>result(rows,cols);
+      forAll(result,[&](size_t r,size_t c){result.get(r,c) = get(r,c) - other.get(r,c);});
+      return result;
+    }
+    Matrix<TYPE>operator=(Matrix<TYPE>const&other){
+      if(rows != other.rows || cols != other.cols)
+        throw std::string("incompatible dimensions for assignment");
+      forAll(*this,[&](size_t r,size_t c){get(r,c) = other.get(r,c);});
+      return *this;
+    }
+    void apply(std::function<TYPE(TYPE const&)>const&fce){
+      forAll(*this,[&](size_t r,size_t c){fce(get(r,c));});
+    }
     std::vector<TYPE>data;
+    size_t rows;
+    size_t cols;
 };
 
 template<typename TYPE>
@@ -442,14 +512,17 @@ class Layer{
     Layer(size_t nofNeurons):nofNeurons(nofNeurons){}
     ~Layer(){
       assert(this != nullptr);
-      if(isInputLayer())return;
-      delete output;
+      if(output )delete output ;
+      if(weights)delete weights;
+      if(biases )delete biases ;
+      output  = nullptr;
+      weights = nullptr;
+      biases  = nullptr;
     }
     void initAsInputLayer(){}
     void initAsHiddenLayer(){
       assert(this != nullptr);
-      output = new std::vector<TYPE>;
-      output->resize(getNofNeurons(),static_cast<TYPE>(0));
+      output = new Matrix<TYPE>(getNofNeurons(),1);
     }
     void initAsOutputLayer(){
       assert(this != nullptr);
@@ -459,6 +532,10 @@ class Layer{
       assert(this != nullptr);
       previousLayer = previous;
       nextLayer     = next    ;
+      if(!isOutputLayer()){
+        weights = new Matrix<TYPE>(nextLayer->getNofNeurons(),getNofNeurons());
+        biases  = new Matrix<TYPE>(nextLayer->getNofNeurons(),1              );
+      }
     }
     void setFunctions(typename Function<TYPE>::FceImpl const&fce){
       assert(this != nullptr);
@@ -487,6 +564,7 @@ class Layer{
       assert(this != nullptr);
       if(isInputLayer())return;
       previousLayer->computeOutput();
+      *output = (*previousLayer->weights) * (*previousLayer->output) - (*previousLayer->biases);
       for(size_t k = 0; k < getNofNeurons(); ++k)
         output->at(k) = functions.at(k)(previousLayer->getOutput());
     }
@@ -504,7 +582,9 @@ class Layer{
     size_t            nofNeurons    = 0      ;
     Layer<TYPE>      *previousLayer = nullptr;
     Layer<TYPE>      *nextLayer     = nullptr;
-    std::vector<TYPE>*output        = nullptr;
+    Matrix<TYPE>     *output        = nullptr;
+    Matrix<TYPE>     *weights       = nullptr;
+    Matrix<TYPE>     *biases        = nullptr;
     std::vector<Function<TYPE>>functions;
 };
 

@@ -21,7 +21,7 @@ INCLUDEDIRS=${foreach var,${SRCDIR},-I ${var}}
 
 BIN=readssbo
 LIBS      = -g -static-libgcc -static-libstdc++ -Wl,-Bdynamic -lGLU -lGLEW -lSDL2 -Wl,-Bstatic -lgeGL -lgeUtil -lAntTweakBar -Wl,--as-needed -Wl,-Bdynamic -lSDL2 -lGPUPerfAPIGL
-LIBS      = -g -lGL -lGLEW -lSDL2 -lgeGL -lgeUtil -lWindowObject -lAntTweakBar -lGPUPerfAPIGL
+LIBS      = -g -lGL -lGLEW -lSDL2 -lgeGLd -lSDLWindowd -lGPUPerfAPIGL
 CFLAGS    = -std=c++1y -Wall ${INCLUDEDIRS}
 CPP       = g++
 #CPP       = wing++
