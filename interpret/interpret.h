@@ -42,6 +42,13 @@ namespace ge{
         void resolveInputs();
     };
 
+    class CompositeFunction: public Function{
+      public:
+      protected:
+        std::shared_ptr<Statement>body;
+        std::vector<std::shared_ptr<ge::core::Accessor>>localVars;
+    };
+
     class Body: public Statement{
       protected:
         std::vector<std::shared_ptr<Statement>>_statements;

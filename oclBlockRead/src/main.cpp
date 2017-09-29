@@ -3,10 +3,10 @@
 #include<vector>
 #include<CL/cl.hpp>
 
-const size_t BLOCKS_PER_WORKGROUP = 8   ;
-const size_t BLOCK_STRIDE         = 64  ;//8192;
-const size_t BLOCK_SIZE           = 64  ;
-const size_t WORKGROUP_SIZE       = 64  ;
+const size_t BLOCKS_PER_WORKGROUP    = 8   ;
+const size_t BLOCK_STRIDE            = 64  ;//8192;
+const size_t BLOCK_SIZE              = 64  ;
+const size_t WORKGROUP_SIZE          = 64  ;
 
 const size_t ITERATIONS              = 50                                                                  ;
 const size_t BYTES_PER_FLOAT         = sizeof(float)                                                       ;
@@ -54,16 +54,19 @@ int main(int argc,char*argv[]){
     cl::Buffer buffer(context,0,BUFFER_SIZE);
 
     cl::Program program(R".(
-
-
-
+      __kernel void readBuffer(__global uint*data){
+        data[get_global_id(0)] = get_global_id(0);
+      }
       ).",true);
 
     cl::Kernel kernel(program,"readBuffer");
     kernel.setArg(0,buffer);
-
     cl_int commandQueueStatus;
-    cl::CommandQueue queue(context,selectedDevices.at(0),0,&commandQueueStatus);
+    cl::CommandQueue queue(
+        context                  ,
+        selectedDevices.at(0)    ,
+        CL_QUEUE_PROFILING_ENABLE,
+        &commandQueueStatus      );
     if(commandQueueStatus != CL_SUCCESS)
       throw "command queue creation error";
 

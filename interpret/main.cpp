@@ -105,8 +105,8 @@ int main(){
   std::cout<<(float)(*f2->getOutput())<<std::endl;
   std::cout<<(int  )(*f3->getOutput())<<std::endl;
 
-  whileTest();
-  ifTest();
+  //whileTest();
+  //ifTest();
 
   return 0;
 }
