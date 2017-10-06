@@ -9,6 +9,36 @@
 
 #include"macros.h"
 
+// powerset real integer;
+// powerset real2 real;
+//
+// struct Name{
+//   type   name;
+//   number name;
+//   bool   name;
+//   real   name;
+// };
+//
+// array type[3] Name;
+//
+//
+//
+// name(in type name,out type name,inout type name){
+//   type name;
+//   fce(name,name,name);
+//   if(name)
+//     fce(name);
+//   while(name){
+//     fce(name,name);
+//     fce(name,name,name);
+//   }
+// }
+//
+//
+//
+//
+//
+
 class Variable{
   public:
 };
