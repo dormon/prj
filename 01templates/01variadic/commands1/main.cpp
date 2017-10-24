@@ -8,9 +8,11 @@
 #include<algorithm>
 #include<functional>
 #include<utility>
-#include<glm/glm.hpp>
-#include<geCore/Text.h>
-#include<geGL/geGL.h>
+#include</media/windata/builtLibs/linux/installedGLM/include/glm/glm.hpp>
+//#include<geCore/Text.h>
+//#include<geGL/geGL.h>
+
+
 
 template<
   typename TO  ,

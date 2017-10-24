@@ -1,5 +1,5 @@
 BIN      = accessMember
-LIB      = -lgeCored -lgeGLd -ldl
+LIB      = -ldl
 CPPFLAGS = -std=c++14 -Wall -O3 -Wconversion
 CPP      = g++-5
 OBJ      = main.o

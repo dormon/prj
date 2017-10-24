@@ -175,7 +175,7 @@ bool NIndexImpl::isOverflowForSub(
  * @param sizes sizes of axes
  */
 NIndex::NIndex(std::vector<size_t>const&sizes){
-  pimpl = std::make_unique<NIndexImpl>(sizes);
+  pimpl = std::make_shared<NIndexImpl>(sizes);
 }
 
 /**
@@ -317,4 +317,7 @@ size_t NIndex::get1DIndex(std::vector<bool>const&axisFlip)const{
   return result;
 }
 
+std::vector<size_t>const&NIndex::getParts()const{
+  return pimpl->parts;
+}
 

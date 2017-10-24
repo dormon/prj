@@ -26,8 +26,9 @@ class NIndex{
     size_t&getSize(size_t axis);
     size_t getSize()const;
     size_t get1DIndex(std::vector<bool>const&axisFlip = {})const;
+    std::vector<size_t>const&getParts()const;
   protected:
-    std::unique_ptr<NIndexImpl>pimpl;
     friend class NIndexImpl;
+    std::shared_ptr<NIndexImpl>pimpl;
 };
 
