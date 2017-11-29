@@ -1,38 +1,53 @@
+cmake_minimum_required(VERSION 3.1.0)
+
 set(APPLICATION_NAME jsonTest)
 
+SET(CMAKE_CXX_STANDARD 14)
+SET(CMAKE_C_STANDARD 99)
+
+set(_subprojects NIndex Tensor NetworkConfiguration NetworkConfigurationJSONLoader)
+if("${as_subproject}" STREQUAL "")
+  #IN_LIST is operator in CMake 3.3, CMake 3.8.1 warns 
+  cmake_policy(SET CMP0057 NEW)
+  list(APPEND as_subproject ${${LIB_NAME}_subprojects})
+  macro(find_package name)
+    if(NOT "${name}" IN_LIST as_subproject)
+      _find_package(${ARGV})
+    endif()
+  endmacro()
+else()
+  list(APPEND as_subproject ${${LIB_NAME}_subprojects})
+endif()
+
+set(NINDEX_DYNAMIC FALSE CACHE BOOL "")
+set(TENSOR_DYNAMIC FALSE CACHE BOOL "")
+set(NETWORKCONFIGURATION_DYNAMIC FALSE CACHE BOOL "")
+set(NETWORKCONFIGURATIONJSONLOADER_DYNAMIC FALSE CACHE BOOL "")
+add_subdirectory(NIndex)
+add_subdirectory(Tensor)
+add_subdirectory(NetworkConfiguration)
+add_subdirectory(NetworkConfigurationJSONLoader)
+
 set(INCLUDES
-  json.hpp
-  NIndex.h
   )
 
 set(SOURCES
   main.cpp
-  NIndex.cpp
   )
 
-cmake_minimum_required(VERSION 3.1.0)
+add_executable(${APPLICATION_NAME} ${INCLUDES} ${SOURCES})
+target_link_libraries(${APPLICATION_NAME} 
+  PUBLIC
+    NIndex::NIndex
+    NetworkConfiguration::NetworkConfiguration
+    NetworkConfigurationJSONLoader::NetworkConfigurationJSONLoader
+  )
 
-include(${CMAKE_ROOT}/Modules/ExternalProject.cmake)
-
-SET(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules;${CMAKE_MODULE_PATH}")
-
-SET(CMAKE_CXX_STANDARD 14)
 
 IF(CMAKE_COMPILER_IS_GNUCXX)
-  add_compile_options(-W)
-  add_compile_options(-Wall)
-  add_compile_options(-Wconversion)
-  add_compile_options(-pedantic)
+  target_compile_options(${APPLICATION_NAME} PUBLIC -W)
+  target_compile_options(${APPLICATION_NAME} PUBLIC -Wall)
+  target_compile_options(${APPLICATION_NAME} PUBLIC -Wconversion)
+  target_compile_options(${APPLICATION_NAME} PUBLIC -pedantic)
 ENDIF()
-
-set(PROJECT_NAME TestingProject)
-
-PROJECT(${PROJECT_NAME})
-
-set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
-
-set(libraryDirectory ${EXTERNAL_INSTALL_LOCATION}/lib/)
-
-add_executable(${APPLICATION_NAME} ${INCLUDES} ${SOURCES})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 

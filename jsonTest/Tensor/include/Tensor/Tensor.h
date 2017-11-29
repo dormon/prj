@@ -3,7 +3,7 @@
 #include<set>
 #include<sstream>
 
-#include"NIndex.h"
+#include<NIndex/NIndex.h>
 
 template<typename TYPE>void swap(TYPE&a,TYPE&b){TYPE z=a;a=b;b=z;}
 

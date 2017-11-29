@@ -1,0 +1,2 @@
+#pragma
+float fceC(float);

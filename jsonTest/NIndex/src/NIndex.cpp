@@ -44,7 +44,7 @@
 #include<cassert>
 #include<functional>
 
-#include"NIndex.h"
+#include<NIndex/NIndex.h>
 
 class NIndexImpl{
   public:

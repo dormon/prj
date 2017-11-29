@@ -52,7 +52,7 @@ flags = [
 # a "-std=<something>".
 # For a C project, you would set this to something like 'c99' instead of
 # 'c++11'.
-'-std=c++14',
+'-std=c++1y',
 # ...and the same thing goes for the magic -x option which specifies the
 # language that the files to be compiled are written in. This is mostly
 # relevant for c++ headers.
@@ -72,27 +72,7 @@ flags = [
 '-I',
 '.',
 '-I',
-'include',
-'-I',
-'build/external/include',
-'-I',
 './ClangCompleter',
-'-I',
-'/home/dormon/git/prj/jsonTest/NIndex/include',
-'-I',
-'/home/dormon/git/prj/jsonTest/NIndex/build',
-'-I',
-'/home/dormon/git/prj/jsonTest/Tensor/include',
-'-I',
-'/home/dormon/git/prj/jsonTest/Tensor/build',
-'-I',
-'/home/dormon/git/prj/jsonTest/NetworkConfiguration/include',
-'-I',
-'/home/dormon/git/prj/jsonTest/NetworkConfiguration/build',
-'-I',
-'/home/dormon/git/prj/jsonTest/NetworkConfigurationJSONLoader/include',
-'-I',
-'/home/dormon/git/prj/jsonTest/NetworkConfigurationJSONLoader/build',
 '-isystem',
 './tests/gmock/gtest',
 '-isystem',

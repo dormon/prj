@@ -8,14 +8,28 @@
 #include<set>
 #include<tuple>
 
-#include<CL/opencl.h>
+#include<CL/cl.hpp>
 
 int main(){
-  cl_int status;
-  cl_uint num_platforms;
-  std::cerr<<"A"<<std::endl;
-  status = clGetPlatformIDs(0,nullptr,&num_platforms);
-  std::cerr<<status<<std::endl;
-  std::cerr<<num_platforms<<std::endl;
+  std::vector<cl::Platform> platforms;
+  cl::Platform::get(&platforms);
+  assert(platforms.size() > 0);
+  auto const platform = platforms.at(0);
+
+  std::vector<cl::Device>devices;
+  platform.getDevices(CL_DEVICE_TYPE_GPU,&devices);
+  assert(devices.size() > 0);
+  auto const device = devices.at(0);
+
+  cl_int contextStatus;
+  cl::Context context(device,nullptr,nullptr,nullptr,&contextStatus);
+  assert(contextStatus == CL_SUCCESS);
+
+
+  cl::Image2DArray imageData{context,CL_MEM_READ_WRITE,{CL_R,CL_FLOAT},1 ,10,10,0,0,nullptr,nullptr};
+
+
+
+
 	return 0;
 }

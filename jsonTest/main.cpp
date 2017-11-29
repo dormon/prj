@@ -1,11 +1,50 @@
 #include<iostream>
 #include<istream>
 #include<fstream>
-#include"json.hpp"
 
-#include"NIndex.h"
-#include"Tensor.h"
+#include<NetworkConfigurationJSONLoader/Loader.h>
 
+#include"NetworkConfigurationJSONLoader/include/NetworkConfigurationJSONLoader/json.hpp"
+
+std::string loadTextFile(std::string const&fileName){
+  std::ifstream f(fileName.c_str());
+  if(!f.is_open())
+    return "";
+  std::string str((std::istreambuf_iterator<char>(f)),std::istreambuf_iterator<char>());
+  f.close();
+  return str;
+}
+
+int main(){
+  std::string jsonSource = loadTextFile("/home/dormon/git/prj/jsonTest/model_simple_00.json");
+  ////std::cout << jsonSource << std::endl;
+  //auto j = nlohmann::json::parse(jsonSource);
+  //std::cout << j.size() << std::endl;
+
+  ////std::ifstream i("/home/dormon/git/prj/jsonTest/model_simple_00.json");
+  //nlohmann::json jj;
+  //jj.parse(jsonSource);
+  ////i >> jj;
+  //std::cout << jj.size() << std::endl;
+  
+  auto config = cnnConf::loadJSON(jsonSource);
+  std::cout << config->getNofLayers() << std::endl;
+  auto input = std::dynamic_pointer_cast<cnnConf::Input>(config->getLayer(0));
+  std::cout << input->getWidth() << std::endl;
+
+  auto conv = std::dynamic_pointer_cast<cnnConf::Conv2D>(config->getLayer(1));
+  for(auto const&x:conv->getWeights().data)
+    std::cout << x << std::endl;
+
+  auto dense = std::dynamic_pointer_cast<cnnConf::Dense>(config->getLayer(12));
+  std::cout << "lastDenseInput : " << dense->getInputSize () << std::endl;
+  std::cout << "lastDenseOutput: " << dense->getOutputSize() << std::endl;
+  for(auto const&x:dense->getWeights().data)
+    std::cout << x << std::endl;
+  return 0;
+}
+
+#if 0
 using json = nlohmann::json;
 
 std::string loadTextFile(std::string const&fileName){
@@ -17,132 +56,11 @@ std::string loadTextFile(std::string const&fileName){
   return str;
 }
 
-class LayerConfiguration{
-  public:
-    enum Type{
-      INPUT                 = 0,
-      CONV_2D               = 1,
-      MAX_POOLING_2D        = 2,
-      GLOBAL_MAX_POOLING_2D = 3,
-      DROPOUT               = 4,
-      DENSE                 = 5,
-    }type;
-    LayerConfiguration(Type const&t):type(t){}
-    static Type translateLayerNameToLayerType(std::string const&name){
-      std::vector<std::string>layerNames = {
-        "input"               ,
-        "conv2d"              ,
-        "max_pooling2d"       ,
-        "global_max_pooling2d",
-        "dropout"             ,
-        "dense"               ,
-      };
-      for(size_t i=0;i<layerNames.size();++i)
-        if(name.find(layerNames.at(i)) == 0)return static_cast<Type>(static_cast<size_t>(INPUT)+i);
-      throw std::string("unknown layer name: "+name);
-    }
-};
-
-class InputLayerConfiguration: public LayerConfiguration{
-  public:
-    InputLayerConfiguration(
-        size_t w,
-        size_t h,
-        size_t c):LayerConfiguration(LayerConfiguration::INPUT),width(w),height(h),channels(c){}
-    size_t getNofChannels()const{
-      return channels;
-    }
-    size_t getWidth()const{
-      return width;
-    }
-    size_t getHeight()const{
-      return height;
-    }
-  protected:
-    size_t width   ;
-    size_t height  ;
-    size_t channels;
-};
-
 //padding: same, zero
 //stride
 //pool_size
 //
 //
-
-class Conv2DLayerConfiguration: public LayerConfiguration{
-  public:
-    Conv2DLayerConfiguration(
-        Tensor<float>const&weights,
-        Tensor<float>const&biases ):
-      LayerConfiguration(LayerConfiguration::CONV_2D),
-      weights(weights),
-      biases(biases){}
-    size_t getWidth()const{
-      return weights.size.at(0);
-    }
-    size_t getHeight()const{
-      return weights.size.at(1);
-    }
-    size_t getNofInputChannels()const{
-      return weights.size.at(2);
-    }
-    size_t getNofFilters()const{
-      return weights.size.at(3);
-    }
-  protected:
-    Tensor<float>weights;
-    Tensor<float>biases;
-};
-
-class MaxPoolingLayerConfiguration: public LayerConfiguration{
-  public:
-    MaxPoolingLayerConfiguration(
-        std::array<size_t,2>const&size  ,
-        std::array<size_t,2>const&stride):
-      LayerConfiguration(LayerConfiguration::MAX_POOLING_2D),
-      size              (size                              ),
-      stride            (stride                            ){}
-    size_t getSizeX  ()const{return size  [0];}
-    size_t getSizeY  ()const{return size  [1];}
-    size_t getStrideX()const{return stride[0];}
-    size_t getStrideY()const{return stride[1];}
-    std::array<size_t,2>getSize  ()const{return size  ;}
-    std::array<size_t,2>getStride()const{return stride;}
-  protected:
-    std::array<size_t,2>size  ;
-    std::array<size_t,2>stride;
-};
-
-class GlobalMaxPoolingLayerConfiguration: public LayerConfiguration{
-  public:
-    GlobalMaxPoolingLayerConfiguration():
-      LayerConfiguration(LayerConfiguration::GLOBAL_MAX_POOLING_2D){}
-};
-
-class DropoutLayerConfiguration: public LayerConfiguration{
-  public:
-    DropoutLayerConfiguration(
-        float rate):
-      LayerConfiguration(LayerConfiguration::DROPOUT),
-      rate              (rate                       ){}
-    float getRate()const{return rate;}
-  protected:
-    float rate;
-};
-
-class DenseLayerConfiguration: public LayerConfiguration{
-  public:
-    DenseLayerConfiguration(
-        Tensor<float>const&weights,
-        Tensor<float>const&biases ):
-      LayerConfiguration(LayerConfiguration::DENSE),
-      weights(weights),
-      biases(biases){}
-  protected:
-    Tensor<float>weights;
-    Tensor<float>biases ;
-};
 
 class NetworkConfiguration{
   public:
@@ -334,3 +252,4 @@ int main(){
 
   return 0;
 }
+#endif
