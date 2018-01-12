@@ -46,8 +46,11 @@ class ThreadPool{
       while(1){
         {
           std::unique_lock <std::mutex> l (lock_);
-          while (! shutdown_ && jobs_.empty())
+          while (! shutdown_ && jobs_.empty()){
+            std::cout << "waiting" << std::endl;
+
             condVar_.wait (l);
+          }
           if (jobs_.empty ()){
             // No jobs to do and we are shutting down
             std::cerr << "Thread " << i << " terminates" << std::endl;
@@ -82,13 +85,20 @@ void silly2(){
 
 int main(){
   // Create two threads
-  ThreadPool p (8);
+  ThreadPool p (4);
+
 
   // Assign them 4 jobs
   p.doJob (std::bind (silly, 1));
   p.doJob (std::bind (silly, 2));
   p.doJob (std::bind (silly, 3));
   p.doJob (std::bind (silly, 4));
+  p.doJob (std::bind (silly, 1));
+  p.doJob (std::bind (silly, 1));
+  p.doJob (std::bind (silly, 1));
+  p.doJob (std::bind (silly, 2));
+  p.doJob (std::bind (silly, 2));
+  p.doJob (std::bind (silly, 2));
   p.doJob (silly2);
 
 

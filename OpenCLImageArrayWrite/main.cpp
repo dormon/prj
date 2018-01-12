@@ -14,7 +14,6 @@ void kernel setImageToOne(
   if(pos.x > imageSize.x || pos.y > imageSize.y)return;
 
   for(uint layer = 0; layer < nofLayers; ++layer){
-    print("ahoj svete %u\n")
     write_imagef(output,(int4)(pos,layer,0),1.f);
   }
 }                                                                               
@@ -24,11 +23,11 @@ int main(){
   try{
     //get platform
     auto const platform = getPlatform()();
-    std::cout << "Using platform: "<<platform.getInfo<CL_PLATFORM_NAME>()<<"\n";
+    //std::cout << "Using platform: "<<platform.getInfo<CL_PLATFORM_NAME>()<<"\n";
 
     //get device
     auto const device = getDevice().givenPlatform(platform)();
-    std::cout<< "Using device: "<<device.getInfo<CL_DEVICE_NAME>()<<"\n";
+    //std::cout<< "Using device: "<<device.getInfo<CL_DEVICE_NAME>()<<"\n";
 
     //get context
     auto const context = getContext().givenDevices({device})();
@@ -90,17 +89,22 @@ int main(){
         nullptr);
 
 
-    std::cout<<" result: \n";
+    //std::cout<<" result: \n";
 
+    size_t errorCounter = 0;
     for(std::decay<decltype(nofLayers)>::type l=0;l<nofLayers;++l){
-      std::cout << "layer: " << l << std::endl;
+      //std::cout << "layer: " << l << std::endl;
       for(std::decay<decltype(imageSize)::value_type>::type y = 0; y < imageSize.at(1); ++y){
-        std::cout << "row: " << y << std::endl;
+        //std::cout << "row: " << y << std::endl;
         for(std::decay<decltype(imageSize)::value_type>::type x = 0; x < imageSize.at(0); ++x){
-          std::cout << x << " : " << data[l * imageSize.at(1) * imageSize.at(0) + y * imageSize.at(0) + x]<< std::endl;
+          if(data[l * imageSize.at(1) * imageSize.at(0) + y * imageSize.at(0) + x] != 1.f)
+            errorCounter++;
+          //std::cout << x << " : " << data[l * imageSize.at(1) * imageSize.at(0) + y * imageSize.at(0) + x]<< std::endl;
         }
       }
     }
+
+    std::cerr << "Number of errors: " << errorCounter << std::endl;
 
   }catch(std::string const&e){
     std::cerr << "ERROR: " << std::endl;

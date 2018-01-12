@@ -1,16 +1,16 @@
-BIN      = image2dArray
-LIB      = -lOpenCL
-CPPFLAGS = -std=c++14 -Wall -O3 -Wconversion
-CPP      = g++-5
+BIN      = accessMember
+LIB      = 
+CPPFLAGS = -std=c++14 -Wall -O3
+CC       = g++-5
 OBJ      = main.o
 
 all: ${BIN}
 
 ${BIN}: ${OBJ}
-	${CPP} ${OBJ} -o ${BIN} ${LIB}
+	${CC} ${OBJ} -o ${BIN} ${LIB}
 
 %.o: %.cpp
-	${CPP} -o $@ ${CPPFLAGS} -c $<
+	${CC} -o $@ ${CPPFLAGS} -c $<
 
 run: ${BIN}
 	./${BIN}
