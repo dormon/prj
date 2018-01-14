@@ -1,0 +1,14 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../../headerA/headerA.h
+
+/media/data/git/prj/cmakeLibraryDependencies/B_headerA/B_headerA.cpp
+headerA.h
+-
+

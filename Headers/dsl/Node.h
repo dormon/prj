@@ -1,15 +1,11 @@
 #pragma once
 
-template<template<typename...>class CONTAINER,typename TYPE>
-class ContainerOfShared: public CONTAINER<TYPE>{
-};
+namespace dsl{
 
-template<typename TYPE>
-class PointerDecorator{
-  public:
-    using type = TYPE*;
-};
+  template<template<typename...>class CONTAINER,template<typename...>class DECORATOR>
+  class Node{
+    public:
+      CONTAINER< typename DECORATOR< Node<CONTAINER,DECORATOR> >::type >childs;
+  };
 
-template<template<typename...>class CONTAINER>
-class Node: public CONTAINER<Node<CONTAINER>>{
-};
+}

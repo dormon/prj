@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC   -shared -Wl,-soname,libsharedB_private___headerA.so -o libsharedB_private___headerA.so CMakeFiles/sharedB_private___headerA.dir/B_headerA/B_headerA.cpp.o 

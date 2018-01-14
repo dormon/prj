@@ -1,7 +1,10 @@
 #include<iostream>
+#include<vector>
 
 #include<dsl/FunctionTraits.h>
 #include<dsl/TypeSet.h>
+#include<dsl/Node.h>
+#include<dsl/PointerDecorator.h>
 
 class Test{
   public:
@@ -14,6 +17,7 @@ class Test{
 };
 
 float fce(float a){return a*a;}
+
 
 int main(){
   using List = dsl::TypeList<float,int,char>;
@@ -47,6 +51,10 @@ int main(){
   dsl::MemberFunctionTraits<decltype(&Test::ahoj)>::returnType c0;
   dsl::MemberFunctionTraits<decltype(&Test::ahoj)>::type<0>    c1;
   dsl::MemberFunctionTraits<decltype(&Test::ahoj)>::classType  c2;
+
+
+  dsl::Node<std::vector,dsl::PointerDecorator>root;
+  root.childs.push_back(new dsl::Node<std::vector,dsl::PointerDecorator>);
 
   static_cast<void>(a0);
   static_cast<void>(a1);
