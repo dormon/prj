@@ -1,13 +1,12 @@
-cmake_minimum_required(VERSION 3.1.0)
-cmake_policy(VERSION 3.1)
+cmake_minimum_required(VERSION 3.10.1)
 
 #You should set up this variable
 #Project name
-project(SharedLibrary LANGUAGES CXX)
+project(HeaderOnlyLibrary LANGUAGES CXX)
 
 #You should set up this variable
 #Library name
-set(LIB_NAME SharedLibrary)
+set(LIB_NAME HeaderOnlyLibrary)
 
 #You should set up these variables
 #Library version
@@ -19,16 +18,13 @@ set(${LIB_NAME}_REVISION_VERSION 0)
 #You should set up this variable
 #All includes
 set(INCLUDES
-  SharedLibrary.h
+  HeaderOnlyLibrary.h
   )
 
 #You should set up this variable
 #All sources
 set(SOURCES
-  SharedLibrary.cpp
   )
-
-set(SHAREDLIBRARY_DYNAMIC TRUE CACHE BOOL "")
 
 #You should set up this variable
 #list of subprojects
@@ -51,8 +47,16 @@ set(${LIB_NAME}_EXTERNAL_TARGETS )
 #This variable contains extermal libraries that needs to be find by find_package
 list(APPEND ${LIB_NAME}_EXTERNAL_LIBRARIES_TO_FIND )
 
-#You should set up this variable
-#This variable contains compilation options for this library
-set(${LIB_NAME}_COMPILATION_OPTION )
+#You can set up this variable
+#This variable contains compilation options (-W, -Wall, -pedantic, ...) for this library
+set(${LIB_NAME}_COMPILE_OPTIONS )
 
-include(../CMakeLibrary/libraryExports.cmake)
+#You can set up these variables
+#This variable contains private compilation definition (-DUSE_RADIANSE, ...) for this library.
+set(${LIB_NAME}_PRIVATE_COMPILE_OPTIONS )
+set(${LIB_NAME}_PUBLIC_COMPILE_OPTIONS )
+set(${LIB_NAME}_INTERFACE_COMPILE_OPTIONS )
+
+
+
+include(../../CMakeLibrary/libraryExports.cmake)

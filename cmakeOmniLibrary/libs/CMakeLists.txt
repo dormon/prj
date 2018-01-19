@@ -4,4 +4,5 @@ add_subdirectory(HeaderOnlyLibrary)
 add_subdirectory(SharedLibrary)
 add_subdirectory(StaticLibrary)
 add_subdirectory(SharedLibraryOnSharedLibrary)
+#add_subdirectory(SharedLibraryOnStaticLibraries)
 
