@@ -18,20 +18,14 @@ set(${LIB_NAME}_REVISION_VERSION 0)
 #You should set up this variable
 #All includes
 set(INCLUDES
-  SharedLibraryOnStaticLibraries.h
+  #SharedLibraryOnStaticLibraries.h
   )
 
 #You should set up this variable
 #All sources
 set(SOURCES
-  SharedLibraryOnStaticLibraries.cpp
+  #SharedLibraryOnStaticLibraries.cpp
   )
-
-#TODO add _SUBPROJECTS_AS_SHARED variable
-#TODO add _SUBPROJECTS_AS_STATIC variable
-#TODO add _SUBPROJECTS_AS_OBJECT variable
-set(SHAREDLIBRARYONSHAREDLIBRARY_DYNAMIC TRUE CACHE BOOL "")
-set(SHAREDLIBRARYONSHAREDLIBRARY_B_DYNAMIC TRUE CACHE BOOL "")
 
 # You should set up this variable
 # list of include directories that this library require.
@@ -47,6 +41,7 @@ list(APPEND ${LIB_NAME}_SUBPROJECTS SharedLibraryOnStaticLibraries_A SharedLibra
 #You should set up this variable
 #list of subprojects that will be build as static library
 list(APPEND ${LIB_NAME}_BUILD_AS_STATIC )
+list(APPEND ${LIB_NAME}_SUBPROJECTS_AS_OBJECT SharedLibraryOnStaticLibraries_A SharedLibraryOnStaticLibraries_B)
 
 set(INSTALL_INCLUDE_DIRECTORY   include/)
 set(INSTALL_CONFIG_DIRECTORY    lib/cmake/${LIB_NAME})

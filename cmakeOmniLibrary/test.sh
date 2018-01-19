@@ -14,12 +14,12 @@ cd ../..
 
 #build apps
 
-cd apps
-mkdir build/
-cd build/
-cmake                                                               \
-   ..                                                               \
-  -DCMAKE_BUILD_TYPE=DEBUG                                          \
-  -DCMAKE_INSTALL_PREFIX=../../install                              \
-  -DHeaderOnlyLibrary_DIR=../../install/lib/cmake/HeaderOnlyLibrary
-make -j4
+#cd apps
+#mkdir build/
+#cd build/
+#cmake                                                               \
+#   ..                                                               \
+#  -DCMAKE_BUILD_TYPE=DEBUG                                          \
+#  -DCMAKE_INSTALL_PREFIX=../../install                              \
+#  -DHeaderOnlyLibrary_DIR=../../install/lib/cmake/HeaderOnlyLibrary
+#make -j4
