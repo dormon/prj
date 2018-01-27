@@ -17,31 +17,28 @@ set(${LIB_NAME}_REVISION_VERSION 0)
 
 #You should set up this variable
 #All includes
-set(INCLUDES
+set(${LIB_NAME}_INCLUDES
   #SharedLibraryOnStaticLibraries.h
   )
 
 #You should set up this variable
 #All sources
-set(SOURCES
+set(${LIB_NAME}_SOURCES
   #SharedLibraryOnStaticLibraries.cpp
   )
 
 # You should set up this variable
 # list of include directories that this library require.
-# this list should no contain subprojects or external libraries like OpenCL
+# this list should not contain subprojects or external libraries like OpenCL
 # please note that the script will prefix each element with ${CMAKE_CURRENT_SOURCE_DIR}
-# root directory of library is already in the list
-list(APPEND ${LIB_NAME}_INCLUDE_DIRECTORIES )
+# root directory and build directory of library is already in the list 
+list(APPEND ${LIB_NAME}_PRIVATE_INCLUDE_DIRECTORIES   )
+list(APPEND ${LIB_NAME}_PUBLIC_INCLUDE_DIRECTORIES    )
+list(APPEND ${LIB_NAME}_INTERFACE_INCLUDE_DIRECTORIES )
 
 #You should set up this variable
-#list of subprojects
+#list of subprojects that will be inserted into this library
 list(APPEND ${LIB_NAME}_SUBPROJECTS SharedLibraryOnStaticLibraries_A SharedLibraryOnStaticLibraries_B)
-
-#You should set up this variable
-#list of subprojects that will be build as static library
-list(APPEND ${LIB_NAME}_BUILD_AS_STATIC )
-list(APPEND ${LIB_NAME}_SUBPROJECTS_AS_OBJECT SharedLibraryOnStaticLibraries_A SharedLibraryOnStaticLibraries_B)
 
 set(INSTALL_INCLUDE_DIRECTORY   include/)
 set(INSTALL_CONFIG_DIRECTORY    lib/cmake/${LIB_NAME})
