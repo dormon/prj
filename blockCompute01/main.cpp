@@ -9,68 +9,21 @@
 #include<cassert>
 #include<sstream>
 
-// BUILT_IN_KEYWORDS:
-// Bit
-// Any
-// Typename
-// Struct
-// Array
-// Vector
-// Function
-// In
-// Out
-// InOut
-// while
-// if
-//
-//
-//
-//
-// BUILT_IN_FUNCTIONS:
-//
-// nand           : (out bit     ;in bit     ;in bit     ;)
-// isType         : (out bit     ;in any     ;)
-// isQualified    : (out bit     ;in typename;)
-// isIn           : (out bit     ;in typename;)
-// isOut          : (out bit     ;in typename;)
-// isAny          : (out bit     ;in typename;)
-// isBit          : (out bit     ;in typename;)
-// isTypename     : (out bit     ;in typename;)
-// isStruct       : (out bit     ;in typename;)
-// isFunction     : (out bit     ;in typename;)
-// isVector       : (out bit     ;in typename;)
-// isArray        : (out bit     ;in typename;)
-// removeFirstType: (out typename;in typename;)
-//
-//
-//
-// BUILT_IN_CONSTANTS:
-// 0
-// 1
-//
-// 
-//
-//
-//
-//
-//
-
-
-enum class InOut{
-  IN    = 1<<0    ,
-  OUT   = 1<<1    ,
-  INOUT = IN | OUT,
-};
-
 class Type{
   public:
     enum KindOfType{
       QUALIFIED  ,
       UNQUALIFIED,
+      EMPTY      ,
     };
     KindOfType kindOfType;
     Type(KindOfType const&t):kindOfType(t){}
     virtual ~Type(){}
+};
+
+class EmptyType: public Type{
+  public:
+    EmptyType():Type(EMPTY){}
 };
 
 class UnqualifiedType: public Type{
@@ -78,7 +31,6 @@ class UnqualifiedType: public Type{
     enum KindOfUnqualifiedType{
       BIT      ,
       ANY      ,
-      TYPENAME ,
       COMPOSITE,
     };
     KindOfUnqualifiedType kindOfUnqualifiedType;
@@ -118,11 +70,6 @@ class AnyType: public UnqualifiedType{
     AnyType():UnqualifiedType(ANY){}
 };
 
-class TypenameType: public UnqualifiedType{
-  public:
-    TypenameType():UnqualifiedType(TYPENAME){}
-};
-
 class StructType: public CompositeType{
   public:
     std::vector<std::shared_ptr<UnqualifiedType>>componentTypes;
@@ -152,6 +99,8 @@ class FunctionType: public CompositeType{
     std::vector<std::shared_ptr<QualifiedType>>parameterTypes;
     FunctionType(std::vector<std::shared_ptr<QualifiedType>>const&t):CompositeType(FUNCTION),parameterTypes(t){}
 };
+
+
 
 class Value{
   public:
@@ -201,43 +150,6 @@ class BitZeroConstant: public BitConstant{
 class BitOneConstant: public BitConstant{
   public:
     BitOneConstant():BitConstant(ONE){}
-};
-
-class TypenameConstant: public BuiltInConstant{
-  public:
-    enum KindOfTypenameConstant{
-      QUALIFIED_TYPE     ,
-      UNQUALIFIED_TYPE   ,
-    };
-    KindOfTypenameConstant kindOfTypenameConstant;
-    TypenameConstant(KindOfTypenameConstant const&k):BuiltInConstant(TYPENAME_CONSTANT,std::make_shared<TypenameType>()),kindOfTypenameConstant(k){}
-};
-
-class UnqualifiedTypenameConstant: public TypenameConstant{
-  public:
-    enum KindOfUnqualifiedTypenameConstant{
-      ANY      ,
-      BIT      ,
-      TYPENAME ,
-      COMPOSITE,
-    };
-    KindOfUnqualifiedTypenameConstant kindOfUnqualifiedTypenameConstant;
-    UnqualifiedTypenameConstant(KindOfUnqualifiedTypenameConstant const&k):TypenameConstant(UNQUALIFIED_TYPE),kindOfUnqualifiedTypenameConstant(k){}
-};
-
-class AnyTypenameConstant: public UnqualifiedTypenameConstant{
-  public:
-    AnyTypenameConstant():UnqualifiedTypenameConstant(ANY){}
-};
-
-class BitTypenameConstant: public UnqualifiedTypenameConstant{
-  public:
-    BitTypenameConstant():UnqualifiedTypenameConstant(BIT){}
-};
-
-class TypenameTypenameConstant: public UnqualifiedTypenameConstant{
-  public:
-  TypenameTypenameConstant():UnqualifiedTypenameConstant(TYPENAME){}
 };
 
 
@@ -312,6 +224,15 @@ class BuiltInFunction: public AtomicFunction{
   public:
     enum BuiltInFunctionType{
       NAND        ,
+      IS_TYPE     ,
+      IS_QUALIFIED,
+      IS_IN       ,
+      IS_OUT      ,
+      IS_BIT      ,
+      IS_ANY      ,
+      IS_STRUCT   ,
+      IS_FUNCTION ,
+      IS_VECTOR   ,
       TYPE_COMPARE,
     };
     BuiltInFunctionType builtInFunctionType;
@@ -322,9 +243,9 @@ class NandFunction: public BuiltInFunction{
   public:
     NandFunction():BuiltInFunction(NAND,
         shared<FunctionType>(std::vector<std::shared_ptr<QualifiedType>>{
-          shared<QualifiedType>(QualifiedType::OUT,shared<BitType>()),
-          shared<QualifiedType>(QualifiedType::IN ,shared<BitType>()),
-          shared<QualifiedType>(QualifiedType::IN ,shared<BitType>()),
+          std::make_shared<QualifiedType>(QualifiedType::OUT,std::make_shared<BitType>()),
+          std::make_shared<QualifiedType>(QualifiedType::IN ,std::make_shared<BitType>()),
+          std::make_shared<QualifiedType>(QualifiedType::IN ,std::make_shared<BitType>()),
           })){}
 };
 
@@ -332,16 +253,15 @@ class TypeCompareFunction: public BuiltInFunction{
   public:
     TypeCompareFunction():BuiltInFunction(TYPE_COMPARE,
         shared<FunctionType>(std::vector<std::shared_ptr<QualifiedType>>{
-          shared<QualifiedType>(QualifiedType::OUT,shared<BitType     >()),
-          shared<QualifiedType>(QualifiedType::IN ,shared<TypenameType>()),
-          shared<QualifiedType>(QualifiedType::IN ,shared<TypenameType>()),
+          std::make_shared<QualifiedType>(QualifiedType::OUT,std::make_shared<BitType>()),
+          std::make_shared<QualifiedType>(QualifiedType::IN ,std::make_shared<AnyType>()),
+          std::make_shared<QualifiedType>(QualifiedType::IN ,std::make_shared<AnyType>()),
           })){}
 };
 
 std::string typeToString(std::shared_ptr<StructType     >const&);
 std::string typeToString(std::shared_ptr<BitType        >const&);
 std::string typeToString(std::shared_ptr<AnyType        >const&);
-std::string typeToString(std::shared_ptr<TypenameType   >const&);
 std::string typeToString(std::shared_ptr<CompositeType  >const&);
 std::string typeToString(std::shared_ptr<UnqualifiedType>const&);
 std::string typeToString(std::shared_ptr<QualifiedType  >const&);
@@ -383,10 +303,6 @@ std::string typeToString(std::shared_ptr<AnyType>const&){
   return "any";
 }
 
-std::string typeToString(std::shared_ptr<TypenameType>const&){
-  return "typename";
-}
-
 std::string typeToString(std::shared_ptr<CompositeType>const&t){
   switch(t->kindOfCompositeType){
     case CompositeType::STRUCT  :return typeToString(std::dynamic_pointer_cast<StructType  >(t));
@@ -401,7 +317,6 @@ std::string typeToString(std::shared_ptr<UnqualifiedType>const&t){
     case UnqualifiedType::COMPOSITE:return typeToString(std::dynamic_pointer_cast<CompositeType>(t));
     case UnqualifiedType::BIT      :return typeToString(std::dynamic_pointer_cast<BitType      >(t));
     case UnqualifiedType::ANY      :return typeToString(std::dynamic_pointer_cast<AnyType      >(t));
-    case UnqualifiedType::TYPENAME :return typeToString(std::dynamic_pointer_cast<TypenameType >(t));
   }
   return "";
 }
@@ -418,10 +333,15 @@ std::string typeToString(std::shared_ptr<QualifiedType>const&t){
   return ss.str();
 }
 
+std::string typeToString(std::shared_ptr<EmptyType>const&){
+  return "empty";
+}
+
 std::string typeToString(std::shared_ptr<Type>const&t){
   switch(t->kindOfType){
     case Type::QUALIFIED  :return typeToString(std::dynamic_pointer_cast<QualifiedType  >(t));
     case Type::UNQUALIFIED:return typeToString(std::dynamic_pointer_cast<UnqualifiedType>(t));
+    case Type::EMPTY      :return typeToString(std::dynamic_pointer_cast<EmptyType      >(t));
   }
   return "";
 };

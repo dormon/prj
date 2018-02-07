@@ -14,5 +14,6 @@ int main(){
       a+=32;
     else
       a+=10;
+  std::cout << a;
   return 0;
 }
