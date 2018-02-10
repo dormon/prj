@@ -1,6 +1,8 @@
 BIN      = referenceWrapper
-LIB      = 
-CPPFLAGS = -std=c++14 -Wall -O3
+LIB      = #-lgcov
+#CPPFLAGS = -std=c++14 -Wall -O3 #-fprofile-use=/home/dormon/git/prj/nLoop/main.gcda
+CPPFLAGS = -std=c++14 -Wall -O3 -fprofile-use=/home/dormon/git/prj/nLoop/main.gcda -fprofile-use=/home/dormon/git/prj/nLoop/forBody.gcda
+#CPPFLAGS = -std=c++14 -Wall -O3 -fprofile-generate
 CC       = g++-5
 OBJ      = main.o forBody.o
 

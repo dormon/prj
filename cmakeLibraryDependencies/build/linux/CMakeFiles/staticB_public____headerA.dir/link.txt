@@ -1,2 +1,0 @@
-/usr/bin/ar qc libstaticB_public____headerA.a  CMakeFiles/staticB_public____headerA.dir/B_headerA/B_headerA.cpp.o
-/usr/bin/ranlib libstaticB_public____headerA.a

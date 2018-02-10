@@ -1,7 +1,0 @@
-[
-{
-  "directory": "/home/dormon/git/prj/domain01/build",
-  "command": "/usr/bin/c++   -I/home/dormon/git/prj/domain01    -W -Wall -Wconversion -pedantic -std=gnu++1y -o CMakeFiles/domain.dir/main.cpp.o -c /home/dormon/git/prj/domain01/main.cpp",
-  "file": "/home/dormon/git/prj/domain01/main.cpp"
-}
-]

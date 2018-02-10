@@ -93,8 +93,8 @@ void asd(size_t const&i,size_t const&j){
 
 int main(){
   //forLoopRec<2>(std::vector<size_t>{3,3},asd);
-  forLoopRec<2>(std::vector<size_t>{3,3},+[](size_t const&i,size_t const&j){std::cout << i << " " << j << std::endl;});
-  return 0;
+  //forLoopRec<2>(std::vector<size_t>{3,3},+[](size_t const&i,size_t const&j){std::cout << i << " " << j << std::endl;});
+  //return 0;
 
   auto const cppFor1D = [](size_t const power){
     size_t acc = 0;

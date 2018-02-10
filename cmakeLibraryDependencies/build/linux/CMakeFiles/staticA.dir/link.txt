@@ -1,2 +1,0 @@
-/usr/bin/ar qc libstaticA.a  CMakeFiles/staticA.dir/A/A.cpp.o
-/usr/bin/ranlib libstaticA.a

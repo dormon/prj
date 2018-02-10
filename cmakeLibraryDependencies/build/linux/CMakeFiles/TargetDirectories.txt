@@ -1,8 +1,0 @@
-/media/data/git/prj/cmakeLibraryDependencies/build/linux/CMakeFiles/rebuild_cache.dir
-/media/data/git/prj/cmakeLibraryDependencies/build/linux/CMakeFiles/sharedB_private___headerA.dir
-/media/data/git/prj/cmakeLibraryDependencies/build/linux/CMakeFiles/sharedA.dir
-/media/data/git/prj/cmakeLibraryDependencies/build/linux/CMakeFiles/edit_cache.dir
-/media/data/git/prj/cmakeLibraryDependencies/build/linux/CMakeFiles/staticB_private___headerA.dir
-/media/data/git/prj/cmakeLibraryDependencies/build/linux/CMakeFiles/staticA.dir
-/media/data/git/prj/cmakeLibraryDependencies/build/linux/CMakeFiles/staticB_public____headerA.dir
-/media/data/git/prj/cmakeLibraryDependencies/build/linux/CMakeFiles/sharedB_public____headerA.dir

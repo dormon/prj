@@ -1,3 +1,0 @@
-/home/dormon/git/prj/domain01/build/CMakeFiles/edit_cache.dir
-/home/dormon/git/prj/domain01/build/CMakeFiles/rebuild_cache.dir
-/home/dormon/git/prj/domain01/build/CMakeFiles/domain.dir
