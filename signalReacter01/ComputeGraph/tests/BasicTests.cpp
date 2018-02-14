@@ -86,7 +86,7 @@ DEFINE_BINARY_OPERATOR(AddFloat, +, float, float, float);
 
 template <typename T,
           typename std::enable_if_t<std::is_same<T, bool>::value, char> = 0>
-std::shared_ptr<Resource> createVar(T const& v) {
+std::shared_ptr<BoolResource> createVar(T const& v) {
   return std::make_shared<BoolResource>(v);
 }
 
@@ -97,10 +97,11 @@ std::shared_ptr<Resource> createVar(T const& v) {
 }
 
 template <FunctionName>
-std::shared_ptr<Function> createFunction(size_t*counter = nullptr);
+std::shared_ptr<Function> createFunction(size_t* counter = nullptr);
 
 template <>
-std::shared_ptr<Function> createFunction<FunctionName::ADD_FLOAT>(size_t*counter) {
+std::shared_ptr<Function> createFunction<FunctionName::ADD_FLOAT>(
+    size_t* counter) {
   return std::make_shared<AddFloat>(counter);
 }
 
@@ -129,25 +130,50 @@ SCENARIO("add test") {
   auto c = createVar<float>(3.f);
 
   size_t counter = 0;
-  auto add = createFunction<FunctionName::ADD_FLOAT>(&counter);
+  auto   add     = createFunction<FunctionName::ADD_FLOAT>(&counter);
 
   add->bindInput(0, a);
   add->bindInput(1, b);
   add->bindOutput(0, c);
 
+  REQUIRE(a->getTicks() == 1);
+  REQUIRE(b->getTicks() == 1);
+  REQUIRE(c->getTicks() == 1);
+  REQUIRE(add->getInputTicks(0) == 0);
+  REQUIRE(add->getInputTicks(1) == 0);
+
   (*add)();
 
   REQUIRE(getOutput<float>(add) == 5.f);
   REQUIRE(counter == 1);
+  REQUIRE(a->getTicks() == 1);
+  REQUIRE(b->getTicks() == 1);
+  REQUIRE(c->getTicks() == 2);
+  REQUIRE(add->getInputTicks(0) == 1);
+  REQUIRE(add->getInputTicks(1) == 1);
+
   (*add)();
+
   REQUIRE(getOutput<float>(add) == 5.f);
   REQUIRE(counter == 1);
+  REQUIRE(a->getTicks() == 1);
+  REQUIRE(b->getTicks() == 1);
+  REQUIRE(c->getTicks() == 2);
+  REQUIRE(add->getInputTicks(0) == 1);
+  REQUIRE(add->getInputTicks(1) == 1);
+
   (*add)();
+
   REQUIRE(getOutput<float>(add) == 5.f);
   REQUIRE(counter == 1);
+  REQUIRE(a->getTicks() == 1);
+  REQUIRE(b->getTicks() == 1);
+  REQUIRE(c->getTicks() == 2);
+  REQUIRE(add->getInputTicks(0) == 1);
+  REQUIRE(add->getInputTicks(1) == 1);
 }
 
-SCENARIO("add2 test"){
+SCENARIO("add2 test") {
   auto a = createVar<float>(1.f);
   auto b = createVar<float>(0.f);
   auto c = createVar<float>(0.f);
@@ -158,49 +184,268 @@ SCENARIO("add2 test"){
   auto add0 = createFunction<FunctionName::ADD_FLOAT>(&counter0);
   auto add1 = createFunction<FunctionName::ADD_FLOAT>(&counter1);
 
-  add0->bindInput(0,a);
-  add0->bindInput(1,a);
-  add0->bindOutput(0,b);
-  
-  add1->bindInput(0,add0,0);
-  add1->bindInput(1,add0,0);
-  add1->bindOutput(0,c);
+  add0->bindInput(0, a);
+  add0->bindInput(1, a);
+  add0->bindOutput(0, b);
+
+  add1->bindInput(0, b);
+  add1->bindInput(1, b);
+  add1->bindOutput(0, c);
+  add1->addInputFunction(add0);
+
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(add1->getRecompute() == true);
+  REQUIRE(a->getTicks() == 1);
+  REQUIRE(b->getTicks() == 1);
+  REQUIRE(c->getTicks() == 1);
+  REQUIRE(add0->getInputTicks(0) == 0);
+  REQUIRE(add0->getInputTicks(1) == 0);
+  REQUIRE(add1->getInputTicks(0) == 0);
+  REQUIRE(add1->getInputTicks(1) == 0);
 
   (*add1)();
 
+  REQUIRE(add0->getRecompute() == false);
+  REQUIRE(add1->getRecompute() == true);
   REQUIRE(getOutput<float>(add1) == 4.f);
+  REQUIRE(a->getTicks() == 1);
+  REQUIRE(b->getTicks() == 2);
+  REQUIRE(c->getTicks() == 2);
+  REQUIRE(add0->getInputTicks(0) == 1);
+  REQUIRE(add0->getInputTicks(1) == 1);
+  REQUIRE(add1->getInputTicks(0) == 2);
+  REQUIRE(add1->getInputTicks(1) == 2);
   REQUIRE(counter0 == 1);
   REQUIRE(counter1 == 1);
 
   (*add1)();
 
+  REQUIRE(add0->getRecompute() == false);
+  REQUIRE(add1->getRecompute() == false);
   REQUIRE(getOutput<float>(add1) == 4.f);
+  REQUIRE(a->getTicks() == 1);
+  REQUIRE(b->getTicks() == 2);
+  REQUIRE(c->getTicks() == 2);
+  REQUIRE(add0->getInputTicks(0) == 1);
+  REQUIRE(add0->getInputTicks(1) == 1);
+  REQUIRE(add1->getInputTicks(0) == 2);
+  REQUIRE(add1->getInputTicks(1) == 2);
   REQUIRE(counter0 == 1);
   REQUIRE(counter1 == 1);
 
-  updateVar(a,3.f);
+  updateVar(a, 3.f);
+
+  REQUIRE(a->getTicks() == 2);
+  REQUIRE(b->getTicks() == 2);
+  REQUIRE(c->getTicks() == 2);
+  REQUIRE(add0->getInputTicks(0) == 1);
+  REQUIRE(add0->getInputTicks(1) == 1);
+  REQUIRE(add1->getInputTicks(0) == 2);
+  REQUIRE(add1->getInputTicks(1) == 2);
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(add1->getRecompute() == true);
 
   (*add1)();
 
+  REQUIRE(add0->getRecompute() == false);
+  REQUIRE(add1->getRecompute() == true);
   REQUIRE(getOutput<float>(add1) == 12.f);
+  REQUIRE(a->getTicks() == 2);
+  REQUIRE(b->getTicks() == 3);
+  REQUIRE(c->getTicks() == 3);
+  REQUIRE(add0->getInputTicks(0) == 2);
+  REQUIRE(add0->getInputTicks(1) == 2);
+  REQUIRE(add1->getInputTicks(0) == 3);
+  REQUIRE(add1->getInputTicks(1) == 3);
   REQUIRE(counter0 == 2);
   REQUIRE(counter1 == 2);
 
   (*add1)();
 
+  REQUIRE(add0->getRecompute() == false);
+  REQUIRE(add1->getRecompute() == false);
   REQUIRE(getOutput<float>(add1) == 12.f);
+  REQUIRE(a->getTicks() == 2);
+  REQUIRE(b->getTicks() == 3);
+  REQUIRE(c->getTicks() == 3);
+  REQUIRE(add0->getInputTicks(0) == 2);
+  REQUIRE(add0->getInputTicks(1) == 2);
+  REQUIRE(add1->getInputTicks(0) == 3);
+  REQUIRE(add1->getInputTicks(1) == 3);
   REQUIRE(counter0 == 2);
   REQUIRE(counter1 == 2);
 
-  updateVar(b,10.f);
+  updateVar(b, 10.f);
 
+  REQUIRE(add0->getRecompute() == false);
+  REQUIRE(add1->getRecompute() == true);
   REQUIRE(getOutput<float>(add1) == 12.f);
+  REQUIRE(a->getTicks() == 2);
+  REQUIRE(b->getTicks() == 4);
+  REQUIRE(c->getTicks() == 3);
+  REQUIRE(add0->getInputTicks(0) == 2);
+  REQUIRE(add0->getInputTicks(1) == 2);
+  REQUIRE(add1->getInputTicks(0) == 3);
+  REQUIRE(add1->getInputTicks(1) == 3);
   REQUIRE(counter0 == 2);
   REQUIRE(counter1 == 2);
 
   (*add1)();
 
+  REQUIRE(add0->getRecompute() == false);
+  REQUIRE(add1->getRecompute() == false);
+  REQUIRE(a->getTicks() == 2);
+  REQUIRE(b->getTicks() == 4);
+  REQUIRE(c->getTicks() == 4);
+  REQUIRE(add0->getInputTicks(0) == 2);
+  REQUIRE(add0->getInputTicks(1) == 2);
+  REQUIRE(add1->getInputTicks(0) == 4);
+  REQUIRE(add1->getInputTicks(1) == 4);
   REQUIRE(counter0 == 2);
   REQUIRE(counter1 == 3);
   REQUIRE(getOutput<float>(add1) == 20.f);
+}
+
+SCENARIO("add recurrent test") {
+  auto   a        = createVar<float>(0.f);
+  auto   b        = createVar<float>(1.f);
+  size_t counter0 = 0;
+
+  auto add0 = createFunction<FunctionName::ADD_FLOAT>(&counter0);
+
+  add0->bindInput(0, a);
+  add0->bindInput(1, b);
+  add0->bindOutput(0, a);
+
+  REQUIRE(a->getTicks() == 1);
+  REQUIRE(b->getTicks() == 1);
+  REQUIRE(add0->getInputTicks(0) == 0);
+  REQUIRE(add0->getInputTicks(1) == 0);
+  REQUIRE(add0->getRecompute() == true);
+
+  (*add0)();
+
+  REQUIRE(a->getTicks() == 2);
+  REQUIRE(b->getTicks() == 1);
+  REQUIRE(add0->getInputTicks(0) == 1);
+  REQUIRE(add0->getInputTicks(1) == 1);
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(getOutput<float>(add0) == 1.f);
+  REQUIRE(counter0 == 1);
+
+  (*add0)();
+
+  REQUIRE(a->getTicks() == 3);
+  REQUIRE(b->getTicks() == 1);
+  REQUIRE(add0->getInputTicks(0) == 2);
+  REQUIRE(add0->getInputTicks(1) == 1);
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(getOutput<float>(add0) == 2.f);
+  REQUIRE(counter0 == 2);
+
+  (*add0)();
+
+  REQUIRE(a->getTicks() == 4);
+  REQUIRE(b->getTicks() == 1);
+  REQUIRE(add0->getInputTicks(0) == 3);
+  REQUIRE(add0->getInputTicks(1) == 1);
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(getOutput<float>(add0) == 3.f);
+  REQUIRE(counter0 == 3);
+}
+
+SCENARIO("if test") {
+  auto   a        = createVar<float>(1.f);
+  auto   c        = createVar<float>(0.f);
+  auto   b        = createVar<bool>(true);
+  size_t counter0 = 0;
+
+  auto add0 = createFunction<FunctionName::ADD_FLOAT>(&counter0);
+
+  add0->bindInput(0, a);
+  add0->bindInput(1, a);
+  add0->bindOutput(0, c);
+
+  auto if0 = std::make_shared<IfStatement>();
+  if0->setStatement(add0);
+  if0->setConditionVariable(b);
+
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(if0->getRecompute() == true);
+
+  (*if0)();
+
+  REQUIRE(add0->getRecompute() == false);
+  REQUIRE(if0->getRecompute() == false);
+  REQUIRE(convertResource<float>(c)->getData() == 2.f);
+  REQUIRE(counter0 == 1);
+
+  (*add0)();
+
+  REQUIRE(add0->getRecompute() == false);
+  REQUIRE(if0->getRecompute() == false);
+  REQUIRE(convertResource<float>(c)->getData() == 2.f);
+  REQUIRE(counter0 == 1);
+}
+
+SCENARIO("bind test") {
+  auto a = createVar<float>(1.f);
+  auto b = createVar<float>(1.f);
+
+  auto add0 = createFunction<FunctionName::ADD_FLOAT>();
+
+  REQUIRE(add0->getRecompute() == true);
+  add0->bindInput(0, a);
+  add0->bindInput(1, a);
+  add0->bindOutput(0, b);
+
+  REQUIRE(add0->getRecompute() == true);
+
+  (*add0)();
+
+  REQUIRE(add0->getRecompute() == false);
+
+  add0->bindInput(0, nullptr);
+
+  REQUIRE(add0->getRecompute() == false);
+
+  add0->bindInput(0, a);
+
+  REQUIRE(add0->getRecompute() == true);
+}
+
+SCENARIO("cyclic recompute propagate") {
+  auto a = createVar<float>(1.f);
+  auto b = createVar<float>(0.f);
+
+  size_t counter0;
+  size_t counter1;
+  auto   add0 = createFunction<FunctionName::ADD_FLOAT>(&counter0);
+
+  add0->bindInput(0, a);
+  add0->bindInput(1, a);
+  add0->bindOutput(0, a);
+
+  auto add1 = createFunction<FunctionName::ADD_FLOAT>(&counter1);
+
+  add1->bindInput(0, a);
+  add1->bindInput(1, a);
+  add1->bindOutput(0, b);
+  add1->addInputFunction(add0);
+
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(add1->getRecompute() == true);
+
+  (*add1)();
+
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(add1->getRecompute() == true);
+  REQUIRE(convertResource<float>(b)->getData() == 4.f);
+
+  (*add1)();
+
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(add1->getRecompute() == true);
+  REQUIRE(convertResource<float>(b)->getData() == 8.f);
 }

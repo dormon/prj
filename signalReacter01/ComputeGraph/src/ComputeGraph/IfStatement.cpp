@@ -17,9 +17,8 @@ void IfStatement::setStatement(std::shared_ptr<Statement> const& s) {
   statement = s;
 }
 
-bool IfStatement::operator()() {
-  if (!recompute) return false;
-  bool isChanged = false;
-  if (conditionVariable->getData()) isChanged |= (*statement)();
-  return isChanged;
+void IfStatement::operator()() {
+  if (!recompute) return;
+  recompute = false;
+  if (conditionVariable->getData()) (*statement)();
 }

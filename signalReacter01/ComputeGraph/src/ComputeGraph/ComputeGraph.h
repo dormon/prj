@@ -3,13 +3,10 @@
 #include <ComputeGraph/BoolResource.h>
 #include <ComputeGraph/CustomResourceType.h>
 #include <ComputeGraph/Function.h>
-#include <ComputeGraph/FunctionInput.h>
 #include <ComputeGraph/Fwd.h>
 #include <ComputeGraph/IfStatement.h>
 #include <ComputeGraph/Input.h>
-#include <ComputeGraph/InputKind.h>
 #include <ComputeGraph/Resource.h>
-#include <ComputeGraph/ResourceInput.h>
 #include <ComputeGraph/ResourceType.h>
 #include <ComputeGraph/ResourceTypeKind.h>
 #include <ComputeGraph/Signal.h>

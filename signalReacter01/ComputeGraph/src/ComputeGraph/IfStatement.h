@@ -7,7 +7,7 @@ class COMPUTEGRAPH_EXPORT ComputeGraph::IfStatement : public Statement {
   IfStatement();
   void setConditionVariable(std::shared_ptr<BoolResource> const& v);
   void setStatement(std::shared_ptr<Statement> const& s);
-  virtual bool operator()() override;
+  virtual void operator()() override;
 
   protected:
   std::shared_ptr<BoolResource> conditionVariable;

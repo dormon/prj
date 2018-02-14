@@ -9,9 +9,10 @@
 class COMPUTEGRAPH_EXPORT ComputeGraph::Statement : public SignalReacter<Signal> {
   public:
   Statement(StatementKind const& k);
-  virtual bool operator()() = 0;
+  virtual void operator()() = 0;
   StatementKind getStatementKind() const ;
   virtual void react(Signal const& s) override ;
+  bool getRecompute()const;
 
   protected:
   StatementKind statementKind;

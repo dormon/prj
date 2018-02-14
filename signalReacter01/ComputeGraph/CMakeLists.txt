@@ -30,13 +30,13 @@ set(INCLUDES
   src/${LIB_NAME}/BoolResource.h
   src/${LIB_NAME}/CustomResourceType.h
   src/${LIB_NAME}/Function.h
-  src/${LIB_NAME}/FunctionInput.h
+  #src/${LIB_NAME}/FunctionInput.h
   src/${LIB_NAME}/Fwd.h
   src/${LIB_NAME}/IfStatement.h
   src/${LIB_NAME}/Input.h
-  src/${LIB_NAME}/InputKind.h
+  #src/${LIB_NAME}/InputKind.h
   src/${LIB_NAME}/Resource.h
-  src/${LIB_NAME}/ResourceInput.h
+  #src/${LIB_NAME}/ResourceInput.h
   src/${LIB_NAME}/ResourceType.h
   src/${LIB_NAME}/ResourceTypeKind.h
   src/${LIB_NAME}/Signal.h

@@ -15,9 +15,7 @@ void WhileStatement::setStatement(std::shared_ptr<Statement> const& s) {
   statement = s;
 }
 
-bool WhileStatement::operator()() {
-  if (!recompute) return false;
-  bool isChanged = false;
-  while (conditionVariable->getData()) isChanged |= (*statement)();
-  return isChanged;
+void WhileStatement::operator()() {
+  if (!recompute) return;
+  while (conditionVariable->getData()) (*statement)();
 }

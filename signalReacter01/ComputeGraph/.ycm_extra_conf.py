@@ -61,6 +61,7 @@ flags = [
 'c++',
 '-I','.',
 '-I','src',
+'-I','tests',
 '-I','build',
 '-I','./ClangCompleter',
 '-isystem','./tests/gmock/gtest',

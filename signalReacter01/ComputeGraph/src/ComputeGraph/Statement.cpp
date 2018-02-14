@@ -17,3 +17,7 @@ void Statement::react(Signal const& s) {
       break;
   }
 }
+
+bool Statement::getRecompute()const{
+  return recompute;
+}

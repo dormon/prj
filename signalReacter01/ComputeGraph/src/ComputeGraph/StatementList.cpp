@@ -4,12 +4,10 @@ using namespace ComputeGraph;
 
 StatementList::StatementList() : Statement(StatementKind::STATEMENT_LIST) {}
 
-bool StatementList::operator()(){
-  if (!recompute) return false;
+void StatementList::operator()(){
+  if (!recompute)return;
   recompute = false;
-  bool isAnyInputChanged = false;
-  for (auto const& s : statements) isAnyInputChanged |= (*s)();
-  return isAnyInputChanged;
+  for (auto const& s : statements) (*s)();
 }
 
 void StatementList::addStatement(std::shared_ptr<Statement> const& s) {
