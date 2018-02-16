@@ -9,12 +9,16 @@
 class COMPUTEGRAPH_EXPORT ComputeGraph::Statement : public SignalReacter<Signal> {
   public:
   Statement(StatementKind const& k);
-  virtual void operator()() = 0;
+  void operator()();
   StatementKind getStatementKind() const ;
   virtual void react(Signal const& s) override ;
   bool getRecompute()const;
+  void setPrologue(std::shared_ptr<Statement> const&);
 
   protected:
+  virtual void compute() = 0;
+  void computePrologue();
+  std::shared_ptr<Statement>prologue;
   StatementKind statementKind;
   bool recompute = true;
 };

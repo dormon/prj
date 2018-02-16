@@ -15,7 +15,6 @@ void WhileStatement::setStatement(std::shared_ptr<Statement> const& s) {
   statement = s;
 }
 
-void WhileStatement::operator()() {
-  if (!recompute) return;
+void WhileStatement::compute() {
   while (conditionVariable->getData()) (*statement)();
 }

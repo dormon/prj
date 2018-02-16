@@ -12,16 +12,28 @@ Function::Function(std::vector<std::shared_ptr<ResourceType>> const& i,
       inputTypes(i),
       outputTypes(o) {}
 
-void Function::bindInput(size_t i, std::shared_ptr<Resource> const& r) {
-  if (!r) {
-    unbindInput(i);
-    return;
-  }
+void Function::checkInputType(size_t i,std::shared_ptr<Resource>const&r)const{
   if (!getInputType(i)->equal(r->getType())) {
     std::stringstream ss;
     ss << "Cannot bind resource to input: " << i << " it has different type";
     throw std::invalid_argument(ss.str());
   }
+}
+
+void Function::checkOutputType(size_t i,std::shared_ptr<Resource>const&r)const{
+  if (!(getOutputType(i)->equal(r->getType()))) {
+    std::stringstream ss;
+    ss << "Cannot bind resource to output: " << i << " it has different type";
+    throw std::invalid_argument(ss.str());
+  }
+}
+
+void Function::bindInput(size_t i, std::shared_ptr<Resource> const& r) {
+  if (!r) {
+    unbindInput(i);
+    return;
+  }
+  checkInputType(i,r);
   unbindInput(i);
   addSource(&*r);
   inputs.at(i).resource  = r;
@@ -34,25 +46,11 @@ void Function::bindOutput(size_t i, std::shared_ptr<Resource> const& r) {
     unbindOutput(i);
     return;
   }
-  if (!(getOutputType(i)->equal(r->getType()))) {
-    std::stringstream ss;
-    ss << "Cannot bind resource to output: " << i << " it has different type";
-    throw std::invalid_argument(ss.str());
-  }
+  checkOutputType(i,r);
   unbindOutput(i);
   addTarget(&*r);
   outputs.at(i) = r;
   recompute     = true;
-}
-
-void Function::addInputFunction(std::shared_ptr<Function> const& f) {
-  inputFunctions.insert(f);
-}
-
-void Function::removeInputFunction(std::shared_ptr<Function> const& f) {
-  auto const it = inputFunctions.find(f);
-  if (it == inputFunctions.cend()) return;
-  inputFunctions.erase(it);
 }
 
 std::shared_ptr<Resource> Function::getInputResource(size_t i) const {
@@ -107,17 +105,10 @@ bool Function::areInputsDifferent() {
   return isAnyInputChanged;
 }
 
-void Function::computeInputs() {
-  for (auto const& f : inputFunctions) (*f)();
-}
-
-void Function::operator()() {
-  if (!recompute) return;
-  recompute = false;
-  computeInputs();
+void Function::compute() {
   if (!areInputsDifferent()) return;
   updateSeenTicks();
-  compute();
+  execute();
 }
 
 size_t Function::getInputTicks(size_t i) const{

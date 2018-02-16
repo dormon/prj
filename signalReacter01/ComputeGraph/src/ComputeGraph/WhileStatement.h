@@ -8,9 +8,9 @@ class COMPUTEGRAPH_EXPORT ComputeGraph::WhileStatement : public Statement {
   WhileStatement();
   void setConditionVariable(std::shared_ptr<BoolResource> const& v);
   void setStatement(std::shared_ptr<Statement> const& s);
-  virtual void operator()() override;
 
   protected:
+  virtual void compute() override;
   std::shared_ptr<BoolResource> conditionVariable;
   std::shared_ptr<Statement> statement;
 };

@@ -72,7 +72,7 @@ public:                                                                \
                   createType<OUTPUT>(),                                \
               }),                                                      \
           counter(c) {}                                                \
-    virtual void compute() override {                                  \
+    virtual void execute() override {                                  \
       if (counter != nullptr) ++(*counter);                            \
       auto output = convertResource<OUTPUT>(getOutputResource(0));     \
       auto inputA = convertResource<INPUT0>(getInputResource(0));      \
@@ -191,7 +191,7 @@ SCENARIO("add2 test") {
   add1->bindInput(0, b);
   add1->bindInput(1, b);
   add1->bindOutput(0, c);
-  add1->addInputFunction(add0);
+  add1->setPrologue(add0);
 
   REQUIRE(add0->getRecompute() == true);
   REQUIRE(add1->getRecompute() == true);
@@ -432,7 +432,7 @@ SCENARIO("cyclic recompute propagate") {
   add1->bindInput(0, a);
   add1->bindInput(1, a);
   add1->bindOutput(0, b);
-  add1->addInputFunction(add0);
+  add1->setPrologue(add0);
 
   REQUIRE(add0->getRecompute() == true);
   REQUIRE(add1->getRecompute() == true);
@@ -449,3 +449,64 @@ SCENARIO("cyclic recompute propagate") {
   REQUIRE(add1->getRecompute() == true);
   REQUIRE(convertResource<float>(b)->getData() == 8.f);
 }
+
+SCENARIO("statement list containing cyclic functions"){
+  auto a = createVar<float>(1.f);
+  auto add0 = createFunction<FunctionName::ADD_FLOAT>();
+  auto add1 = createFunction<FunctionName::ADD_FLOAT>();
+  add0->bindInput(0,a);
+  add0->bindInput(1,a);
+  add0->bindOutput(0,a);
+  add1->bindInput(0,a);
+  add1->bindInput(1,a);
+  add1->bindOutput(0,a);
+  auto sl = std::make_shared<StatementList>(add0,add1);
+
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(add1->getRecompute() == true);
+  REQUIRE(sl->getRecompute() == true);
+
+  (*sl)();
+
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(add1->getRecompute() == true);
+  REQUIRE(sl->getRecompute() == true);
+  REQUIRE(convertResource<float>(a)->getData() == 4.f);
+
+  (*sl)();
+
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(add1->getRecompute() == true);
+  REQUIRE(sl->getRecompute() == true);
+  REQUIRE(convertResource<float>(a)->getData() == 16.f);
+}
+
+SCENARIO("statement list containing non cyclic functions"){
+  auto a = createVar<float>(1.f);
+  auto b = createVar<float>(0.f);
+  auto c = createVar<float>(0.f);
+  auto add0 = createFunction<FunctionName::ADD_FLOAT>();
+  auto add1 = createFunction<FunctionName::ADD_FLOAT>();
+  add0->bindInput(0,a);
+  add0->bindInput(1,a);
+  add0->bindOutput(0,b);
+  add1->bindInput(0,b);
+  add1->bindInput(1,b);
+  add1->bindOutput(0,c);
+  auto sl = std::make_shared<StatementList>(add0,add1);
+  REQUIRE(add0->getRecompute() == true);
+  REQUIRE(add1->getRecompute() == true);
+  REQUIRE(sl->getRecompute() == true);
+
+  (*sl)();
+
+  REQUIRE(add0->getRecompute() == false);
+  REQUIRE(add1->getRecompute() == false);
+  REQUIRE(sl->getRecompute() == false);
+  REQUIRE(convertResource<float>(c)->getData() == 4.f);
+
+  (*sl)();
+
+  REQUIRE(convertResource<float>(c)->getData() == 4.f);
+}
+
