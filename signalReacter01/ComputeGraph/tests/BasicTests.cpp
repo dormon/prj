@@ -58,6 +58,7 @@ std::shared_ptr<AtomicResource<T>> convertResource(
 
 enum class FunctionName {
   ADD_FLOAT,
+  LESS_FLOAT,
 };
 
 #define DEFINE_BINARY_OPERATOR(NAME, OPERATOR, INPUT0, INPUT1, OUTPUT) \
@@ -77,12 +78,13 @@ public:                                                                \
       auto output = convertResource<OUTPUT>(getOutputResource(0));     \
       auto inputA = convertResource<INPUT0>(getInputResource(0));      \
       auto inputB = convertResource<INPUT1>(getInputResource(1));      \
-      output->update(inputA->getData() + inputB->getData());           \
+      output->update(inputA->getData() OPERATOR inputB->getData());    \
     }                                                                  \
     size_t* counter;                                                   \
   }
 
-DEFINE_BINARY_OPERATOR(AddFloat, +, float, float, float);
+DEFINE_BINARY_OPERATOR(AddFloat , +, float, float, float);
+DEFINE_BINARY_OPERATOR(LessFloat, <, float, float, bool );
 
 template <typename T,
           typename std::enable_if_t<std::is_same<T, bool>::value, char> = 0>
@@ -103,6 +105,12 @@ template <>
 std::shared_ptr<Function> createFunction<FunctionName::ADD_FLOAT>(
     size_t* counter) {
   return std::make_shared<AddFloat>(counter);
+}
+
+template <>
+std::shared_ptr<Function> createFunction<FunctionName::LESS_FLOAT>(
+    size_t* counter) {
+  return std::make_shared<LessFloat>(counter);
 }
 
 template <typename T,
@@ -510,3 +518,41 @@ SCENARIO("statement list containing non cyclic functions"){
   REQUIRE(convertResource<float>(c)->getData() == 4.f);
 }
 
+SCENARIO("while test"){
+  auto a = createVar<float>(0.f);
+  auto i = createVar<float>(0.f);
+  auto one = createVar<float>(1.f);
+  auto end = createVar<float>(10.f);
+  auto c = createVar<bool>(true);
+
+  auto cmp0 = createFunction<FunctionName::LESS_FLOAT>();
+  cmp0->bindInput(0,i);
+  cmp0->bindInput(1,end);
+  cmp0->bindOutput(0,c);
+
+  auto cmp1 = createFunction<FunctionName::LESS_FLOAT>();
+  cmp1->bindInput(0,i);
+  cmp1->bindInput(1,end);
+  cmp1->bindOutput(0,c);
+
+  auto add = createFunction<FunctionName::ADD_FLOAT>();
+  add->bindInput(0,i);
+  add->bindInput(1,a);
+  add->bindOutput(0,a);
+
+  auto inc = createFunction<FunctionName::ADD_FLOAT>();
+  inc->bindInput(0,i);
+  inc->bindInput(1,one);
+  inc->bindOutput(0,i);
+
+  auto lst1 = std::make_shared<StatementList>(add,inc,cmp1);
+  auto whl = std::make_shared<WhileStatement>();
+  whl->setConditionVariable(c);
+  whl->setStatement(lst1);
+
+  auto lst0 = std::make_shared<StatementList>(cmp0,whl);
+
+  (*lst0)();
+
+  REQUIRE(convertResource<float>(a)->getData() == 45.f);
+}
