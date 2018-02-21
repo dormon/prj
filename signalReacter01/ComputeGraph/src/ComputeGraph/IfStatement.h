@@ -9,7 +9,7 @@ class COMPUTEGRAPH_EXPORT ComputeGraph::IfStatement : public Statement {
   void setStatement(std::shared_ptr<Statement> const& s);
 
   protected:
-  virtual void compute() override;
+  virtual void                  compute() override;
   std::shared_ptr<BoolResource> conditionVariable;
-  std::shared_ptr<Statement> statement;
+  std::shared_ptr<Statement>    statement;
 };

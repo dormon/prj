@@ -86,8 +86,8 @@ void Function::unbindInput(size_t i) {
 }
 
 void Function::react(Signal const& s) {
-  switch (s.signalKind) {
-    case SignalKind::PROPAGATE_RECOMPUTE:
+  switch (s) {
+    case Signal::PROPAGATE_RECOMPUTE:
       if (recompute) return;
       recompute = true;
       emit(s);

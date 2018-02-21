@@ -15,8 +15,7 @@ CUSTOM_RESOURCE_TYPE_KIND_ENUM translateCustomResourceKind();
 class Resource;
 class BoolResource;
 
-enum class SignalKind;
-class Signal;
+enum class Signal;
 enum class StatementKind;
 class Statement;
 class StatementList;
@@ -28,5 +27,4 @@ class Input;
 class FunctionInput;
 class ResourceInput;
 class Function;
-
 }

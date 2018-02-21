@@ -10,7 +10,6 @@
 #include <ComputeGraph/ResourceType.h>
 #include <ComputeGraph/ResourceTypeKind.h>
 #include <ComputeGraph/Signal.h>
-#include <ComputeGraph/SignalKind.h>
 #include <ComputeGraph/SignalReacter.h>
 #include <ComputeGraph/Statement.h>
 #include <ComputeGraph/StatementKind.h>
