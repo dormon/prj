@@ -7,7 +7,7 @@
 #include <ComputeGraph/computegraph_export.h>
 
 class COMPUTEGRAPH_EXPORT ComputeGraph::Statement
-    : protected SignalReacter<Signal> {
+    : public SignalReacter<Signal> {
   public:
   Statement(StatementKind const& k);
   void          operator()();

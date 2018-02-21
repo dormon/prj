@@ -6,7 +6,7 @@
 #include <ComputeGraph/computegraph_export.h>
 
 class COMPUTEGRAPH_EXPORT ComputeGraph::Resource
-    : protected SignalReacter<Signal> {
+    : public SignalReacter<Signal> {
   public:
   Resource(std::shared_ptr<ResourceType> const& t);
   virtual ~Resource();

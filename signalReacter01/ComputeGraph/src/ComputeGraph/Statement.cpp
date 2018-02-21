@@ -13,8 +13,6 @@ void Statement::react(Signal const& s) {
       recompute = true;
       emit(s);
       break;
-    default:
-      break;
   }
 }
 

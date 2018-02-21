@@ -11,8 +11,6 @@ void Resource::react(Signal const& s) {
     case Signal::PROPAGATE_RECOMPUTE:
       emit(s);
       break;
-    default:
-      break;
   }
 }
 

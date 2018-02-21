@@ -6,13 +6,23 @@ WhileStatement::WhileStatement() : Statement(StatementKind::WHILE) {}
 
 void WhileStatement::setConditionVariable(
     std::shared_ptr<BoolResource> const& v) {
-  addSource(&*v);
+  if (conditionVariable) removeSource(&*conditionVariable);
   conditionVariable = v;
+  if (v) addSource(&*v);
 }
 
 void WhileStatement::setStatement(std::shared_ptr<Statement> const& s) {
-  addSource(&*s);
+  if (statement) removeSource(&*statement);
   statement = s;
+  if (s) addSource(&*s);
+}
+
+std::shared_ptr<Statement> WhileStatement::getStatement() const {
+  return statement;
+}
+
+std::shared_ptr<BoolResource> WhileStatement::getConditionVariable() const {
+  return conditionVariable;
 }
 
 void WhileStatement::compute() {
