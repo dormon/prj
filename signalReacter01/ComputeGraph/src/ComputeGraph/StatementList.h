@@ -11,7 +11,7 @@ class COMPUTEGRAPH_EXPORT ComputeGraph::StatementList : public Statement {
   std::vector<std::shared_ptr<Statement>> const& getStatements() const;
 
   protected:
-  virtual void compute() override;
+  virtual void                            compute() override;
   std::vector<std::shared_ptr<Statement>> statements;
 };
 

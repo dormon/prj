@@ -21,20 +21,18 @@ void Statement::react(Signal const& s) {
 bool Statement::getRecompute() const { return recompute; }
 
 void Statement::setPrologue(std::shared_ptr<Statement> const& f) {
-  if(prologue)
-    removeSource(&*prologue);
+  if (prologue) removeSource(&*prologue);
 
   prologue = f;
 
-  if(prologue)
-    addSource(&*prologue);
+  if (prologue) addSource(&*prologue);
 }
 
 void Statement::computePrologue() {
   if (prologue) (*prologue)();
 }
 
-void Statement::operator()(){
+void Statement::operator()() {
   if (!recompute) return;
   recompute = false;
   computePrologue();

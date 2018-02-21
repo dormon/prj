@@ -12,4 +12,3 @@ class COMPUTEGRAPH_EXPORT ComputeGraph::BoolResource : public Resource {
   protected:
   bool data;
 };
-

@@ -1,6 +1,6 @@
 #pragma once
 
-#include<ComputeGraph/Fwd.h>
+#include <ComputeGraph/Fwd.h>
 
 enum class ComputeGraph::StatementKind {
   STATEMENT_LIST,
@@ -8,4 +8,3 @@ enum class ComputeGraph::StatementKind {
   IF,
   WHILE,
 };
-

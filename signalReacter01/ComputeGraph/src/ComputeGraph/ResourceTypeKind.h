@@ -1,9 +1,8 @@
 #pragma once
 
-#include<ComputeGraph/Fwd.h>
+#include <ComputeGraph/Fwd.h>
 
 enum class ComputeGraph::ResourceTypeKind {
-  BOOL  ,
+  BOOL,
   CUSTOM,
 };
-

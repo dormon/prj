@@ -20,7 +20,7 @@ std::shared_ptr<ResourceType> Resource::getType() const { return resourceType; }
 
 size_t Resource::getTicks() const { return ticks; }
 
-void Resource::updateTicks(){
+void Resource::updateTicks() {
   ticks++;
   emit(Signal::PROPAGATE_RECOMPUTE);
 }

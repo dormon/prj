@@ -7,4 +7,3 @@ class ComputeGraph::BoolResourceType : public ResourceType {
   BoolResourceType();
   virtual bool equal(std::shared_ptr<ResourceType> const& other) const override;
 };
-

@@ -16,12 +16,11 @@ class ComputeGraph::Function : public Statement {
   size_t getInputTicks(size_t i) const;
 
   protected:
-  std::vector<Input> inputs;
-  std::vector<std::shared_ptr<Resource>> outputs;
+  std::vector<Input>                         inputs;
+  std::vector<std::shared_ptr<Resource>>     outputs;
   std::vector<std::shared_ptr<ResourceType>> inputTypes;
   std::vector<std::shared_ptr<ResourceType>> outputTypes;
-  virtual void compute() override final;
-  virtual void react(Signal const& s) override;
+  virtual void                               compute() override final;
   void checkInputType(size_t i, std::shared_ptr<Resource> const& r) const;
   void checkOutputType(size_t i, std::shared_ptr<Resource> const& r) const;
   void unbindOutput(size_t i);
