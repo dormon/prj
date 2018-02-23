@@ -29,12 +29,13 @@ int main(){
 
     // kernel calculates for each element C=A+B
     std::string kernel_code=
-            "   void kernel simple_add(global const int* A, global const int* B, global int* C){       "
-            "       C[get_global_id(0)]=A[get_global_id(0)]+B[get_global_id(0)];                 "
+            "   void kernel simple_add(global const float* A, global const float* B, global float* C){       "
+            "       C[get_global_id(0)]=A[get_global_id(0)] + __builtin_amdgcn_sinf(B[get_global_id(0)]) ;                 "
             "   }                                                                               ";
     sources.push_back({kernel_code.c_str(),kernel_code.length()});
 
     cl::Program program(context,sources);
+
     if(program.build({default_device})!=CL_SUCCESS){
         std::cout<<" Error building: "<<program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(default_device)<<"\n";
         exit(1);

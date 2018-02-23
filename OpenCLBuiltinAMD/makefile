@@ -1,7 +1,7 @@
 BIN      = intr
-LIB      = /home/dormon/Downloads/clang+llvm-5.0.1-x86_64-linux-gnu-ubuntu-14.04/lib/libclang.so
+LIB      = -lOpenCL
 CPPFLAGS = -std=c++14 -Wall -O3 -Wconversion
-CPP      = /home/dormon/Downloads/clang+llvm-5.0.1-x86_64-linux-gnu-ubuntu-14.04/bin/clang
+CPP      = g++-5
 OBJ      = main.o
 
 all: ${BIN}
