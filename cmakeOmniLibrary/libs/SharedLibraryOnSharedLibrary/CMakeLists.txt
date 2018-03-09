@@ -66,3 +66,11 @@ list(APPEND ${LIB_NAME}_EXTERNAL_LIBRARIES_TO_FIND )
 set(${LIB_NAME}_COMPILATION_OPTION )
 
 include(../../CMakeLibrary/libraryExports.cmake)
+
+#target_include_directories(${LIB_NAME} PUBLIC SharedLibraryOnSharedLibrary_B)
+
+target_include_directories(${LIB_NAME} PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/SharedLibraryOnSharedLibrary_B>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/build>
+  $<INSTALL_INTERFACE:include/SharedLibraryOnSharedLibrary_B>
+)
