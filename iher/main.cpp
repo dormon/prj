@@ -16,6 +16,8 @@ class AA{
     AA(){
       std::cerr << "AA::AA()" << std::endl;
     }
+    float aAA;
+    float bAA;
 };
 
 class BB: public AA{
@@ -23,6 +25,8 @@ class BB: public AA{
     BB(){
       std::cerr << "BB::BB()" << std::endl;
     }
+    float aBB;
+    float bBB;
 };
 
 template<typename T>
@@ -32,6 +36,10 @@ class Base{
       a = new T();
     }
     AA*a;
+    template<typename TO>
+      operator TO*(){
+        return (TO*)a;
+      }
 };
 
 class A: public Base<AA>{

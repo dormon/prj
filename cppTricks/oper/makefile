@@ -1,6 +1,6 @@
 BIN      = sharedOrNot
-LIB      =
-CPPFLAGS = -std=c++1y -Wall -O3
+LIB      = 
+CPPFLAGS = -std=c++1y -Wall -O3 -fextended-identifiers
 CPP      = g++
 OBJ      = main.o
 

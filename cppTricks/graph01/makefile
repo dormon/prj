@@ -1,5 +1,5 @@
-BIN      = sharedOrNot
-LIB      =
+BIN      = graph
+LIB      = 
 CPPFLAGS = -std=c++1y -Wall -O3
 CPP      = g++
 OBJ      = main.o

@@ -1,16 +1,16 @@
-BIN      = sharedOrNot
-LIB      =
-CPPFLAGS = -std=c++1y -Wall -O3
-CPP      = g++
+BIN      = referenceWrapper
+LIB      = 
+CPPFLAGS = -std=c++14 -Wall -O3
+CC       = g++-5
 OBJ      = main.o
 
 all: ${BIN}
 
 ${BIN}: ${OBJ}
-	${CPP} ${OBJ} -o ${BIN} ${LIB}
+	${CC} ${OBJ} -o ${BIN} ${LIB}
 
-%.o: %.cpp %.h
-	${CPP} -o $@ ${CPPFLAGS} -c $<
+%.o: %.cpp
+	${CC} -o $@ ${CPPFLAGS} -c $<
 
 run: ${BIN}
 	./${BIN}

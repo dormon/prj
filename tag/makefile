@@ -1,7 +1,7 @@
-BIN      = sharedOrNot
-LIB      =
-CPPFLAGS = -std=c++1y -Wall -O3
-CPP      = g++
+BIN      = accessMember
+LIB      = 
+CPPFLAGS = -std=c++14 -Wall -O3 -Wconversion
+CPP      = g++-5
 OBJ      = main.o
 
 all: ${BIN}

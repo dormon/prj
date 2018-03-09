@@ -5,14 +5,13 @@
 #include<map>
 #include<cstring>
 #include<cassert>
-#include<glm/glm.hpp>
 #include<chrono>
 #include<algorithm>
 
 #include"fce.h"
 
 int main(){
-  size_t const iterations = 10000000000;
+  size_t const iterations = 2000000000;
   {
     size_t buf=2;
     auto start = std::chrono::high_resolution_clock::now();
