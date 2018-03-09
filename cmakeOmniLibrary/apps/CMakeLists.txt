@@ -23,8 +23,9 @@ else()
   list(APPEND AS_SUBPROJECT ${${LIB_NAME}_SUBPROJECTS})
 endif()
 
-add_subdirectory(HeaderOnlyLibraryApp)
-add_subdirectory(StaticLibraryApp)
-add_subdirectory(SharedLibraryApp)
-add_subdirectory(SharedLibraryOnSharedLibraryApp)
+#add_subdirectory(HeaderApp)
+#add_subdirectory(StaticApp)
+#add_subdirectory(SharedApp)
+#add_subdirectory(SharedCompositeApp)
+#add_subdirectory(SharedLibraryOnSharedLibraryApp)
 

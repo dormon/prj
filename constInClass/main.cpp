@@ -5,7 +5,6 @@
 #include<map>
 #include<cstring>
 #include<cassert>
-#include<glm/glm.hpp>
 
 class A{
   public:

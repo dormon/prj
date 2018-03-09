@@ -1,5 +1,5 @@
 BIN      = sharedOrNot
-LIB      = -lGLEW -lgeGL
+LIB      =
 CPPFLAGS = -std=c++1y -Wall -O3
 CPP      = g++
 OBJ      = main.o
