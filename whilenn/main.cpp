@@ -57,18 +57,21 @@ class Function{
     virtual size_t getNofArguments()const = 0;
 };
 
-class BindFunction: public Function{
-  public:
-    BindFunction(std::shared_ptr<Function>f,std::set<size_t>p):fce(f),params(p){}
-    virtual size_t getNofArguments()const override{return fce->getNofArguments()-params.size();}
-    virtual size_t getNofLocals()const override{return fce->getNofLocals();}
-    std::set<size_t>getParams()const{return params;}
-  protected:
-    std::shared_ptr<Function>fce;
-    std::set<size_t>params;
+class NonListFunction: public Function{
 };
 
-class AtomicFunction: public Function{
+class BindFunction: public NonListFunction{
+  public:
+    BindFunction(std::shared_ptr<Function>f,size_t p):fce(f),bindParameter(p){}
+    virtual size_t getNofArguments()const override{return fce->getNofArguments()-1;}
+    virtual size_t getNofLocals()const override{return std::max(static_cast<size_t>(1),fce->getNofLocals());}
+    size_t getBindParameter()const{return bindParameter;}
+  protected:
+    std::shared_ptr<Function>fce;
+    size_t bindParameter;
+};
+
+class AtomicFunction: public NonListFunction{
   public:
     AtomicFunction(size_t n):nofArguments(n){}
     virtual size_t getNofArguments()const override{return nofArguments;}
@@ -80,12 +83,12 @@ class AtomicFunction: public Function{
 class PairFunctionElement{
   public:
     std::shared_ptr<Function>fce;
-    std::vector<size_t>mapping;
+    std::vector<size_t>mapping; // |mapping| == |fce|
 };
 
-class PairFunction: public Function{
+class ListFunction: public Function{
   public:
-    PairFunction(std::array<PairFunctionElement,2>const&a):fces(a){}
+    ListFunction(std::array<PairFunctionElement,2>const&a):fces(a){}
     virtual size_t getNofArguments()const override{
       size_t n=0;
       for(auto const&f:fces)
@@ -100,10 +103,12 @@ class PairFunction: public Function{
       return n;
     }
   protected:
-    std::array<PairFunctionElement,2>fces;
+    std::shared_ptr<NonListFunction>head;
+    std::vector<size_t>headMapping;
+    std::shared_ptr<ListFunction>tail;
 };
 
-class WhileFunction: public Function{
+class WhileFunction: public NonListFunction{
   public:
     WhileFunction(std::shared_ptr<Function>const&f):fce(f){}
     virtual size_t getNofArguments()const override{return fce->getNofArguments()+1;}
@@ -113,6 +118,12 @@ class WhileFunction: public Function{
 };
 
 class IfFunction: public WhileFunction{};
+
+// BIND(fce(a,b,c,d,e),c) -> fce<c>(a,b,d,e)
+//
+//
+//
+
 
 // Program transformations:
 // Atom0     -> Atom1

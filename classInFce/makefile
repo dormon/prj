@@ -1,7 +1,7 @@
-BIN      = sharedOrNot
+BIN      = stdFceAmb
 LIB      = 
-CPPFLAGS = -std=c++1y -Wall -O3
-CPP      = g++
+CPPFLAGS = -std=c++14 -Wall -O3
+CPP      = g++-5
 OBJ      = main.o
 
 all: ${BIN}
@@ -9,7 +9,7 @@ all: ${BIN}
 ${BIN}: ${OBJ}
 	${CPP} ${OBJ} -o ${BIN} ${LIB}
 
-%.o: %.cpp %.h
+%.o: %.cpp
 	${CPP} -o $@ ${CPPFLAGS} -c $<
 
 run: ${BIN}

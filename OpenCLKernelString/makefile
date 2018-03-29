@@ -1,7 +1,7 @@
-BIN      = sharedOrNot
-LIB      = 
-CPPFLAGS = -std=c++1y -Wall -O3
-CPP      = g++
+BIN      = intr
+LIB      = -lOpenCL
+CPPFLAGS = -std=c++14 -Wall -O3 -Wconversion -I.
+CPP      = g++-5
 OBJ      = main.o
 
 all: ${BIN}
@@ -9,7 +9,7 @@ all: ${BIN}
 ${BIN}: ${OBJ}
 	${CPP} ${OBJ} -o ${BIN} ${LIB}
 
-%.o: %.cpp %.h
+%.o: %.cpp CLQuick.h
 	${CPP} -o $@ ${CPPFLAGS} -c $<
 
 run: ${BIN}
