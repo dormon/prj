@@ -97,7 +97,7 @@ int main() {
   size_t inputSize = 1024*4;
   size_t outputSize = 1024*4;
 
-  auto clb     = createContext();
+  auto clb     = createCtx();
 
   std::cout << "oneThreadPerOutput     : " << oneThreadPerOutput(clb,inputSize,outputSize,nofMeasurements) << std::endl;
   std::cout << "oneThreadPerOutputLocal: " << oneThreadPerOutputLocal(clb,inputSize,outputSize,nofMeasurements) << std::endl;

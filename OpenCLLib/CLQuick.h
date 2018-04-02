@@ -267,7 +267,7 @@ namespace clq {
   cl::Program createProgram(cl::Context const &             context,
                             std::vector<cl::Device> const & devices,
                             std::vector<std::string> const &sources,
-                            std::string const &             options);
+                            std::string const &             options = "");
 
   cl::Kernel createKernel(cl::Program const &program, std::string const &name);
 
