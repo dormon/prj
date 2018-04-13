@@ -5,10 +5,27 @@
 #include <memory>
 #include <set>
 #include <sstream>
+#include <vector>
+#include <glm/glm.hpp>
 
 #include <CLQuick.h>
 #include <Timer.h>
 #include <CommandLineArguments.h>
+#include <DAG.h>
+
+// ABDCEFG xDCEFG xDyG
+// ABCEF   xCEF   xy
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
+
 
 std::string static const kernel_code =
     R".(
@@ -35,6 +52,107 @@ void printDeviceNames(std::vector<cl::Device> const& devices) {
   for (auto const& device : devices)
     std::cout << device.getInfo<CL_DEVICE_NAME>() << std::endl;
 }
+
+/*
+class Node{
+  public:
+    Node(Graph*graph);
+    glm::mat4 getMatrix()const{return matrix;}
+    void setMatrix(glm::mat4 const&m){matrix = m;}
+    size_t nofChilds()const{return childs.size();}
+    Node*getChild(size_t i)const{
+      if(i>=nofChilds())throw std::invalid_argument("child id is too large");
+      return childs.at(i);
+    }
+    size_t addChild(Node*const child){
+      auto const it = childToId.find(child);
+      if(it != childToId.end())return it->second;
+      auto const id = nofChilds();
+      childs.push_back(child);
+      childToId[child] = id;
+      child->addParent(this);
+      return id;
+    }
+    void removeChild(Node*const child){
+    }
+
+    size_t nofParents()const{return parents.size();}
+    Node*getParent(size_t i)const{
+      if(i>=nofParents())throw std::invalid_argument("parent id is too large");
+      return parents.at(i);
+    }
+    size_t addParent(Node*const parent){
+      auto const it = parentToId.find(parent);
+      if(it != parentToId.end())return it->second;
+      auto const id = nofParents();
+      parents.push_back(parent);
+      parentToId[parent] = id;
+      parent->addChild(this);
+      return id;
+    }
+    void removeParent(size_t i){
+      if(i>=nofParents())throw std::invalid_argument("parent id is too large");
+
+    }
+  protected:
+    Graph*graph;
+    glm::mat4 matrix;
+    std::vector<Node*>childs;
+    std::vector<Node*>parents;
+    std::map<Node*,size_t>childToId;
+    std::map<Node*,size_t>parentToId;
+};
+
+class Graph{
+  public:
+    size_t addRoot();
+    void removeRoot(size_t id);
+    std::map<size_t,std::shared_ptr<Node>>roots;
+    std::map<size_t,Node*>id2Node;
+    std::map<Node*,size_t>node2Id;
+    void registerNode(Node*n){
+      auto const id = id2Node.size();
+      id2Node[id] = n;
+      node2Id[n] = id;
+    }
+    friend class Graph;
+};
+
+Node::Node(Graph*graph):graph(graph){graph->registerNode(this);}
+
+float randomf(float minVal = 0.f,float maxVal = 1.f){
+  auto const uniform = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+  return uniform * (maxVal - minVal) + minVal;
+}
+
+glm::mat4 generateMatrix(){
+  glm::mat4 result;
+  for(int i=0;i<4;++i)
+    for(int j=0;j<4;++j)
+      result[i][j] = randomf();
+  return result;
+};
+
+void generateNTreeNode(std::shared_ptr<Node>const&node,Node*parent,size_t depth,size_t branching){
+  if(depth == 0)return;
+  for(size_t i=0;i<branching;++i)
+    node->childs.insert(std::make_shared<Node>());
+  node->parents.insert(parent);
+  node->matrix = generateMatrix();
+  for(auto const&n:node->childs)
+    generateNTreeNode(n,&*node,depth-1,branching);
+}
+
+void generateNTree(TreeGraph&graph,size_t depth,size_t branching){
+  if(depth == 0)throw std::invalid_argument("depth has to be at least 1");
+  if(branching == 0)throw std::invalid_argument("branching has to be at least 1");
+  auto root = std::make_shared<Node>();
+  root->matrix = generateMatrix();
+  depth--;
+  generateNTreeNode(root,nullptr,depth,branching);
+  graph.roots.insert(root);
+}
+*/
 
 struct CommandLineArguments{
   Arguments args;
