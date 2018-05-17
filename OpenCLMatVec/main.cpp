@@ -1,4 +1,5 @@
 #include <CL/cl.hpp>
+#include <sqlite3.h>
 #include <iostream>
 #include <sstream>
 #include <cassert>
@@ -90,6 +91,27 @@ float oneThreadPerOutputLocal(CLBase const&clb,size_t inputSize,size_t outputSiz
   setKernelParameters(kernel,params);
 
   return measureKernel(kernel,cl::NDRange(outputSize),cl::NDRange(64),nofMeasurements);
+}
+
+void measureKernel(
+    CLBase             const&clb            ,
+    std::vector<size_t>const&inputSizes     ,
+    std::vector<size_t>const&outputSizes    ,
+    std::vector<size_t>const&batchSizes     ,
+    size_t                   nofMeasurements){
+  static_cast<void>(batchSizes);
+  sqlite3*db;
+  std::string const database = "measurement";
+  int rc = sqlite3_open(database.c_str(), &db);
+  if(rc){
+    std::cerr << "Can't open database: " << database << ": " << sqlite3_errmsg(db);
+    return;
+  }
+  sqlite3_exec(db,"create table oneThreadPerOutput",nullptr,0,nullptr);
+  for(size_t inputSize:inputSizes)
+    for(size_t outputSize:outputSizes)
+        oneThreadPerOutput(clb,inputSize,outputSize,nofMeasurements);
+  sqlite3_close(db);
 }
 
 int main() {
