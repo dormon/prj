@@ -8,21 +8,63 @@
 #include <vector>
 #include <tuple>
 
-template<typename>
-constexpr bool contain(){
-  return false;
-}
+using Tag = std::string;
 
-template<typename A,typename B,typename...C>
-constexpr bool contain(){
-  if constexpr(std::is_same_v<A,B>)
-    return true;
-  return contain<A,C...>();
-}
+class Domain{
+  public:
+    std::string name;
+    std::set<Tag>tags;
+};
+
+// D ::= Object, image, something real, some data
+// 
+//
+//
+//
+//
+//
+//
+//
+//vector ::= { math, programming, list, }
+//Atomic Tags:
+//value
+//list
+//Category
+//HumanLanguage{
+//  English
+//  Czech
+//}
+//"jablko" ::= {"Czech","Word","Ovoce","JednotnéČíslo"}
+//"apple" ::= {"English","Word","Singular","Fruit","jablko"}
+//"ProgrammingLanguage"{
+//  C++,
+//  Python,
+//}
+//"C++"{
+//  "while"
+//  "for"
+//}
+//Grammar
+//
+//
+//
+
+//math{
+//  vector,
+//  value,
+//
+//}
+//programming{
+//  float,
+//  integer,
+//  for
+//}
+//
+//
+//
+//
 
 int main() { 
-  static_assert(contain<float,int,char,float,double>());
-  static_assert(!contain<float>());
-  static_assert(!contain<float,int>());
+
   return 0; 
 }
