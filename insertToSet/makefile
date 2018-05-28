@@ -1,6 +1,6 @@
 BIN      = accessMember
 LIB      = 
-CPPFLAGS = -std=c++17 -Wall -O3 -Wconversion
+CPPFLAGS = -std=c++17 -Wall -O3 -Wconversion -I.
 CPP      = g++-7
 OBJ      = main.o
 

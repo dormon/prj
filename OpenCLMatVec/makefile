@@ -1,5 +1,5 @@
 BIN      = intr
-LIB      = -lOpenCL
+LIB      = -lOpenCL 
 CPPFLAGS = -std=c++14 -Wall -O3 -Wconversion -I. -I/usr/local/cuda/include/
 CPP      = g++-5
 OBJ      = main.o CLQuick.o
