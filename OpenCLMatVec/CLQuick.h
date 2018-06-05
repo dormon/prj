@@ -397,10 +397,10 @@ inline CLKernel createKernel(CLProgram const &  program,
   return result;
 }
 
-inline CLKernel createKernel(CLBase const &     clb,
-                             std::string const &kernelName,
-                             std::string const &src,
-                             std::string const &options = "") {
+inline CLKernel createKernel(CLBase      const &clb                ,
+                             std::string const &src                ,
+                             std::string const &options    = ""    ,
+                             std::string const &kernelName = "main"){
   auto program = createProgram(clb, src, options);
   return createKernel(program, kernelName);
 }
