@@ -99,115 +99,95 @@ void kernel main(
 MeanVariance<float> sgemm7(){
   std::string const static src = R".(
 
-    // Wider loads combined with 2D register blocking
-    __kernel void myGEMM7(const int M, const int N, const int K,
-                          const __global floatX* A,
-                          const __global floatX* B,
-                          __global float* C) {
+#define TSOutput  128                  // The tile-size in dimension outputSize
+#define TSBatch   128                  // The tile-size in dimension batchSize
+#define TSInput   16                   // The tile-size in dimension inputSize
+#define WPTOutput 8                    // The work-per-thread in dimension outputSize
+#define WPTBatch  8                    // The work-per-thread in dimension batchSize
+#define RTSOutput (TSOutput/WPTOutput) // The reduced tile-size in dimension outputSize
+#define RTSBatch  (TSBatch/WPTBatch)   // The reduced tile-size in dimension batchSize
+#define LPTMatrix ((TSInput*TSOutput)/(RTSOutput*RTSBatch)) // Loads-per-thread for matrix
+#define LPTInput  ((TSInput*TSBatch)/(RTSOutput*RTSBatch)) // Loads-per-thread for input
 
-        
-        // Thread identifiers
-        const int tidm = get_local_id(0); // Local row ID (max: TSM/WPTM)
-        const int tidn = get_local_id(1); // Local col ID (max: TSN/WPTN)
-        const int offsetM = TSM*get_group_id(0); // Work-group offset
-        const int offsetN = TSN*get_group_id(1); // Work-group offset
-     
-        // Local memory to fit a tile of A and B
-        __local float Asub[TSK][TSM];
-        __local float Bsub[TSK][TSN];
-     
-        // Allocate register space
-        float Areg;
-        float Breg[WPTN];
-        float acc[WPTM][WPTN];
-     
-        // Initialise the accumulation registers
-        for (int wm=0; wm<WPTM; wm++) {
-            for (int wn=0; wn<WPTN; wn++) {
-                acc[wm][wn] = 0.0f;
-            }
+// Use 2D register blocking (further increase in work per thread)
+void kernel myGEMM6(
+  global const float* matrix    ,
+  global const float* input     ,
+  global       float* output    ,
+         const int    inputSize ,
+         const int    outputSize,
+         const int    batchSize ){
+    
+    // Thread identifiers
+    const int tidOutput    = get_local_id(0)           ; // Local row ID (max: TSOutput/WPTOutput)
+    const int tidBatch     = get_local_id(1)           ; // Local col ID (max: TSBatch/WPTBatch)
+    const int offsetOutput = TSOutput * get_group_id(0); // Work-group offset
+    const int offsetBatch  = TSBatch  * get_group_id(1); // Work-group offset
+ 
+    // Local memory to fit a tile of matrix and input
+    local float matrixSub[TSInput][TSOutput];
+    local float inputSub [TSBatch][TSInput+2];
+ 
+    // Allocate register space
+    float matrixReg;
+    float inputReg[WPTBatch];
+    float acc[WPTOutput][WPTBatch];
+ 
+    // Initialise the accumulation registers
+    for (int o=0; o<WPTOutput; o++)
+        for (int b=0; b<WPTBatch; b++)
+            acc[o][b] = 0.0f;
+    
+    // Loop over all tiles
+    int numTiles = inputSize/TSInput;
+    for (int t=0; t<numTiles; t++) {
+ 
+        // Load one tile of matrix and input into local memory
+        for (int la=0; la<LPTMatrix; la++) {
+            int tid        = tidBatch*RTSOutput + tidOutput;
+            int id         = la*RTSBatch*RTSOutput + tid;
+            int row        = id % TSOutput;
+            int col        = id / TSOutput;
+            int tiledIndex = TSInput*t + col;
+            matrixSub[col][row] = matrix[tiledIndex*outputSize + offsetOutput + row];
+            inputSub [row][col] = input [tiledIndex*batchSize  + offsetBatch  + row];
         }
         
-        // Loop over all tiles
-        int numTiles = K/TSK;
-        for (int t=0; t<numTiles; t++) {
-     
-            // Load one tile of A and B into local memory
-            for (int la=0; la<LPTA/WIDTH; la++) {
-                int tid = tidn*RTSM + tidm;
-                int id = la*RTSN*RTSM + tid;
-                int row = id % (TSM/WIDTH);
-                int col = id / (TSM/WIDTH);
-     
-                // Load the values (wide vector load)
-                int tiledIndex = TSK*t + col;
-                floatX vecA = A[tiledIndex*(M/WIDTH) + offsetM/WIDTH + row];
-                floatX vecB = B[tiledIndex*(N/WIDTH) + offsetN/WIDTH + row];
-     
-                // Store the loaded vectors into local memory
-                #if WIDTH == 1
-                    Asub[col][row] = vecA;
-                    Asub[col][row] = vecA;
-                #elif WIDTH == 2
-                    Asub[col][WIDTH*row + 0] = vecA.x;
-                    Asub[col][WIDTH*row + 1] = vecA.y;
-                #elif WIDTH == 4
-                    Asub[col][WIDTH*row + 0] = vecA.x;
-                    Asub[col][WIDTH*row + 1] = vecA.y;
-                    Asub[col][WIDTH*row + 2] = vecA.z;
-                    Asub[col][WIDTH*row + 3] = vecA.w;
-                #endif
-                #if WIDTH == 1
-                    Bsub[col][row] = vecB;
-                    Bsub[col][row] = vecB;
-                #elif WIDTH == 2
-                    Bsub[col][WIDTH*row + 0] = vecB.x;
-                    Bsub[col][WIDTH*row + 1] = vecB.y;
-                #elif WIDTH == 4
-                    Bsub[col][WIDTH*row + 0] = vecB.x;
-                    Bsub[col][WIDTH*row + 1] = vecB.y;
-                    Bsub[col][WIDTH*row + 2] = vecB.z;
-                    Bsub[col][WIDTH*row + 3] = vecB.w;
-                #endif
+        // Synchronise to make sure the tile is loaded
+        barrier(CLK_LOCAL_MEM_FENCE);
+ 
+        // Loop over the values of a single tile
+        for (int k=0; k<TSInput; k++) {
+ 
+            // Cache the values of inputSub in registers
+            for (int wn=0; wn<WPTBatch; wn++) {
+                int col = tidBatch + wn*RTSBatch;
+                inputReg[wn] = inputSub[col][k];
             }
-            
-            // Synchronise to make sure the tile is loaded
-            barrier(CLK_LOCAL_MEM_FENCE);
-     
-            // Loop over the values of a single tile
-            for (int k=0; k<TSK; k++) {
-     
-                // Cache the values of Bsub in registers
-                for (int wn=0; wn<WPTN; wn++) {
-                    int col = tidn + wn*RTSN;
-                    Breg[wn] = Bsub[k][col];
-                }
-     
-                // Perform the computation
-                for (int wm=0; wm<WPTM; wm++) {
-                    int row = tidm + wm*RTSM;
-                    Areg = Asub[k][row];
-                    for (int wn=0; wn<WPTN; wn++) {
-                        acc[wm][wn] += Areg * Breg[wn];
-                    }
+ 
+            // Perform the computation
+            for (int wm=0; wm<WPTOutput; wm++) {
+                int row = tidOutput + wm*RTSOutput;
+                matrixReg = matrixSub[k][row];
+                for (int wn=0; wn<WPTBatch; wn++) {
+                    acc[wm][wn] += matrixReg * inputReg[wn];
                 }
             }
-     
-            // Synchronise before loading the next tile
-            barrier(CLK_LOCAL_MEM_FENCE);
         }
-     
-        // Store the final results in C
-        for (int wm=0; wm<WPTM; wm++) {
-            int globalRow = offsetM + tidm + wm*RTSM;
-            for (int wn=0; wn<WPTN; wn++) {
-                int globalCol = offsetN + tidn + wn*RTSN;
-                C[globalCol*M + globalRow] = acc[wm][wn];
-            }
+ 
+        // Synchronise before loading the next tile
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+ 
+    // Store the final results in output
+    for (int wm=0; wm<WPTOutput; wm++) {
+        int globalRow = offsetOutput + tidOutput + wm*RTSOutput;
+        for (int wn=0; wn<WPTBatch; wn++) {
+            int globalCol = offsetBatch + tidBatch + wn*RTSBatch;
+            output[globalCol*outputSize + globalRow] = acc[wm][wn];
         }
     }
-
-
+}
   ).";
 
 }
