@@ -2,7 +2,6 @@
 #include <imguiSDL2Dormon/imgui_impl_sdl.h>
 #include <imguiOpenGL3Dormon/imgui_impl_opengl3.h>
 #include <stdio.h>
-#include <GL/gl3w.h>
 #include <SDL2/SDL.h>
 #include <SDL2CPP/Window.h>
 #include <SDL2CPP/MainLoop.h>
@@ -14,8 +13,6 @@ int main(int, char**)
   window->createContext("rendering");
   auto mainLoop = std::make_shared<sdl2cpp::MainLoop>();
   mainLoop->addWindow("main",window);
-  gl3wInit();
-
 
   // Setup Dear ImGui binding
   IMGUI_CHECKVERSION();
@@ -24,7 +21,7 @@ int main(int, char**)
   //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
   
   ImGui_ImplSDL2_InitForOpenGL(window->getWindow(), window->getContext("rendering"));
-  ImGui_ImplOpenGL3_Init();
+  auto imguiOpenGL = std::make_unique<ImguiOpenGL>();
   
   // Setup style
   ImGui::StyleColorsDark();
@@ -41,7 +38,6 @@ int main(int, char**)
   [&](){
 
     // Start the ImGui frame
-    ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(window->getWindow());
     ImGui::NewFrame();
 
@@ -85,12 +81,12 @@ int main(int, char**)
     // Rendering
     ImGui::Render();
     SDL_GL_MakeCurrent(window->getWindow(), window->getContext("rendering"));
-    glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
-    glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-    glClear(GL_COLOR_BUFFER_BIT);
+    //glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
+    //glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
+    //glClear(GL_COLOR_BUFFER_BIT);
 
 
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    imguiOpenGL->render(ImGui::GetDrawData());
 
     window->swap();
   });
@@ -98,7 +94,7 @@ int main(int, char**)
   (*mainLoop)();
 
   // Cleanup
-  ImGui_ImplOpenGL3_Shutdown();
+  imguiOpenGL = nullptr;
   ImGui_ImplSDL2_Shutdown();
   ImGui::DestroyContext();
 

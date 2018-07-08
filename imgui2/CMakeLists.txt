@@ -13,7 +13,7 @@ set(REVISION_VERSION 0)
 
 #include(GenerateExportHeader)
 
-find_package(imguiOpenGL3Dormon CONFIG REQUIRED)
+find_package(imguiOpenGLDormon CONFIG REQUIRED)
 find_package(imguiSDL2Dormon CONFIG REQUIRED)
 find_package(SDL2CPP CONFIG REQUIRED)
 
@@ -26,5 +26,5 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${INCLUDES})
 target_include_directories(${PROJECT_NAME} PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories(${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC imguiOpenGL3Dormon::imguiOpenGL3Dormon imguiSDL2Dormon::imguiSDL2Dormon gl3w SDL2CPP::SDL2CPP)
+target_link_libraries(${PROJECT_NAME} PUBLIC imguiOpenGLDormon::imguiOpenGLDormon imguiSDL2Dormon::imguiSDL2Dormon SDL2CPP::SDL2CPP)
 

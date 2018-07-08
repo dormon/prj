@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10.1)
 
 project(
-  imguiOpenGL3Dormon
+  imguiOpenGLDormon
   VERSION 1.0.0
   )
 
@@ -10,11 +10,17 @@ SET(CMAKE_CXX_STANDARD 14)
 find_package(imguiDormon CONFIG REQUIRED)
 
 set(SOURCES
-  src/${PROJECT_NAME}/imgui_impl_opengl3.cpp
+  src/${PROJECT_NAME}/imguiOpenGL.cpp
+  src/${PROJECT_NAME}/GetProcAddress.cpp
   )
 
 set(INCLUDES
-  src/${PROJECT_NAME}/imgui_impl_opengl3.h
+  src/${PROJECT_NAME}/imguiOpenGL.h
+  )
+
+set(PRIVATE_INCLUDES
+  src/${PROJECT_NAME}/GetProcAddress.h
+  src/${PROJECT_NAME}/MinimalOpenGL.h
   )
 
 option(BUILD_SHARED_LIBS "build this library as shared")
@@ -24,7 +30,7 @@ SET(CMAKE_RELEASE_POSTFIX "" CACHE STRING "add a postfix, usually empty on windo
 SET(CMAKE_RELWITHDEBINFO_POSTFIX "rd" CACHE STRING "add a postfix, usually empty on windows")
 SET(CMAKE_MINSIZEREL_POSTFIX "s" CACHE STRING "add a postfix, usually empty on windows")
 
-add_library(${PROJECT_NAME} ${SOURCES} ${INCLUDES})
+add_library(${PROJECT_NAME} ${SOURCES} ${INCLUDES} ${PRIVATE_INCLUDES})
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 include(GNUInstallDirs)
