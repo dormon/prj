@@ -2,6 +2,8 @@
 
 #include<imguiOpenGLDormon/OpenGLTable.h>
 
+namespace imguiOpenGLDormon{
+
 class BackupOpenGLState{
   public:
     BackupOpenGLState(OpenGLTable const& gl);
@@ -28,3 +30,5 @@ class BackupOpenGLState{
     GLboolean last_enable_depth_test;
     GLboolean last_enable_scissor_test;
 };
+
+}

@@ -1,11 +1,16 @@
 #include <imguiOpenGLDormon/GetProcAddress.h>
 
+#include <stdexcept>
 #include <cstdint>
 #include <iostream>
+
+namespace imguiOpenGLDormon{
 
 #if defined(_MSC_VER)
 #define WIN32_LEAN_AND_MEAN
 #include<Windows.h>
+
+
 class OpenGLFunctionLoader{
   protected:
     bool _triedToLoadOpenGL = false;
@@ -82,4 +87,6 @@ class OpenGLFunctionLoader{
 void*getProcAddress(char const*name){
   static OpenGLFunctionLoader loader{};
   return loader(name);
+}
+
 }

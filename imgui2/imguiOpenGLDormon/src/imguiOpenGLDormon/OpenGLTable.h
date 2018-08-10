@@ -2,6 +2,8 @@
 
 #include<imguiOpenGLDormon/MinimalOpenGL.h>
 
+namespace imguiOpenGLDormon{
+
 class OpenGLTable{
   public:
     OpenGLTable();
@@ -48,5 +50,9 @@ class OpenGLTable{
     PFNGLDETACHSHADERPROC            glDetachShader;
     PFNGLDELETESHADERPROC            glDeleteShader;
     PFNGLDELETEPROGRAMPROC           glDeleteProgram;
+    PFNGLGETSHADERIVPROC             glGetShaderiv;
+    PFNGLGETSHADERINFOLOGPROC        glGetShaderInfoLog;
+
 };
 
+}

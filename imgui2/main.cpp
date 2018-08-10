@@ -1,11 +1,12 @@
 #include <imguiDormon/imgui.h>
-#include <imguiSDL2Dormon/imgui_impl_sdl.h>
-#include <imguiOpenGL3Dormon/imgui_impl_opengl3.h>
+#include <imguiSDL2Dormon/EventHandler.h>
+#include <imguiOpenGLDormon/Renderer.h>
+#include <imguiSDL2OpenGL/imgui.h>
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include <SDL2CPP/Window.h>
 #include <SDL2CPP/MainLoop.h>
-#include<iostream>
+#include <iostream>
 
 int main(int, char**)
 {
@@ -14,32 +15,21 @@ int main(int, char**)
   auto mainLoop = std::make_shared<sdl2cpp::MainLoop>();
   mainLoop->addWindow("main",window);
 
-  // Setup Dear ImGui binding
-  IMGUI_CHECKVERSION();
-  ImGui::CreateContext();
-  ImGuiIO& io = ImGui::GetIO(); (void)io;
-  //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
-  
-  ImGui_ImplSDL2_InitForOpenGL(window->getWindow(), window->getContext("rendering"));
-  auto imguiOpenGL = std::make_unique<ImguiOpenGL>();
-  
-  // Setup style
-  ImGui::StyleColorsDark();
+  auto imgui = std::make_unique<imguiSDL2OpenGL::Imgui>(window->getWindow());
 
   bool show_demo_window = true;
   bool show_another_window = false;
   ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
   mainLoop->setEventHandler([&](SDL_Event const&event){
-    return ImGui_ImplSDL2_ProcessEvent((SDL_Event*)&event);
+    return imgui->processEvent((SDL_Event*)&event);
   });
 
   mainLoop->setIdleCallback(
   [&](){
 
-    // Start the ImGui frame
-    ImGui_ImplSDL2_NewFrame(window->getWindow());
-    ImGui::NewFrame();
+
+  imgui->newFrame(window->getWindow());
 
     // 1. Show a simple window.
     // Tip: if we don't call ImGui::Begin()/ImGui::End() the widgets automatically appears in a window called "Debug".
@@ -77,26 +67,13 @@ int main(int, char**)
       ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver); // Normally user code doesn't need/want to call this because positions are saved in .ini file anyway. Here we just want to make the demo initial state a bit more friendly!
       ImGui::ShowDemoWindow(&show_demo_window);
     }
-  
-    // Rendering
-    ImGui::Render();
-    SDL_GL_MakeCurrent(window->getWindow(), window->getContext("rendering"));
-    //glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
-    //glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-    //glClear(GL_COLOR_BUFFER_BIT);
-
-
-    imguiOpenGL->render(ImGui::GetDrawData());
-
+ 
+    imgui->render(window->getWindow(),window->getContext("rendering"));
     window->swap();
   });
 
   (*mainLoop)();
 
-  // Cleanup
-  imguiOpenGL = nullptr;
-  ImGui_ImplSDL2_Shutdown();
-  ImGui::DestroyContext();
-
+  imgui = nullptr;
   return 0;
 }

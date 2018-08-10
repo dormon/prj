@@ -1,6 +1,8 @@
 #include <imguiOpenGLDormon/OpenGLTable.h>
 #include <imguiOpenGLDormon/GetProcAddress.h>
 
+namespace imguiOpenGLDormon{
+
 OpenGLTable::OpenGLTable(){
   glGetIntegerv             = (PFNGLGETINTEGERVPROC            )getProcAddress("glGetIntegerv"            );
   glActiveTexture           = (PFNGLACTIVETEXTUREPROC          )getProcAddress("glActiveTexture"          );
@@ -45,5 +47,9 @@ OpenGLTable::OpenGLTable(){
   glDetachShader            = (PFNGLDETACHSHADERPROC           )getProcAddress("glDetachShader"           );
   glDeleteShader            = (PFNGLDELETESHADERPROC           )getProcAddress("glDeleteShader"           );
   glDeleteProgram           = (PFNGLDELETEPROGRAMPROC          )getProcAddress("glDeleteProgram"          );
+  glGetShaderiv             = (PFNGLGETSHADERIVPROC            )getProcAddress("glGetShaderiv"            );
+  glGetShaderInfoLog        = (PFNGLGETSHADERINFOLOGPROC       )getProcAddress("glGetShaderInfoLog"       );
+
+}
 
 }

@@ -10,17 +10,24 @@ SET(CMAKE_CXX_STANDARD 14)
 find_package(imguiDormon CONFIG REQUIRED)
 
 set(SOURCES
-  src/${PROJECT_NAME}/imguiOpenGL.cpp
+  src/${PROJECT_NAME}/BackupOpenGLState.cpp
   src/${PROJECT_NAME}/GetProcAddress.cpp
+  src/${PROJECT_NAME}/OpenGLTable.cpp
+  src/${PROJECT_NAME}/Renderer.cpp
+  src/${PROJECT_NAME}/RendererImpl.cpp
   )
 
 set(INCLUDES
-  src/${PROJECT_NAME}/imguiOpenGL.h
+  src/${PROJECT_NAME}/Renderer.h
   )
 
 set(PRIVATE_INCLUDES
   src/${PROJECT_NAME}/GetProcAddress.h
   src/${PROJECT_NAME}/MinimalOpenGL.h
+  src/${PROJECT_NAME}/BackupOpenGLState.h
+  src/${PROJECT_NAME}/MinimalOpenGL.h
+  src/${PROJECT_NAME}/OpenGLTable.h
+  src/${PROJECT_NAME}/RendererImpl.h
   )
 
 option(BUILD_SHARED_LIBS "build this library as shared")

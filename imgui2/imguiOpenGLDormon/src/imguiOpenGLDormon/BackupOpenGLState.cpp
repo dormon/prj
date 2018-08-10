@@ -1,5 +1,7 @@
 #include <imguiOpenGLDormon/BackupOpenGLState.h>
 
+namespace imguiOpenGLDormon{
+
 BackupOpenGLState::BackupOpenGLState(OpenGLTable const&gl):gl(gl){
   gl.glGetIntegerv(GL_ACTIVE_TEXTURE, (GLint*)&last_active_texture);
   gl.glActiveTexture(GL_TEXTURE0);
@@ -54,4 +56,6 @@ BackupOpenGLState::~BackupOpenGLState(){
              (GLsizei)last_viewport[3]);
   gl.glScissor(last_scissor_box[0], last_scissor_box[1],
             (GLsizei)last_scissor_box[2], (GLsizei)last_scissor_box[3]);
+}
+
 }

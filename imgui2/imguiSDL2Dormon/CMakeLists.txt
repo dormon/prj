@@ -11,11 +11,16 @@ find_package(SDL2 CONFIG REQUIRED)
 find_package(imguiDormon CONFIG REQUIRED)
 
 set(SOURCES
-  src/${PROJECT_NAME}/imgui_impl_sdl.cpp
+  src/${PROJECT_NAME}/EventHandler.cpp
+  src/${PROJECT_NAME}/EventHandlerImpl.cpp
+  )
+
+set(PRIVATE_INCLUDE
+  src/${PROJECT_NAME}/EventHandlerImpl.h
   )
 
 set(INCLUDES
-  src/${PROJECT_NAME}/imgui_impl_sdl.h
+  src/${PROJECT_NAME}/EventHandler.h
   )
 
 option(BUILD_SHARED_LIBS "build this library as shared")

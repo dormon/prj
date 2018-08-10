@@ -2,6 +2,8 @@
 
 #include<cstddef>
 
+namespace imguiOpenGLDormon{
+
 using GLuint     = unsigned int ;
 using GLenum     = unsigned int ;
 using GLint      = int          ;
@@ -55,6 +57,8 @@ using GLchar     = char         ;
 #define GL_RGBA 0x1908
 #define GL_VERTEX_SHADER 0x8B31
 #define GL_FRAGMENT_SHADER 0x8B30
+#define GL_COMPILE_STATUS 0x8B81
+#define GL_INFO_LOG_LENGTH 0x8B84
 
 using PFNGLGETINTEGERVPROC             = void     (*)(GLenum,GLint*);
 using PFNGLACTIVETEXTUREPROC           = void     (*)(GLenum);
@@ -99,4 +103,7 @@ using PFNGLDELETEBUFFERSPROC           = void     (*)(GLsizei,const GLuint*);
 using PFNGLDETACHSHADERPROC            = void     (*)(GLuint,GLuint);
 using PFNGLDELETESHADERPROC            = void     (*)(GLuint);
 using PFNGLDELETEPROGRAMPROC           = void     (*)(GLuint);
+using PFNGLGETSHADERIVPROC             = void     (*)(GLuint,GLenum,GLint*);
+using PFNGLGETSHADERINFOLOGPROC        = void     (*)(GLuint,GLsizei,GLsizei*,GLchar*);
 
+}
