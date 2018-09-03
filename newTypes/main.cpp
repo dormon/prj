@@ -9,39 +9,84 @@ enum class Qualifier{
   INOUT = IN | OUT,
 };
 
-class Type                                              {                                                               };
-class Parameter             :public Type                {                                                               };
-class NonParameter          :public Type                {                                                               };
-class StructType            :public NonParameter        {                                                               };
-class NonStruct             :public NonParameter        {                                                               };
-class EmptyStruct           :public StructType          {                                                               };
-class Struct                :public EmptyStruct         {public:NonStruct*         inner     ;StructType*         tail ;};
-class EmptyVector           :public NonStruct           {                                                               };
-class Vector                :public EmptyVector         {public:Type*              inner     ;                          };
-class Atomic                :public NonStruct           {                                                               };
-class Bit                   :public Atomic              {                                                               };
-class Any                   :public Atomic              {                                                               };
-class NonParameterStruct    :public Parameter           {                                                               };
-class ParameterStructType   :public Parameter           {                                                               };
-class EmptyParameterStruct  :public ParameterStructType {                                                               };
-class ParameterStruct       :public EmptyParameterStruct{public:NonParameterStruct*inner     ;ParameterStructType*tail ;};
-class EmptyParameterVector  :public NonParameterStruct  {                                                               };
-class ParameterVector       :public EmptyParameterVector{public:Parameter*         inner     ;                          };
-class AtomicParameter       :public NonParameterStruct  {public:Qualifier          qualifier;NonParameter*        inner;};
+//value / valueContainer
+//type of value
+//type of container
+//type can be value
+//
+//true|false    is value that can be stored in container with type: bit
+//bit           is value that can be stored in container with type: type
+//type          is value that can be stored in container with type: typeContainer
+//typeContainer is value that can be stored in container with type: typeContainerContainer
+//
+//
+//container<bit>  <=> bit
+//container<type> <=> type
+//container<bit            > a = true;
+//container<type           > a = bit ;
+//container<container<type>> a = type;
+//
+//variable is instantiation of container that can store values
+//value    is instantiation of type
+//type     is 
+//
+//int      A = 1       ;
+//typename T = int     ;
+//keyword  K = typename;
+//keyword  k = keyword ;
+//keyword  k = 
+//atomicType A = bit | any
+//typeContainers = type | atomicType |
+//type A = bit | any
+//any A = 1
+//
+//
+//
+//
+//
+//
+//
+//value -> value -> typeCon
+//int  A = 13 ;
+//type A = int;
+//meta A = type
+//typename<emptyTypenaame> T = int
+//typename<typename<emptyTypename> T = typename<emptyTypename>
+
+class Type                                              {                                                              };
+class Parameter             :public Type                {                                                              };
+class NonParameter          :public Type                {                                                              };
+class StructType            :public NonParameter        {                                                              };
+class NonStruct             :public NonParameter        {                                                              };
+class EmptyStruct           :public StructType          {                                                              };
+class Struct                :public EmptyStruct         {public:NonStruct*         inner    ;StructType*         tail ;};
+class EmptyVector           :public NonStruct           {                                                              };
+class Vector                :public EmptyVector         {public:NonParameter*      inner    ;                          };
+class Atomic                :public NonStruct           {                                                              };
+class Bit                   :public Atomic              {                                                              };
+class Any                   :public Atomic              {                                                              };
+class NonStructParameter    :public Parameter           {                                                              };
+class StructParameterType   :public Parameter           {                                                              };
+class EmptyParameterStruct  :public StructParameterType {                                                              };
+class ParameterStruct       :public EmptyParameterStruct{public:NonStructParameter*inner    ;StructParameterType*tail ;};
+class EmptyParameterVector  :public NonStructParameter  {                                                              };
+class ParameterVector       :public EmptyParameterVector{public:Parameter*         inner    ;                          };
+class AtomicParameter       :public NonStructParameter  {public:Qualifier          qualifier;NonParameter*       inner;};
 }
 
 
 namespace operations{
-class Statement                         {                                               };
-class NonPair      :public Statement    {                                               };
-class PairStatement:public Statement    {                                               };
-class EmptyPair    :public PairStatement{                                               };
-class Pair         :public EmptyPair    {public:NonPair*  inner     ;PairStatement*tail;};
-class If           :public NonPair      {public:Statement*trueBranch;                   };
-class Loop         :public NonPair      {public:Statement*inner     ;                   };
+class Operation                         {                                               };
+class NonPair      :public Operation    {                                               };
+class PairOperation:public Operation    {                                               };
+class EmptyPair    :public PairOperation{                                               };
+class Pair         :public EmptyPair    {public:NonPair*  inner     ;PairOperation*tail;};
+class If           :public NonPair      {public:Operation*trueBranch;                   };
+class Loop         :public NonPair      {public:Operation*inner     ;                   };
 class Atomic       :public NonPair      {                                               };
 class Break        :public Atomic       {                                               };
 class Nand         :public Atomic       {                                               };
+class IsType       :public Atomic       {                                               };
 class IsParameter  :public Atomic       {                                               };
 class IsStruct     :public Atomic       {                                               };
 class IsVector     :public Atomic       {                                               };
@@ -51,25 +96,30 @@ class GetTail      :public Atomic       {                                       
 class IsEmpty      :public Atomic       {                                               };
 }
 
+//<Type>               ::= <Parameter>        | <NonParameter>
+//<Parameter>          ::= <StructParameter>  | <NonStructParameter>
+//<StructParameter>    ::= "emptyStructParam" | "structParam" "<" <NonStructParameter> "," <StructParameter> ">"
+//<NonStructParameter> ::= <VectorParameter>  | <AtomicParameter>
+//<VectorParameter>    ::= "emptyVectorParam" | vectorParam < <VectorParameter> ">"
+//<AtomicParameter>    ::= "param" "<" <Qualifier> "," <NonParameter> ">"
+//<NonParameter>       ::= <StructType>       | <NonStruct>
+//<StructType>         ::= "emptyStruct"      | "struct" "<" <NonStruct> "," <StructType> ">"
+//<NonStruct>          ::= <Vector>           | <Atomic>
+//<Vector>             ::= emptyVector        | "vector" "<" <NonParameter> ">"
+//<Atomic>             ::= "bit" | "any"
+//<Qualifier>          ::= "in" | "out" | "inout"
+//
+//<DECLARATION> ::= "declare" "(" <IDENTIFIER> "," <TYPE> ")"
+//
 //keywords:
-//bit any struct<_,_> emptyStruct paramStruct<_,_> emptyParamStruct
-//let(_,_)
-//declare(_,_)
-//assign(_,_)
-//break(_)
-//type
-//param
-//nonParam
-//structType
-//nonStructType
-//emptyStruct
-//struct<_,_>
-//emptyVector
-//vector<_>
-//atomic
-//bit
-//any
-//nonParamStruct
+//type            = paramType       | nonParamType
+//paramType       = structParamType | nonStructParamType
+//nonParamType    = structType      | nonStructType
+//structType      = emptyStruct     | struct<nonStructType,structType>
+//nonStructType   = vectorType      | atomicType
+//vectorType      = emptyVector     | vector<nonParamType>
+//atomicType      = bit             | any
+//structParamType = emptyStructParam | structParam<structParam>
 //paramStructType
 //emptyParamStruct
 //paramStruct
@@ -77,10 +127,8 @@ class IsEmpty      :public Atomic       {                                       
 //paramVector
 //atomicParam
 //
-//<VECTOR>      ::= emptyVector | vector < <TYPE> >
-//<STRUCT>      ::= emptyStruct | struct < <NON_STRUCT_TYPE> , <STRUCT> >
-//<TYPE>        ::= type | param | nonParam | structType | nonStructType | <STRUCT> | emptyStruct | emptyVector | <VECTOR> | atomic | bit  | any
-//<DECLARATION> ::= declare ( <IDENTIFIER> , <TYPE> )
+//nonPairFunction
+//pairFunction = emptyFunction | pair{nonPairFunction,pairFunction}
 //
 //
 //
