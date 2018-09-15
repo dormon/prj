@@ -59,9 +59,9 @@ class NonParameter          :public Type                {                       
 class StructType            :public NonParameter        {                                                              };
 class NonStruct             :public NonParameter        {                                                              };
 class EmptyStruct           :public StructType          {                                                              };
-class Struct                :public EmptyStruct         {public:NonStruct*         inner    ;StructType*         tail ;};
+class Struct                :public EmptyStruct         {public:NonStruct         *inner    ;StructType         *tail ;};
 class EmptyVector           :public NonStruct           {                                                              };
-class Vector                :public EmptyVector         {public:NonParameter*      inner    ;                          };
+class Vector                :public EmptyVector         {public:NonParameter      *inner    ;                          };
 class Atomic                :public NonStruct           {                                                              };
 class Bit                   :public Atomic              {                                                              };
 class Any                   :public Atomic              {                                                              };
@@ -70,8 +70,8 @@ class StructParameterType   :public Parameter           {                       
 class EmptyParameterStruct  :public StructParameterType {                                                              };
 class ParameterStruct       :public EmptyParameterStruct{public:NonStructParameter*inner    ;StructParameterType*tail ;};
 class EmptyParameterVector  :public NonStructParameter  {                                                              };
-class ParameterVector       :public EmptyParameterVector{public:Parameter*         inner    ;                          };
-class AtomicParameter       :public NonStructParameter  {public:Qualifier          qualifier;NonParameter*       inner;};
+class ParameterVector       :public EmptyParameterVector{public:Parameter         *inner    ;                          };
+class AtomicParameter       :public NonStructParameter  {public:Qualifier          qualifier;NonParameter       *inner;};
 }
 
 
@@ -80,7 +80,7 @@ class Operation                         {                                       
 class NonPair      :public Operation    {                                               };
 class PairOperation:public Operation    {                                               };
 class EmptyPair    :public PairOperation{                                               };
-class Pair         :public EmptyPair    {public:NonPair*  inner     ;PairOperation*tail;};
+class Pair         :public EmptyPair    {public:NonPair  *inner     ;PairOperation*tail;};
 class If           :public NonPair      {public:Operation*trueBranch;                   };
 class Loop         :public NonPair      {public:Operation*inner     ;                   };
 class Atomic       :public NonPair      {                                               };
@@ -149,6 +149,8 @@ class IsEmpty      :public Atomic       {                                       
 //declare(MainType,main);
 //
 //assign(main,{
+//  getParams(params);
+//
 //  declare(param,mainParameters);
 //  getParameters(mainParameters,main);
 //  get
