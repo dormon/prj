@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.10.1)
+
+add_subdirectory(NIndex)
+add_subdirectory(Tensor)
+add_subdirectory(TypeList)
+add_subdirectory(TextUtils)
+add_subdirectory(DefineList)
+add_subdirectory(OpenCLLists)
+add_subdirectory(NetworkConfiguration)
+add_subdirectory(InferenceEngine)
+add_subdirectory(CPULayerImplementation)
+add_subdirectory(CPUInferenceEngine)
+add_subdirectory(OpenCLInferenceEngine)
