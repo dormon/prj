@@ -1,7 +1,7 @@
 BIN      = image2dArray
 LIB      = -lOpenCL
 CPPFLAGS = -std=c++14 -Wall -O3 -Wconversion
-CPP      = g++-5
+CPP      = g++
 OBJ      = main.o
 
 all: ${BIN}

@@ -322,7 +322,7 @@ struct CLKernel {
   CLKernel(CLBase const &c, CLProgram const &p) : clb(c), program(p) {}
 };
 
-CLBase    createCtx();
+CLBase    createCtx(size_t platform = 0,size_t device = 0);
 CLProgram createProgram(CLBase const &     clb,
                         std::string const &src,
                         std::string const &options = "");

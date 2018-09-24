@@ -1,5 +1,5 @@
 #include <CL/cl.hpp>
-#include <sqlite3.h>
+//#include <sqlite3.h>
 #include <iostream>
 #include <sstream>
 #include <cassert>
@@ -65,7 +65,7 @@ void prepareKernelParameters(KernelParameters&params,TaskSize const&size,std::un
 }
 
 MeanVariance<float> startKernel(CLBase const&clb,TaskSize const&size,size_t nofMeasurements,std::string const&src){
-  auto kernel = createKernel(clb,src);
+  auto kernel = createKernel(clb,src,"","oneThreadPerOutput");
   KernelParameters params;
   auto data = allocateOpenCLTaskData(clb,size);
   prepareKernelParameters(params,size,data);
@@ -75,7 +75,7 @@ MeanVariance<float> startKernel(CLBase const&clb,TaskSize const&size,size_t nofM
 
 MeanVariance<float> oneThreadPerOutput(CLBase const&clb,TaskSize const&size,size_t nofMeasurements){
   std::string const static src = R".(
-void kernel main(
+void kernel oneThreadPerOutput(
   global const float*matrix    ,
   global const float*input     ,
   global       float*output    ,
@@ -95,7 +95,7 @@ void kernel main(
   ).";
   return startKernel(clb,size,nofMeasurements,src);
 }
-
+/*
 MeanVariance<float> sgemm7(){
   std::string const static src = R".(
 
@@ -190,7 +190,7 @@ void kernel myGEMM6(
 }
   ).";
 
-}
+}*/
 
 MeanVariance<float> oneThreadPerOutputLocal(CLBase const&clb,TaskSize const&size,size_t nofMeasurements){
   std::string const static src = R".(
@@ -223,7 +223,7 @@ void kernel main(
   return startKernel(clb,size,nofMeasurements,src);
 }
 
-void measureKernel(
+/*void measureKernel(
     CLBase             const&clb            ,
     std::vector<size_t>const&inputSizes     ,
     std::vector<size_t>const&outputSizes    ,
@@ -243,7 +243,7 @@ void measureKernel(
       for(size_t batchSize:batchSizes)
         oneThreadPerOutput(clb,TaskSize{inputSize,outputSize,batchSize},nofMeasurements);
   sqlite3_close(db);
-}
+}*/
 
 size_t getArg(int argc,char*argv[],int a,size_t d=0){
   if(a>=argc)return d;
@@ -251,15 +251,17 @@ size_t getArg(int argc,char*argv[],int a,size_t d=0){
 }
 
 int main(int argc,char*argv[]) {
-  size_t nofMeasurements = getArg(argc,argv,4,10);
   TaskSize taskSize{
     getArg(argc,argv,1,128),
     getArg(argc,argv,2,128),
     getArg(argc,argv,3,1024),
   };
+  size_t nofMeasurements = getArg(argc,argv,4,10);
+  size_t platform = getArg(argc,argv,5,0);
+  size_t device   = getArg(argc,argv,6,0);
 
-  auto clb     = createCtx();
-
+  auto clb     = createCtx(platform,device);
+#if 0
   std::vector<CPUImplementation>implementations = {
     cpuImplementation0,
     cpuImplementation1,
@@ -281,7 +283,10 @@ int main(int argc,char*argv[]) {
     std::cout << std::setprecision(10) << std::fixed;
     std::cout << r.mean << " " << r.variance << std::endl;
   }
-  //std::cout << "oneThreadPerOutput     : " << oneThreadPerOutput(clb,inputSize,outputSize,nofMeasurements) << std::endl;
+#endif
+
+  auto r = oneThreadPerOutput(clb,taskSize,nofMeasurements);
+  std::cout << r.mean << " " << r.variance << std::endl;
   //std::cout << "oneThreadPerOutputLocal: " << oneThreadPerOutputLocal(clb,inputSize,outputSize,nofMeasurements) << std::endl;
 
   return 0;

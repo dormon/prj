@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.10.1)
+
+find_package(OpenCL)
+
+add_executable(matVec CLQuick.cpp CLQuick.h cpuImplementation.cpp cpuImplementation.h main.cpp MeanVariance.h OpenCLTaskData.h TaskData.h TaskSize.h)
+
+target_link_libraries(matVec OpenCL::OpenCL)
+target_include_directories(matVec PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

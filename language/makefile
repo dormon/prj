@@ -20,8 +20,8 @@ INCLUDEDIRS=${foreach var,${SRCDIR},-I ${var}}
 
 
 BIN=svetlo
-LIBS      = -lGL -lGLU -lGLEW -lSDL2 -lassimp -lgeGL -lgeUtil -lAntTweakBar -lSDL2 -g # -lcv -lhighgui
-CFLAGS    = -std=c++1y -Wall ${INCLUDEDIRS}
+LIBS      = -lGL -lGLU -lGLEW -lSDL2 -lassimp -lgeGL -lgeUtil -lAntTweakBar  -lSDL2 -g # -lcv -lhighgui
+CFLAGS    = -std=c++1y -Wall -I/media/data/install/linux2/include ${INCLUDEDIRS}
 CPP       = g++
 #CPP       = wing++
 #CPP       = /usr/bin/i586-mingw32msvc-g++

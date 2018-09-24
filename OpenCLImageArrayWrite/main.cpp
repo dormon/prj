@@ -11,7 +11,7 @@ void kernel setImageToOne(
              uint2           const imageSize){
   int2 const pos = {get_global_id(0),get_global_id(1)};
 
-  if(pos.x > imageSize.x || pos.y > imageSize.y)return;
+  if(pos.x >= imageSize.x || pos.y >= imageSize.y)return;
 
   for(uint layer = 0; layer < nofLayers; ++layer){
     write_imagef(output,(int4)(pos,layer,0),1.f);
@@ -37,7 +37,7 @@ int main(){
 
 
     cl_uint const nofLayers   = 3;
-    std::array<cl_uint,2>const imageSize{{10,10}};
+    std::array<cl_uint,2>const imageSize{{2,2}};
 
     auto outputImage = createImage2DArray()
       .givenContext  (context        )

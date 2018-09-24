@@ -1,7 +1,8 @@
 BIN      = intr
 LIB      = -lOpenCL -lsqlite3
-CPPFLAGS = -std=c++14 -Wall -O3 -Wconversion -I. -I/usr/local/cuda/include/
-CPP      = g++-5
+#CPPFLAGS = -std=c++14 -Wall -O3 -Wconversion -I. -I/usr/local/cuda/include/
+CPPFLAGS = -std=c++14 -O3 -Wignored-attributes -I. 
+CPP      = g++
 OBJ      = main.o CLQuick.o cpuImplementation.o
 
 all: ${BIN}

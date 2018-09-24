@@ -1,4 +1,5 @@
 #include <CLQuick.h>
+#include <cctype>
 
 /**
  * This function splits string using splitter string
@@ -246,20 +247,20 @@ cl::Image2DArray clq::createImage2DArray(cl::Context const &    context,
 }
 
 
-CLBase createCtx() {
+CLBase createCtx(size_t platformId,size_t deviceId) {
   // get all platforms (drivers)
   auto const   all_platforms    = clq::getPlatforms();
-  cl::Platform default_platform = all_platforms[0];
+  cl::Platform default_platform = all_platforms[platformId];
   std::cout << "Using platform: "
             << default_platform.getInfo<CL_PLATFORM_NAME>() << "\n";
 
   // get default device of the default platform
   auto const all_devices = clq::getDevices(default_platform);
   CLBase     result;
-  result.dev = all_devices[0];
+  result.dev = all_devices[deviceId];
   std::cout << "Using device: " << result.dev.getInfo<CL_DEVICE_NAME>() << "\n";
 
-  result.ctx = clq::createContext({all_devices[0]});
+  result.ctx = clq::createContext({ result.dev });
 
   cl_int qerr;
   result.queue = cl::CommandQueue(result.ctx, result.dev, 0, &qerr);
