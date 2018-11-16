@@ -1,0 +1,7 @@
+#include <vector>
+
+namespace std{
+  template<typename T>
+  using shared_ptr = std::vector<T>;
+}
+
