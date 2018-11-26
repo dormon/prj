@@ -11,9 +11,6 @@
 #include <functional>
 #include <cstdlib>
 
-uint32_t fun(uint32_t a) { return a + 13; }
-uint32_t fun2() { return 13; }
-
 void measure(std::string const&name,std::function<void()>const&f){
   auto start = std::chrono::high_resolution_clock::now();
   f();
@@ -21,8 +18,6 @@ void measure(std::string const&name,std::function<void()>const&f){
   std::chrono::duration<float> elapsed = end - start;
   std::cout << name << ": " << elapsed.count() << std::endl;
 }
-
-uint8_t* testfun;
 
 class RuntimeAsm{
   public:
@@ -77,10 +72,13 @@ class RuntimeAsm{
     void retq(){
       mem[offset++] = 0xc3;
     }
+    void pushRBP(){
+      mem[offset++] = 0x55;
+    }
     using FCE = void(*)();
     void writeCall(FCE const&f){
-      std::cerr << (void*)f << std::endl;
-      movRAX(*((uint64_t*)f));
+      pushRBP();
+      movRAX((uint64_t)((uint64_t*)f));
       callRAX();
     }
     uint32_t call(){
@@ -111,7 +109,7 @@ void world(){
   std::cerr << "world function was called" << std::endl;
 }
 
-int main(int argc,char*[]) {
+int main(int,char*[]) {
 
   /*
   std::ofstream f("code.cpp");
@@ -132,17 +130,24 @@ int main(int argc,char*[]) {
   // */
 
   using FCE = void(*)();
+  FCE f = hi;
   auto rasm = RuntimeAsm(2);
   //rasm.movEAX(101);
   //rasm.retq();
   //std::cerr << rasm.call() << std::endl;
-  rasm.writeCall((FCE)0x10a2f6);
-  rasm.writeCall((FCE)0x10a325);
+  //rasm.writeCall((FCE)hi);
+  //rasm.writeCall((FCE)world);
   rasm.retq();
+  hi();
+  hi();
+  hi();
+  hi();
+  f();
+  f();
   rasm.call();
+  f();
+  f();
+  hi();
   return 0;
-
-  // 400687: b8 0d 00 00 00          mov    $0xd,%eax
-  // 40068d: c3                      retq
 
 }

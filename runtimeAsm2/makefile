@@ -1,6 +1,6 @@
 BIN      = intr
 LIB      = 
-CPPFLAGS = -std=c++17 -I. -I/media/windata/install/linux/include/
+CPPFLAGS = -std=c++17 -I. -I/media/windata/install/linux/include/ -g
 CPP      = g++-7
 OBJ      = main.o
 
