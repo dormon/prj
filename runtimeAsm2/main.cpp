@@ -135,19 +135,19 @@ int main(int,char*[]) {
   //rasm.movEAX(101);
   //rasm.retq();
   //std::cerr << rasm.call() << std::endl;
-  //rasm.writeCall((FCE)hi);
+  rasm.writeCall((FCE)hi);
   //rasm.writeCall((FCE)world);
   rasm.retq();
-  hi();
-  hi();
-  hi();
-  hi();
-  f();
-  f();
+  //hi();
+  //hi();
+  //hi();
+  //hi();
+  //f();
+  //f();
   rasm.call();
-  f();
-  f();
-  hi();
+  ////f();
+  ////f();
+  ////hi();
   return 0;
 
 }
