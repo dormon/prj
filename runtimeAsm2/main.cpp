@@ -75,11 +75,15 @@ class RuntimeAsm{
     void pushRBP(){
       mem[offset++] = 0x55;
     }
+    void popRBP(){
+      mem[offset++] = 0x5d;
+    }
     using FCE = void(*)();
     void writeCall(FCE const&f){
       pushRBP();
       movRAX((uint64_t)((uint64_t*)f));
       callRAX();
+      popRBP();
     }
     uint32_t call(){
       using F = uint32_t(*)();
@@ -101,12 +105,18 @@ class RuntimeAsm{
     uint8_t*mem;
 };
 
+size_t nofTimesHiWasCalled = 0;
+
 void hi(){
-  std::cerr << "hi function was called" << std::endl;
+  std::cerr << "hi was called" << std::endl;
+  nofTimesHiWasCalled++;
 }
 
+size_t nofTimesWorldWasCalled = 0;
+
 void world(){
-  std::cerr << "world function was called" << std::endl;
+  std::cerr << "world was called" << std::endl;
+  nofTimesWorldWasCalled++;
 }
 
 int main(int,char*[]) {
@@ -145,6 +155,9 @@ int main(int,char*[]) {
   //f();
   //f();
   rasm.call();
+
+  std::cerr << "nofTimesHiWasCalled   : " << nofTimesHiWasCalled    << std::endl;
+  std::cerr << "nofTimesWorldWasCalled: " << nofTimesWorldWasCalled << std::endl;
   ////f();
   ////f();
   ////hi();
