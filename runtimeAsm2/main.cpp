@@ -107,6 +107,15 @@ class RuntimeAsm{
 
 size_t nofTimesHiWasCalled = 0;
 
+void oneParamCall(uint64_t a,uint64_t b,uint64_t c,uint64_t d,uint64_t e,uint64_t f){
+  std::cerr << "oneParamCall: " << a << std::endl;
+  std::cerr << "oneParamCall: " << b << std::endl;
+  std::cerr << "oneParamCall: " << c << std::endl;
+  std::cerr << "oneParamCall: " << d << std::endl;
+  std::cerr << "oneParamCall: " << e << std::endl;
+  std::cerr << "oneParamCall: " << f << std::endl;
+}
+
 void hi(){
   std::cerr << "hi was called" << std::endl;
   nofTimesHiWasCalled++;
@@ -119,8 +128,12 @@ void world(){
   nofTimesWorldWasCalled++;
 }
 
+decltype(oneParamCall)* g;
+
 int main(int,char*[]) {
 
+  g = oneParamCall;
+  g(0xAAAAAAAAAAAAAAAA,0xBBBBBBBBBBBBBBBB,0xCCCCCCCCCCCCCCCC,0xDDDDDDDDDDDDDDD,0xEEEEEEEEEEEEEEEE,0xFFFFFFFFFFFFFFFF);
   /*
   std::ofstream f("code.cpp");
   f << R".(
