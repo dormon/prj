@@ -83,9 +83,9 @@ class Memory{
       reinterpret_cast<F>(memory)();
     }
   protected:
-    size_t  offset;
-    uint8_t*memory;
-    size_t  pagesize;
+    size_t  offset   = 0;
+    uint8_t*memory      ;
+    size_t  pagesize    ;
 };
 
 class Instruction{
@@ -226,6 +226,18 @@ class RuntimeAsm{
     }
     void pushRBP(){
       mem[offset++] = 0x55;
+    }
+    void pushRDI(){
+      mem[offset++] = 0x57;
+    }
+    void pushRSI(){
+      mem[offset++] = 0x56;
+    }
+    void popRDI(){
+      mem[offset++] = 0x5f;
+    }
+    void popRSI(){
+      mem[offset++] = 0x5e;
     }
     void popRBP(){
       mem[offset++] = 0x5d;
@@ -480,26 +492,38 @@ void world(){
 
 template<typename...A>
 void ncall(A...a){
-  uint64_t ar[] = {a...};
-  std::cerr << "ncall(";
-  for(size_t i=0;i<sizeof...(a);++i)
-    std::cerr << ar[i] << ", ";
-  std::cerr << ")" << std::endl;
+  std::cerr << std::endl;
+  //uint64_t ar[] = {a...};
+  //std::cerr << "ncall(";
+  //for(size_t i=0;i<sizeof...(a);++i)
+  //  std::cerr << ar[i] << ", ";
+  //std::cerr << ")" << std::endl;
 }
 
 int main(int,char*[]) {
+  /*
   auto mem  = assembler::Memory(2);
   auto prog = assembler::Program();
   prog.add(std::make_shared<assembler::MovabsRSI>(1));
   prog.add(std::make_shared<assembler::MovabsRDI>(0));
   prog.add(std::make_shared<assembler::MovRAX   >((uint64_t)((uint64_t*)ncall<uint64_t,uint64_t>)));
   prog.add(std::make_shared<assembler::CallRAX  >());
+  prog.add(std::make_shared<assembler::Retq     >());
   prog.writeProgram(mem);
-  mem.call();
+  //mem.call();
+  
+  auto rasm = RuntimeAsm(2);
+  rasm.pushParam(1,51);
+  rasm.pushParam(0,50);
+  rasm.writeCall((RuntimeAsm::FCE)ncall<uint64_t,uint64_t>);
+  rasm.popParams(2);
+  rasm.voidCall();
+  */
+  
 
 
 
-#if 0
+#if 1
   /*
 decltype(uint64ParamCall  )* g    ;
 decltype(uint32ParamCall  )* g32  ;
@@ -588,29 +612,40 @@ decltype(uint64_8ParamCall)* g64_8;
   return 0;
   // */
 
-  hi();
-  hi();
-  world();
-  world();
-  using FCE = void(*)();
-  FCE f = hi;
-  auto rasm = RuntimeAsm(2);
+  //hi();
+  //hi();
+  //world();
+  //world();
+  //FCE f = hi;
   //rasm.movEAX(101);
   //rasm.retq();
   //std::cerr << rasm.call() << std::endl;
   
+  /*
   rasm.writeCall((FCE)hi);
   rasm.writeCall((FCE)world);
 
   rasm.pushParam(0,111);
   rasm.writeCall((FCE)ncall<uint64_t>);
   rasm.popParams(1);
+*/
 
+
+
+  ncall<uint64_t,uint64_t>(0,0);
+  //hi();
+  auto rasm = RuntimeAsm(2);
+  rasm.pushRDI();
+  rasm.pushRSI();
   rasm.pushParam(1,51);
   rasm.pushParam(0,50);
-  rasm.writeCall((FCE)ncall<uint64_t,uint64_t>);
+  rasm.writeCall((void(*)())ncall<uint64_t,uint64_t>);
   rasm.popParams(2);
-
+  rasm.retq();
+  rasm.voidCall();
+  rasm.popRSI();
+  rasm.popRDI();
+/*
   rasm.pushParam(2,52);
   rasm.pushParam(1,51);
   rasm.pushParam(0,50);
@@ -640,7 +675,6 @@ decltype(uint64_8ParamCall)* g64_8;
   rasm.pushParam(0,50);
   rasm.writeCall((FCE)ncall<uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t>);
   rasm.popParams(6);
-// */
 
   rasm.pushParam(6,56);
   rasm.pushParam(5,55);
@@ -662,17 +696,15 @@ decltype(uint64_8ParamCall)* g64_8;
   rasm.pushParam(0,50);
   rasm.writeCall((FCE)ncall<uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t,uint64_t>);
   rasm.popParams(8);
-
+// */
 
   //rasm.writeCall((FCE)world);
-  rasm.retq();
   //hi();
   //hi();
   //hi();
   //hi();
   //f();
   //f();
-  rasm.voidCall();
 
   std::cerr << "nofTimesHiWasCalled   : " << nofTimesHiWasCalled    << std::endl;
   std::cerr << "nofTimesWorldWasCalled: " << nofTimesWorldWasCalled << std::endl;
