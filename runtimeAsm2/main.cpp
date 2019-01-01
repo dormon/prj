@@ -492,7 +492,7 @@ void world(){
 
 template<typename...A>
 void ncall(A...a){
-  std::cerr << std::endl;
+  //std::cerr << std::endl;
   //uint64_t ar[] = {a...};
   //std::cerr << "ncall(";
   //for(size_t i=0;i<sizeof...(a);++i)
@@ -501,6 +501,7 @@ void ncall(A...a){
 }
 
 int main(int,char*[]) {
+  [](){}();
   /*
   auto mem  = assembler::Memory(2);
   auto prog = assembler::Program();
@@ -632,19 +633,14 @@ decltype(uint64_8ParamCall)* g64_8;
 
 
 
-  ncall<uint64_t,uint64_t>(0,0);
-  //hi();
   auto rasm = RuntimeAsm(2);
-  rasm.pushRDI();
-  rasm.pushRSI();
-  rasm.pushParam(1,51);
-  rasm.pushParam(0,50);
-  rasm.writeCall((void(*)())ncall<uint64_t,uint64_t>);
-  rasm.popParams(2);
+  rasm.movabsRSI(101);
+  rasm.movabsRDI(100);
+  rasm.movRAX((uint64_t)((uint64_t*)ncall<uint64_t,uint64_t>));
+  rasm.callRAX();
   rasm.retq();
+
   rasm.voidCall();
-  rasm.popRSI();
-  rasm.popRDI();
 /*
   rasm.pushParam(2,52);
   rasm.pushParam(1,51);
