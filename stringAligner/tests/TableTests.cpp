@@ -219,6 +219,76 @@ TEST_CASE("Table setCell and eraseData"){
   REQUIRE(t.getLine(0) == "test.");
 }
 
+TEST_CASE("Table getData tests simple simple0"){
+  Table t;
+  REQUIRE(t.getData() == "");
+  t.addRow();
+  t.addColumn();
+  REQUIRE(t.getNofRows() == 1);
+  REQUIRE(t.getNofColumns() == 1);
+  REQUIRE(t.getHeight() == 0);
+  REQUIRE(t.getWidth() == 0);
+  t.setHorizontalDecorators({"|","|"});
+  REQUIRE(t.getData() == "");
+}
+
+TEST_CASE("Table getData tests simple0"){
+  Table t;
+  REQUIRE(t.getData() == "");
+  t.addRow();
+  t.addColumn();
+  t.setHorizontalDecorators({"|","|"});
+  t.setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  REQUIRE(t.getData() == "|hi...|\n");
+}
+
+#include<iostream>
+
+TEST_CASE("Table getData tests simple1"){
+  Table t;
+  REQUIRE(t.getData() == "");
+  t.addRow();
+  t.addColumn();
+  t.addColumn();
+  t.setHorizontalDecorators({"|","|","|"});
+  t.setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t.setCell(0,1,std::make_shared<Text>("hi",5,'.'));
+  std::cerr << "###################################################" << std::endl;
+  REQUIRE(t.getData() == "|hi...|hi...|\n");
+  std::cerr << ".................................................." << std::endl;
+}
+
+TEST_CASE("Table getData tests simple2"){
+  Table t;
+  REQUIRE(t.getData() == "");
+  t.addRow();
+  t.addColumn();
+  t.addColumn();
+  t.addColumn();
+  t.setHorizontalDecorators({"|","|","|","|"});
+  t.setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t.setCell(0,1,std::make_shared<Text>("hi",5,'.'));
+  t.setCell(0,2,std::make_shared<Text>("hi",5,'.'));
+  REQUIRE(t.getData() == "|hi...|hi...|hi...|\n");
+}
+
+TEST_CASE("Table getData tests simple3"){
+  Table t;
+  REQUIRE(t.getData() == "");
+  t.addRow();
+  t.addColumn();
+  t.addColumn();
+  t.addColumn();
+  t.addColumn();
+  t.setHorizontalDecorators({"|","|","|","|","|"});
+  t.setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t.setCell(0,1,std::make_shared<Text>("hi",5,'.'));
+  t.setCell(0,2,std::make_shared<Text>("hi",5,'.'));
+  t.setCell(0,2,std::make_shared<Text>("hi",5,'.'));
+  REQUIRE(t.getData() == "|hi...|hi...|hi...||\n");
+}
+
+
 TEST_CASE("Table getData tests"){
   Table t;
   REQUIRE(t.getData() == "");
@@ -232,5 +302,5 @@ TEST_CASE("Table getData tests"){
   t.setCell(0,1,std::make_shared<Text>("world",5,'.'));
   t.setCell(0,2,std::make_shared<Text>("this",5,'.'));
   t.setCell(0,3,std::make_shared<Text>("is",5,'.'));
-  REQUIRE(t.getData() == "|hi...|world|this.|is...|");
+  REQUIRE(t.getData() == "|hi...|world|this.|is...|\n");
 }
