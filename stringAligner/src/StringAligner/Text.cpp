@@ -23,7 +23,7 @@ void Text::clear(size_t maxLen,char fil){
 
 void Text::addTextRec(std::string const&txt){
   auto &line = lines.back();
-  if(line.length()+txt.length() < maxWidth){
+  if(line.length()+txt.length() <= maxWidth){
     line += txt;
     return;
   }
@@ -44,6 +44,10 @@ void Text::addText(string const&txt){
 void Text::newLine(){
   addLine();
   callOnChange();
+}
+
+char Text::getFiller()const{
+  return filler;
 }
 
 size_t Text::getWidth()const{

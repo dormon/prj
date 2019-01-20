@@ -40,5 +40,6 @@ class STRINGALIGNER_EXPORT stringAligner::Table: public Block{
     std::vector<std::vector<Cell>>cells;
     bool isDecoratorThenConvertIndexToRowIndexAndDecoratorIndex(size_t&row,size_t&decorator,size_t&i)const;
     std::string getRowLine(size_t row,size_t line)const;
+    Cell const&getCellInternal(size_t row,size_t column)const;
     void setOnChangeCallback(std::shared_ptr<Block>const&block,size_t row,size_t column);
 };

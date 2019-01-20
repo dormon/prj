@@ -20,7 +20,7 @@ void Cell::setFiller(char f){
   filler = f;
 }
 
-char Cell::getFiller(){
+char Cell::getFiller()const{
   return filler;
 }
 

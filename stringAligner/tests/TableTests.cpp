@@ -242,7 +242,59 @@ TEST_CASE("Table getData tests simple0"){
   REQUIRE(t.getData() == "|hi...|\n");
 }
 
-#include<iostream>
+TEST_CASE("Table_getCellInternal"){
+  class Tab2: public Table{
+    public:
+      Cell const& getCellInternal(size_t row,size_t line)const{
+        return Table::getCellInternal(row,line);
+      }
+  };
+  Tab2 t;
+  REQUIRE(t.getData() == "");
+  t.addRow();
+  t.addColumn();
+  t.addColumn();
+  t.setHorizontalDecorators({"|","|","|"});
+  auto Block0 = std::make_shared<Text>("hi",5,'.');
+  auto Block1 = std::make_shared<Text>("hi",5,'.');
+  REQUIRE(Block0->getWidth() == 5);
+  REQUIRE(Block1->getWidth() == 5);
+  REQUIRE(Block0->getHeight() == 1);
+  REQUIRE(Block1->getHeight() == 1);
+  REQUIRE(Block0->getFiller() == '.');
+  REQUIRE(Block1->getFiller() == '.');
+  t.setCell(0,0,Block0);
+  t.setCell(0,1,Block1);
+  auto const&cell0 = t.getCellInternal(0,0);
+  REQUIRE(cell0.getFiller() == ' ');
+  REQUIRE(cell0.getData() == Block0);
+  REQUIRE(t.getColumnWidth(0) == 5);
+  REQUIRE(t.getRowHeight(0) == 1);
+  REQUIRE(cell0.getLine(t.getColumnWidth(0),t.getRowHeight(0),0) == "hi...");
+  auto const&cell1 = t.getCellInternal(0,1);
+  REQUIRE(cell1.getFiller() == ' ');
+  REQUIRE(cell1.getData() == Block1);
+  REQUIRE(t.getColumnWidth(1) == 5);
+  REQUIRE(cell1.getLine(t.getColumnWidth(1),t.getRowHeight(0),0) == "hi...");
+}
+
+TEST_CASE("Table_getRowLine"){
+  class Tab2: public Table{
+    public:
+      std::string getRowLine(size_t row,size_t line)const{
+        return Table::getRowLine(row,line);
+      }
+  };
+  Tab2 t;
+  REQUIRE(t.getData() == "");
+  t.addRow();
+  t.addColumn();
+  t.addColumn();
+  t.setHorizontalDecorators({"|","|","|"});
+  t.setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t.setCell(0,1,std::make_shared<Text>("hi",5,'.'));
+  REQUIRE(t.getRowLine(0,0) == "|hi...|hi...|");
+}
 
 TEST_CASE("Table getData tests simple1"){
   Table t;
@@ -253,9 +305,8 @@ TEST_CASE("Table getData tests simple1"){
   t.setHorizontalDecorators({"|","|","|"});
   t.setCell(0,0,std::make_shared<Text>("hi",5,'.'));
   t.setCell(0,1,std::make_shared<Text>("hi",5,'.'));
-  std::cerr << "###################################################" << std::endl;
+  REQUIRE(t.getLine(0) == "|hi...|hi...|");
   REQUIRE(t.getData() == "|hi...|hi...|\n");
-  std::cerr << ".................................................." << std::endl;
 }
 
 TEST_CASE("Table getData tests simple2"){
@@ -302,5 +353,96 @@ TEST_CASE("Table getData tests"){
   t.setCell(0,1,std::make_shared<Text>("world",5,'.'));
   t.setCell(0,2,std::make_shared<Text>("this",5,'.'));
   t.setCell(0,3,std::make_shared<Text>("is",5,'.'));
+  REQUIRE(t.getCell(0,0)->getHeight() == 1);
+  REQUIRE(t.getCell(0,1)->getHeight() == 1);
+  REQUIRE(t.getCell(0,2)->getHeight() == 1);
+  REQUIRE(t.getCell(0,3)->getHeight() == 1);
+  REQUIRE(t.getHeight() == 1);
   REQUIRE(t.getData() == "|hi...|world|this.|is...|\n");
+}
+
+TEST_CASE("Table_in_table"){
+  Table t;
+  REQUIRE(t.getData() == "");
+  t.addRow();
+  t.addRow();
+  t.addColumn();
+  t.addColumn();
+  t.setHorizontalDecorators({"|","|","|"});
+  auto t00 = std::make_shared<Table>();
+  auto t01 = std::make_shared<Table>();
+  auto t10 = std::make_shared<Table>();
+  auto t11 = std::make_shared<Table>();
+  t00->addRow();
+  t00->addColumn();
+  t00->setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t01->addRow();
+  t01->addColumn();
+  t01->setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t10->addRow();
+  t10->addColumn();
+  t10->setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t11->addRow();
+  t11->addColumn();
+  t11->setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t.setCell(0,0,t00);
+  t.setCell(0,1,t01);
+  t.setCell(1,0,t10);
+  t.setCell(1,1,t11);
+  REQUIRE(t.getData() == "|hi...|hi...|\n|hi...|hi...|\n");
+}
+
+TEST_CASE("Table_in_table1"){
+  Table t;
+  REQUIRE(t.getData() == "");
+  t.addRow();
+  t.addRow();
+  t.addColumn();
+  t.addColumn();
+  t.setHorizontalDecorators({"|","|","|"});
+  auto t00 = std::make_shared<Table>();
+  auto t01 = std::make_shared<Table>();
+  auto t10 = std::make_shared<Table>();
+  auto t11 = std::make_shared<Table>();
+  t00->addRow();
+  t00->addRow();
+  t00->addColumn();
+  t00->addColumn();
+  t00->setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t00->setCell(0,1,std::make_shared<Text>("hi",5,'.'));
+  t00->setCell(1,0,std::make_shared<Text>("hi",5,'.'));
+  t00->setCell(1,1,std::make_shared<Text>("hi",5,'.'));
+
+  t01->addRow();
+  t01->addRow();
+  t01->addColumn();
+  t01->addColumn();
+  t01->setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t01->setCell(0,1,std::make_shared<Text>("hi",5,'.'));
+  t01->setCell(1,0,std::make_shared<Text>("hi",5,'.'));
+  t01->setCell(1,1,std::make_shared<Text>("hi",5,'.'));
+
+  t10->addRow();
+  t10->addRow();
+  t10->addColumn();
+  t10->addColumn();
+  t10->setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t10->setCell(0,1,std::make_shared<Text>("hi",5,'.'));
+  t10->setCell(1,0,std::make_shared<Text>("hi",5,'.'));
+  t10->setCell(1,1,std::make_shared<Text>("hi",5,'.'));
+
+  t11->addRow();
+  t11->addRow();
+  t11->addColumn();
+  t11->addColumn();
+  t11->setCell(0,0,std::make_shared<Text>("hi",5,'.'));
+  t11->setCell(0,1,std::make_shared<Text>("hi",5,'.'));
+  t11->setCell(1,0,std::make_shared<Text>("hi",5,'.'));
+  t11->setCell(1,1,std::make_shared<Text>("hi",5,'.'));
+
+  t.setCell(0,0,t00);
+  t.setCell(0,1,t01);
+  t.setCell(1,0,t10);
+  t.setCell(1,1,t11);
+  REQUIRE(t.getData() == "|hi...hi...|hi...hi...|\n|hi...hi...|hi...hi...|\n|hi...hi...|hi...hi...|\n|hi...hi...|hi...hi...|\n");
 }

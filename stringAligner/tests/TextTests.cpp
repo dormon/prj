@@ -7,6 +7,7 @@ TEST_CASE("Text default constructor"){
   Text txt{};
   REQUIRE(txt.getHeight() == 0);
   REQUIRE(txt.getWidth() == 80);
+  REQUIRE(txt.getData() == "");
 }
 
 TEST_CASE("Text full constructor"){

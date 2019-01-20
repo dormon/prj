@@ -22,7 +22,7 @@ class STRINGALIGNER_EXPORT stringAligner::Cell{
     void setData(std::shared_ptr<Block>const&data);
     std::shared_ptr<Block>getData()const;
     void setFiller(char filler);
-    char getFiller();
+    char getFiller()const;
     Alignment getAlignment()const;
     void setAlignment(Alignment alignment);
     size_t getWidth()const;

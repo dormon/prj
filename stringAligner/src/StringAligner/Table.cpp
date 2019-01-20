@@ -92,12 +92,15 @@ bool Table::isDecoratorThenConvertIndexToRowIndexAndDecoratorIndex(size_t&row,si
   return false;
 }
 
+Cell const&Table::getCellInternal(size_t row,size_t column)const{
+  return cells.at(row).at(column);
+}
+
 string Table::getRowLine(size_t rowId,size_t line)const{
   stringstream ss;
   ss << getHorizontalDecorator(0);
-  auto const&row = cells.at(rowId);
   for(size_t c=0;c<getNofColumns();++c){
-    auto const&cell = row.at(c);
+    auto const&cell = getCellInternal(rowId,c);
     ss << cell.getLine(getColumnWidth(c),getRowHeight(rowId),line);
     ss << getHorizontalDecorator(c+1);
   }
@@ -123,10 +126,7 @@ string Table::getLine(size_t line)const{
   return getRowLine(row,line);
 }
 
-#include<iostream>
-
 string Table::getData()const{
-  std::cerr << "getData#" << getHeight() << "#" << endl;
   stringstream ss;
   for(size_t i=0;i<getHeight();++i)
     ss << getLine(i) << endl;
@@ -261,8 +261,8 @@ void Table::setCell(size_t row,size_t column,shared_ptr<Block>const&block){
     return;
   }
 
-  insertIfLargerAndResizeIfNeeded(rowHeights  ,row,block->getHeight());
-  insertIfLargerAndResizeIfNeeded(columnWidths,row,block->getWidth ());
+  insertIfLargerAndResizeIfNeeded(rowHeights  ,row   ,block->getHeight());
+  insertIfLargerAndResizeIfNeeded(columnWidths,column,block->getWidth ());
 
   setOnChangeCallback(block,row,column);
 }

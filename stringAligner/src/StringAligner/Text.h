@@ -11,6 +11,7 @@ class STRINGALIGNER_EXPORT stringAligner::Text: public Block{
     void clear(size_t maxWid = 80,char fil = ' ');
     void addText(std::string const&txt);
     void newLine();
+    char getFiller()const;
     size_t getWidth()const override;
     size_t getHeight()const override;
     std::string getLine(size_t i)const override;
