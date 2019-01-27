@@ -11,225 +11,26 @@
 #include<glm/gtc/matrix_access.hpp>
 #include<functional>
 #include<FastAdjacency.h>
+#include<Camera.h>
+#include<Scene.h>
+#include<SVG.h>
 
 #define ___ std::cerr << __FILE__ << " " << __LINE__ << std::endl
 
-class MeshData{
-  public:
-    MeshData(){}
-    void load(aiMesh*mesh){
-      for(size_t v=0;v<mesh->mNumVertices;++v){
-        auto const vert = mesh->mVertices[v];
-        auto const glmvec = glm::vec3(vert.x,vert.y,vert.z);
-        vertices.push_back(glmvec);
-      }
-      for(size_t f=0;f<mesh->mNumFaces;++f){
-        auto const face = mesh->mFaces[f];
-        if(face.mNumIndices == 3){
-          triangles.push_back(glm::uvec3(face.mIndices[0],face.mIndices[1],face.mIndices[2]));
-        }
-      }
-    }
-    MeshData(aiMesh*mesh){
-      load(mesh);
-    }
-    std::vector<glm::vec3>vertices;
-    std::vector<glm::uvec3>triangles;
-};
+float linearizeDepth(float n,float f,float d){
+  //d = (-(f+n)/(f-n)*z + -2*f*n/(f-n)*w) / -z
+  //d = (f+n)/(f-n) + 2*f*n/(f-n) / z
+  //d - (f+n)/(f-n) = 2*f*n/(f-n) / z
+  //z = 2fn/(f-n) / (d-(f+n)/(f-n))
+  //z = 2fn/(f-n) / ((d(f-n)-(f+n))/(f-n))
+  //z = 2fn / (d(f-n)-(f+n))
+  //z = 2fn / (df-dn-f-n)
+  float lin = (2*f*n) / (d*f-d*n-f-n);
+  return (lin+n)/(n-f);
+}
 
-class Node{
-  public:
-    Node(){}
-    Node(aiNode*n,std::vector<std::shared_ptr<MeshData>>const&meshes){
-      load(n,meshes);
-    }
-    void load(aiNode*n,std::vector<std::shared_ptr<MeshData>>const&ms){
-      for(size_t m=0;m<n->mNumMeshes;++n)
-        meshes.emplace_back(ms[n->mMeshes[m]]);
-      for(size_t i=0;i<16;++i)
-        transformation[i/4][i%4] = n->mTransformation[0][i];
-      if(glm::mat4(0.f) == transformation)
-        transformation = glm::mat4(1.f);
-      for(size_t c=0;c<n->mNumChildren;++c)
-        children.emplace_back(std::make_shared<Node>(n->mChildren[c],ms));
-    }
-    void visitor(std::function<void(std::shared_ptr<Node>const&,glm::mat4 const&)>const&f,glm::mat4 const&tt)const{
-      for(auto const&c:children){
-        f(c,tt);
-        c->visitor(f,tt*transformation);
-      }
-    }
 
-    glm::mat4 transformation;
-    std::vector<std::shared_ptr<MeshData>>meshes;
-    std::vector<std::shared_ptr<Node>>children;
-};
-
-class Scene{
-  public:
-    Scene(){}
-    void load(aiScene const*scene){
-      if(scene == nullptr)throw std::runtime_error("scene is nullptr");
-      for(size_t i=0;i<scene->mNumMeshes;++i){
-        auto const mesh = scene->mMeshes[i];
-        meshes.emplace_back(std::make_shared<MeshData>(mesh));
-      }
-      root = std::make_shared<Node>(scene->mRootNode,meshes);
-    }
-    Scene(aiScene const*scene){
-      load(scene);
-    }
-    void visitor(std::function<void(std::shared_ptr<Node>const&,glm::mat4 const&tt)>const&f,glm::mat4 const&tt)const{
-      f(root,tt);
-      root->visitor(f,tt);
-    }
-    std::shared_ptr<Node>root;
-    std::vector<std::shared_ptr<MeshData>>meshes;
-};
-
-class Line{
-  public:
-    Line(glm::vec2 const&a,glm::vec2 const&b,glm::vec3 const&color = glm::vec3(1,0,0),float width = 1):a(a),b(b),color(color),width(width){}
-    glm::vec2 a;
-    glm::vec2 b;
-    glm::vec3 color;
-    float width;
-};
-
-class Circle{
-  public:
-    Circle(glm::vec2 const&p,float r,float w,glm::vec3 const&sC,glm::vec3 const&fC):pos(p),radius(r),width(w),sColor(sC),fColor(fC){}
-    glm::vec2 pos;
-    float radius;
-    float width;
-    glm::vec3 sColor;
-    glm::vec3 fColor;
-};
-
-class SVG{
-  public:
-    glm::vec2 size;
-    SVG(glm::vec2 const&size):size(size){}
-
-    std::string attribf(std::string const&name,float value){
-      std::stringstream ss;
-      ss << name << "=" << "\"" << value <<"\"";
-      return ss.str();
-    }
-    std::string attribs(std::string const&name,std::string const&value){
-      std::stringstream ss;
-      ss << name << "=" << "\"" << value <<"\"";
-      return ss.str();
-    }
-    std::string width(float value){
-      return attribf("width",value);
-    }
-    std::string height(float value){
-      return attribf("height",value);
-    }
-    std::string rgb(glm::vec3 const&color){
-      std::stringstream ss;
-      ss << "rgb(";
-      ss << uint32_t(color.x*255);
-      ss << ",";
-      ss << uint32_t(color.y*255);
-      ss << ",";
-      ss << uint32_t(color.z*255);
-      ss << ")";
-      return ss.str();
-    }
-    std::string stroke(glm::vec3 const&color){
-      return attribs("stroke",rgb(color));
-    }
-    std::string fill(glm::vec3 const&color){
-      return attribs("fill",rgb(color));
-    }
-    std::string strokeWidth(float value){
-      return attribf("stroke-width",value);
-    }
-
-    std::string headerBegin(glm::vec2 const&s){
-      std::stringstream ss;
-      ss << "<svg ";
-      ss << width(s.x);
-      ss << " ";
-      ss << height(s.y);
-      ss << ">" << std::endl;
-      return ss.str();
-    }
-    std::string headerEnd(){
-      std::stringstream ss;
-      ss << "</svg>";
-      return ss.str();
-    }
-    std::string line(glm::vec2 const&a,glm::vec2 const&b,glm::vec3 const&color = glm::vec3(1,0,0),float width = 1){
-      std::stringstream ss;
-      ss << "<line ";
-      ss << attribf("x1",a.x);
-      ss << " ";
-      ss << attribf("y1",a.y);
-      ss << " ";
-      ss << attribf("x2",b.x);
-      ss << " ";
-      ss << attribf("y2",b.y);
-      ss << " ";
-      ss << stroke(color);
-      ss << " ";
-      ss << strokeWidth(width);
-      ss << "/>";
-      return ss.str();
-    }
-    std::string circle(glm::vec2 const&pos,float r,float w,glm::vec3 const&sColor,glm::vec3 const&fColor){
-      std::stringstream ss;
-      ss << "<circle ";
-      ss << attribf("cx",pos.x);
-      ss << " ";
-      ss << attribf("cy",pos.y);
-      ss << " ";
-      ss << attribf("r",r);
-      ss << " ";
-      ss << stroke(sColor);
-      ss << " ";
-      ss << strokeWidth(w);
-      ss << " ";
-      ss << fill(fColor);
-      ss << "/>";
-      return ss.str();
-    }
-
-    void save(std::string const&n){
-      std::ofstream ss;
-      ss.open(n);//, std::ios_base::app);
-      ss << headerBegin(size);
-      for(auto const&l:lines)
-        ss << line(l.a,l.b,l.color,l.width) << std::endl;
-      for(auto const&c:circles)
-        ss << circle(c.pos,c.radius,c.width,c.sColor,c.fColor) << std::endl;
-      ss << headerEnd();
-    }
-    std::vector<Line>lines;
-    std::vector<Circle>circles;
-    void addLine(Line const&l){
-      lines.push_back(l);
-    }
-    void addCircle(Circle const&c){
-      circles.push_back(c);
-    }
-};
-
-class Camera{
-  public:
-    Camera(glm::vec3 const&pos,glm::vec3 const&tar,glm::vec3 const&up,glm::uvec2 const&ws,float fovy,float n,float f){
-      view = glm::lookAt(pos,tar,up);
-      projection = glm::perspectiveRH(fovy,static_cast<float>(ws.x)/static_cast<float>(ws.y),n,f);
-      windowSize = ws;
-    }
-    glm::mat4 view;
-    glm::mat4 projection;
-    glm::uvec2 windowSize;
-};
-
-bool line2NDC(glm::vec2&ao,glm::vec2&bo,glm::vec4 const&A,glm::vec4 const&B){
+bool line2NDC(glm::vec3&ao,glm::vec3&bo,glm::vec4 const&A,glm::vec4 const&B){
   //Ax/Aw(1-t)+Bx/Bwt
   //Ax/Aw+(Bx/Bw-Ax/Aw)t
   //Ax/Aw+(BxAw-AxBw)/(BwAw)t
@@ -293,19 +94,191 @@ bool line2NDC(glm::vec2&ao,glm::vec2&bo,glm::vec4 const&A,glm::vec4 const&B){
   if(tMin >= tMax)return false;
   auto abmin = A*(1.f-tMin) + B*tMin;
   auto abmax = A*(1.f-tMax) + B*tMax;
-  ao = glm::vec2(abmin) / abmin.w;
-  bo = glm::vec2(abmax) / abmax.w;
+  ao = glm::vec3(abmin) / abmin.w;
+  bo = glm::vec3(abmax) / abmax.w;
   return true;
-}
-
-glm::vec2 viewportTransform(glm::vec2 const&v,glm::uvec2 const&size){
-  return ((v * 0.5f) + 0.5f) * glm::vec2(size);
 }
 
 bool isPointVisible(glm::vec4 const&p){
   for(size_t i=0;i<3;++i)
     if(p[i] < -p[3] || p[i] > p[3])return false;
   return true;
+}
+
+
+
+class Circle;
+class Line;
+
+class Element{
+  public:
+    virtual ~Element(){}
+    enum Type{
+      CIRCLE,
+      LINE  ,
+    }type;
+    Element(Type t):type(t){}
+    Circle const&toCircle()const;
+    Line   const&toLine()const;
+
+};
+
+class Circle: public Element{
+  public:
+    Circle(glm::vec3 const&c,float r,float w,glm::vec3 const&sC,glm::vec3 const&fC):Element(CIRCLE),center(c),radius(r),width(w),sColor(sC),fColor(fC){}
+    glm::vec3 center;
+    float     radius;
+    float     width;
+    glm::vec3 sColor;
+    glm::vec3 fColor;
+};
+
+class Line: public Element{
+  public:
+    Line(glm::vec3 const&a,glm::vec3 const&b,float w,glm::vec3 const&c):Element(LINE),a(a),b(b),width(w),color(c){}
+    glm::vec3 a;
+    glm::vec3 b;
+    float     width;
+    glm::vec3 color;
+};
+
+Circle const&Element::toCircle()const{
+  return *(Circle*)this;
+}
+
+Line   const&Element::toLine()const{
+  return *(Line*)this;
+}
+
+bool operator<(Circle const&a,Circle const&b){
+  return a.center.z < b.center.z;
+}
+
+enum CompareResult{
+  LESS          ,
+  EQUAL         ,
+  GREATER       ,
+  NOT_COMPARABLE,
+};
+
+CompareResult compareLineCircle(glm::vec3 const&A,glm::vec3 const&B,glm::vec3 const&C,float radius){
+  // L(t) = A(1-t)+Bt
+  // C
+  //
+  // MIN[t]{(L(t)x - Cx)^2 + (L(t)y - Cy)^2}
+  //
+  // 2(L(t)x-Cx)(-Ax+Bx) + 2(L(t)y-Cy)(-Ay+By) = 0
+  // 2(Bx-Ax)L(t)x + 2(By-Ay)L(t)y = 2Cx(Bx-Ax) + 2Cy(By-Ay)
+  // (Bx-Ax)L(t)x + (By-Ay)L(t)y = Cx(Bx-Ax) + Cy(By-Ay)
+  // (Bx-Ax)(Ax(1-t)+Bxt) + (By-Ay)(Ay(1-t)+Byt) = Cx(Bx-Ax) + Cy(By-Ay)
+  // (Bx-Ax)Ax-(Bx-Ax)Axt+(Bx-Ax)Bxt + (By-Ay)Ay-(By-Ay)Ayt+(By-Ay)Byt = Cx(Bx-Ax) + Cy(By-Ay)
+  // -(Bx-Ax)Axt + (Bx-Ax)Bxt - (By-Ay)Ayt + (By-Ay)Byt = Cx(Bx-Ax) + Cy(By-Ay) - (Bx-Ax)Ax - (By-Ay)Ay
+  // (Ax-Bx)Axt + (Bx-Ax)Bxt + (Ay-By)Ayt + (By-Ay)Byt = (Bx-Ax)Cx + (By-Ay)Cy + (Ax-Bx)Ax + (Ay-By)Ay
+  // t((Ax-Bx)Ax + (Bx-Ax)Bx + (Ay-By)Ay + (By-Ay)By) = (Bx-Ax)Cx + (By-Ay)Cy + (Ax-Bx)Ax + (Ay-By)Ay
+  // t(AxAx - BxAx + BxBx - AxBx + AyAy - ByAy + ByBy - AyBy) = BxCx - AxCx + ByCy - AyCy + AxAx - BxAx + AyAy - ByAy
+  // t(AxAx - 2AxBx + BxBx + AyAy - 2AyBy + ByBy) = BxCx - AxCx + ByCy - AyCy + AxAx - AxBx + AyAy - ByAy
+  // t((Ax-Bx)^2 + (Ay-By)^2) = BxCx - AxCx + ByCy - AyCy + AxAx - AxBx + AyAy - ByAy
+  // tM = N
+  auto M = glm::length(glm::vec2(A)-glm::vec2(B));
+  M*=M;
+  auto N = B.x*C.x - A.x*C.x + B.y*C.y - A.y*C.y + A.x*A.x - A.x*B.x + A.y*A.y - B.y*A.y;
+  if(M == 0)return NOT_COMPARABLE;
+  auto t = N/M;
+  if(t < 0.f || t > 1.f)return NOT_COMPARABLE;
+  auto L = A*(1-t) + B*t;
+  auto const dist = glm::length(glm::vec2(L)-glm::vec2(C));
+  if(dist > radius)return NOT_COMPARABLE;
+  if(L.z < C.z)return LESS;
+  if(L.z > C.z)return GREATER;
+  return EQUAL;
+}
+
+bool operator<(Circle const&cir,Line const&line){
+  auto const res = compareLineCircle(line.a,line.b,cir.center,cir.radius);
+  if(res == NOT_COMPARABLE)return true;
+  if(res == GREATER)return true;
+  return false;
+}
+
+bool operator<(Line const&line,Circle const&cir){
+  auto const res = compareLineCircle(line.a,line.b,cir.center,cir.radius);
+  if(res == NOT_COMPARABLE)return true;
+  if(res == LESS)return true;
+  return false;
+}
+
+bool operator<(Line const&a,Line const&b){
+  // X(t) = Az(1-t) + Bzt
+  // Y(l) = Cz(1-l) + Dzl
+  //
+
+  //glm::min(a.a.z,)
+  return false;
+}
+
+bool operator<(std::unique_ptr<Element>const&a,std::unique_ptr<Element>const&b){
+  if(a->type == Element::CIRCLE){
+    if(b->type == Element::CIRCLE)
+      return a->toCircle() < b->toCircle();
+    if(b->type == Element::LINE)
+      return a->toCircle() < b->toLine();
+    return false;
+  }
+  if(a->type == Element::LINE){
+    if(b->type == Element::CIRCLE)
+      return a->toLine() < b->toCircle();
+    if(b->type == Element::LINE)
+      return a->toLine() < b->toLine();
+    return false;
+  }
+  return false;
+}
+
+
+class VectorScene{
+  public:
+    std::vector<std::unique_ptr<Element>>elements;
+    void addCircle(Circle const&c){
+      elements.emplace_back(std::make_unique<Circle>(c));
+    }
+    void addLine(Line const&l){
+      elements.emplace_back(std::make_unique<Line>(l));
+    }
+};
+
+void project(VectorScene&out,VectorScene const&in,Camera const&camera){
+  auto mvp = camera.projection*camera.view;
+  for(auto const&e:in.elements){
+    if(e->type == Element::CIRCLE){
+      auto cir = e->toCircle();
+      auto center = mvp * glm::vec4(cir.center,1);
+      if(!isPointVisible(center))continue;
+      auto newCen = glm::vec3(center)/center.w;
+      auto newRad = mvp * glm::vec4(cir.radius,0,cir.center.z,1);
+      auto newWid = mvp * glm::vec4(cir.width,0,cir.center.z,1);
+      newCen.z = linearizeDepth(newCen.z,camera.near,camera.far);
+      out.elements.emplace_back(std::make_unique<Circle>(newCen,newRad.x/newRad.w,newWid.x/newWid.w,cir.sColor,cir.fColor));
+    }
+    if(e->type == Element::LINE){
+      auto line = e->toLine();
+      auto A = mvp * glm::vec4(line.a,1);
+      auto B = mvp * glm::vec4(line.b,1);
+      glm::vec3 aa,bb;
+      if(!line2NDC(aa,bb,A,B))continue;
+      auto newWid = mvp * glm::vec4(line.width,0,(line.a.z+line.b.z)/2,1);
+      aa.z = linearizeDepth(aa.z,camera.near,camera.far);
+      bb.z = linearizeDepth(bb.z,camera.near,camera.far);
+      out.elements.emplace_back(std::make_unique<Line>(aa,bb,newWid.x/newWid.w,line.color));
+    }
+  }
+}
+
+void sort(VectorScene&s){
+  std::sort(s.elements.begin(),s.elements.end());
+}
+
+glm::vec2 viewportTransform(glm::vec2 const&v,glm::uvec2 const&size){
+  return ((v* glm::vec2(1,-1) * 0.5f) + 0.5f) * glm::vec2(size) ;
 }
 
 
@@ -336,23 +309,45 @@ class SceneEdges{
 };
 
 void projectEdges(SVG&svg,SceneEdges const&scene,Camera const&camera){
- auto mvp = camera.projection*camera.view;
+  auto mvp = camera.projection*camera.view;
   std::vector<glm::vec4>tVer;
   auto v = scene.vertices.data();
   for(size_t i=0;i<scene.vertices.size();i+=3)
     tVer.push_back(mvp * glm::vec4(v[i+0],v[i+1],v[i+2],1.f));
 
+  auto const l = glm::vec3(0,10,0);
   auto adj = scene.adjacency;
   for(size_t e=0;e<adj->getNofEdges();++e){
     auto A = tVer[adj->getEdge(e,0)/3];
     auto B = tVer[adj->getEdge(e,1)/3];
-    glm::vec2 aa,bb;
-    if(line2NDC(aa,bb,A,B))svg.addLine(Line(viewportTransform(aa,camera.windowSize),viewportTransform(bb,camera.windowSize),glm::vec3(1,0,0),1));
+    glm::vec3 aa,bb;
+    int mult = 0;
+    for(size_t i=0;i<adj->getNofOpposite(e);++i){
+      auto a = glm::vec3(
+          v[adj->getEdge(e,0)+0],
+          v[adj->getEdge(e,0)+1],
+          v[adj->getEdge(e,0)+2]);
+      auto b = glm::vec3(
+          v[adj->getEdge(e,1)+0],
+          v[adj->getEdge(e,1)+1],
+          v[adj->getEdge(e,1)+2]);
+      auto o = glm::vec3(
+          v[adj->getOpposite(e,i)+0],
+          v[adj->getOpposite(e,i)+1],
+          v[adj->getOpposite(e,i)+2]);
+      auto n = glm::normalize(glm::cross(b-a,o-a));
+      mult += glm::sign(glm::dot(n,l) - glm::dot(n,a));
+    }
+    if(mult == 0){
+      if(line2NDC(aa,bb,A,B))svg.addLine(SVGLine(viewportTransform(aa,camera.windowSize),viewportTransform(bb,camera.windowSize),glm::vec3(1,0,0),1));
+    }else{
+      if(line2NDC(aa,bb,A,B))svg.addLine(SVGLine(viewportTransform(aa,camera.windowSize),viewportTransform(bb,camera.windowSize),glm::vec3(0,0,1),3));
+    }
   }
   for(auto const&v:tVer){
     if(isPointVisible(v)){
       auto p = viewportTransform(v/v.w,camera.windowSize);
-      svg.addCircle(Circle(p,2,1,glm::vec3(0,0,0),glm::vec3(0,0,0)));
+      svg.addCircle(SVGCircle(p,2,1,glm::vec3(0,0,0),glm::vec3(0,0,0)));
     }
   }
 }
@@ -368,15 +363,15 @@ void project(SVG&svg,Scene const&scene,Camera const&camera){
         auto const A = tVer[t.x];
         auto const B = tVer[t.y];
         auto const C = tVer[t.z];
-        glm::vec2 aa,bb;
-        if(line2NDC(aa,bb,A,B))svg.addLine(Line(viewportTransform(aa,camera.windowSize),viewportTransform(bb,camera.windowSize),glm::vec3(1,0,0),1));
-        if(line2NDC(aa,bb,B,C))svg.addLine(Line(viewportTransform(aa,camera.windowSize),viewportTransform(bb,camera.windowSize),glm::vec3(1,0,0),1));
-        if(line2NDC(aa,bb,C,A))svg.addLine(Line(viewportTransform(aa,camera.windowSize),viewportTransform(bb,camera.windowSize),glm::vec3(1,0,0),1));
+        glm::vec3 aa,bb;
+        if(line2NDC(aa,bb,A,B))svg.addLine(SVGLine(viewportTransform(aa,camera.windowSize),viewportTransform(bb,camera.windowSize),glm::vec3(1,0,0),1));
+        if(line2NDC(aa,bb,B,C))svg.addLine(SVGLine(viewportTransform(aa,camera.windowSize),viewportTransform(bb,camera.windowSize),glm::vec3(1,0,0),1));
+        if(line2NDC(aa,bb,C,A))svg.addLine(SVGLine(viewportTransform(aa,camera.windowSize),viewportTransform(bb,camera.windowSize),glm::vec3(1,0,0),1));
       }
       for(auto const&v:tVer){
         if(isPointVisible(v)){
           auto p = viewportTransform(v/v.w,camera.windowSize);
-          svg.addCircle(Circle(p,2,1,glm::vec3(0,0,0),glm::vec3(0,0,0)));
+          svg.addCircle(SVGCircle(p,2,1,glm::vec3(0,0,0),glm::vec3(0,0,0)));
         }
       }
     }

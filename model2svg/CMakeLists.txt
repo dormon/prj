@@ -31,6 +31,9 @@ set(SOURCES
 
 set(INCLUDES
   src/FastAdjacency.h
+  src/Camera.h
+  src/Scene.h
+  src/SVG.h
   )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${INCLUDES})
