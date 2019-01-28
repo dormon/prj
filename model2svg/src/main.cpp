@@ -161,7 +161,20 @@ enum CompareResult{
   NOT_COMPARABLE,
 };
 
-CompareResult compareLineCircle(glm::vec3 const&A,glm::vec3 const&B,glm::vec3 const&C,float radius){
+CompareResult compareCircleCircle(
+    Circle const&a,
+    Circle const&b
+    ){
+  if(glm::distance(glm::vec2(a.center),glm::vec2(b.center)) > (a.radius + b.radius))return NOT_COMPARABLE;
+  if(a.center.z < b.center.z)return LESS;
+  if(a.center.z > b.center.z)return GREATER;
+  return EQUAL;
+}
+
+float getParameterForClosestPointOnLineToPoint(
+    glm::vec2 const&A,
+    glm::vec2 const&B,
+    glm::vec2 const&C){
   // L(t) = A(1-t)+Bt
   // C
   //
@@ -178,41 +191,169 @@ CompareResult compareLineCircle(glm::vec3 const&A,glm::vec3 const&B,glm::vec3 co
   // t(AxAx - BxAx + BxBx - AxBx + AyAy - ByAy + ByBy - AyBy) = BxCx - AxCx + ByCy - AyCy + AxAx - BxAx + AyAy - ByAy
   // t(AxAx - 2AxBx + BxBx + AyAy - 2AyBy + ByBy) = BxCx - AxCx + ByCy - AyCy + AxAx - AxBx + AyAy - ByAy
   // t((Ax-Bx)^2 + (Ay-By)^2) = BxCx - AxCx + ByCy - AyCy + AxAx - AxBx + AyAy - ByAy
+  // t((Ax-Bx)^2 + (Ay-By)^2) = (Bx-Ax)Cx + (By-Ay)*Cy + AxAx - AxBx + AyAy - ByAy
+  // t((Ax-Bx)^2 + (Ay-By)^2) = (B-A)C + AxAx - AxBx + AyAy - ByAy
+  // t((Ax-Bx)^2 + (Ay-By)^2) = (B-A)C + (Ax-Bx)Ax + (Ay-By)Ay
+  // t((Ax-Bx)^2 + (Ay-By)^2) = (B-A)C + (A-B)A
+  // t((A-B)*(A-B)) = (B-A)C + (A-B)A
+  // t(A-B)^2 = (B-A)C + (A-B)A
+  // t(A-B)^2 = (B-A)C - (B-A)A
+  // t(A-B)^2 = (B-A)(C-A)
   // tM = N
-  auto M = glm::length(glm::vec2(A)-glm::vec2(B));
-  M*=M;
-  auto N = B.x*C.x - A.x*C.x + B.y*C.y - A.y*C.y + A.x*A.x - A.x*B.x + A.y*A.y - B.y*A.y;
-  if(M == 0)return NOT_COMPARABLE;
-  auto t = N/M;
-  if(t < 0.f || t > 1.f)return NOT_COMPARABLE;
+  auto const M = glm::dot(A-B,A-B);
+  auto const N = glm::dot(B-A,C-A);
+  if(M == 0)return std::numeric_limits<float>::infinity();
+  return N/M;
+}
+
+CompareResult compareLineCircle(Line const&line,Circle const&circle,float bias = 0.f){
+  auto const&A = line.a;
+  auto const&B = line.b;
+  auto const&C = circle.center;
+  auto const radius = circle.radius;
+  auto const t = getParameterForClosestPointOnLineToPoint(A,B,C);
+  if(t == std::numeric_limits<float>::infinity())return NOT_COMPARABLE;
+  if(t < 0.f){
+    if(glm::distance(glm::vec2(C),glm::vec2(A)) > radius)return NOT_COMPARABLE;
+    if(A.z < C.z + bias)return LESS;
+    if(A.z > C.z)return GREATER;
+    return EQUAL;
+  }
+  if(t > 1.f){
+    if(glm::distance(glm::vec2(C),glm::vec2(B)) > radius)return NOT_COMPARABLE;
+    if(B.z < C.z + bias)return LESS;
+    if(B.z > C.z)return GREATER;
+    return EQUAL;
+  }
   auto L = A*(1-t) + B*t;
-  auto const dist = glm::length(glm::vec2(L)-glm::vec2(C));
-  if(dist > radius)return NOT_COMPARABLE;
-  if(L.z < C.z)return LESS;
+  if(glm::distance(glm::vec2(L),glm::vec2(C)) > radius)return NOT_COMPARABLE;
+  if(L.z < C.z + bias)return LESS;
   if(L.z > C.z)return GREATER;
   return EQUAL;
 }
 
 bool operator<(Circle const&cir,Line const&line){
-  auto const res = compareLineCircle(line.a,line.b,cir.center,cir.radius);
+  auto const res = compareLineCircle(line,cir);
   if(res == NOT_COMPARABLE)return true;
   if(res == GREATER)return true;
   return false;
 }
 
 bool operator<(Line const&line,Circle const&cir){
-  auto const res = compareLineCircle(line.a,line.b,cir.center,cir.radius);
+  auto const res = compareLineCircle(line,cir);
   if(res == NOT_COMPARABLE)return true;
   if(res == LESS)return true;
   return false;
 }
 
-bool operator<(Line const&a,Line const&b){
-  // X(t) = Az(1-t) + Bzt
-  // Y(l) = Cz(1-l) + Dzl
-  //
+glm::vec2 perpendicular(glm::vec2 const&a){
+  return glm::vec2(a.y,-a.x);
+}
 
-  //glm::min(a.a.z,)
+glm::vec3 points2Line(glm::vec2 const&a,glm::vec2 const&b){
+  auto const n = perpendicular(b-a);
+  return glm::vec3(n,-glm::dot(n,a));
+}
+
+float pointLineDistance(glm::vec3 const&l,glm::vec2 const&a){
+  return glm::abs(glm::dot(glm::vec2(l),a)+l.z) / glm::length(glm::vec2(l));
+}
+
+
+float lineLineDistance(
+    float&za,
+    float&zb,
+    glm::vec3 const&A,
+    glm::vec3 const&B,
+    glm::vec3 const&C,
+    glm::vec3 const&D){
+  auto const lab = points2Line(A,B);
+  auto const lcd = points2Line(C,D);
+  float distances[8];
+  distances[0] = glm::length(glm::vec2(A-C));
+  distances[1] = glm::length(glm::vec2(A-D));
+  distances[2] = glm::length(glm::vec2(B-C));
+  distances[3] = glm::length(glm::vec2(B-D));
+  distances[4] = pointLineDistance(lab,C);
+  distances[5] = pointLineDistance(lab,D);
+  distances[6] = pointLineDistance(lcd,A);
+  distances[7] = pointLineDistance(lcd,B);
+  size_t minIndex = 0;
+  for(size_t i=1;i<8;++i)
+    if(distances[minIndex] > distances[i])
+      minIndex = i;
+  if(minIndex == 0){
+    za = A.z;
+    zb = C.z;
+  }
+  if(minIndex == 1){
+    za = A.z;
+    zb = D.z;
+  }
+  if(minIndex == 2){
+    za = B.z;
+    zb = C.z;
+  }
+  if(minIndex == 3){
+    za = B.z;
+    zb = D.z;
+  }
+  if(minIndex == 4){
+    auto const t = getParameterForClosestPointOnLineToPoint(A,B,C);
+    za = A.z + t*(B.z-A.z);
+    zb = C.z;
+  }
+  if(minIndex == 5){
+    auto const t = getParameterForClosestPointOnLineToPoint(A,B,D);
+    za = A.z + t*(B.z-A.z);
+    zb = D.z;
+  }
+  if(minIndex == 6){
+    za = A.z;
+    auto const t = getParameterForClosestPointOnLineToPoint(C,D,A);
+    zb = C.z + t*(D.z-C.z);
+  }
+  if(minIndex == 7){
+    za = B.z;
+    auto const t = getParameterForClosestPointOnLineToPoint(C,D,B);
+    zb = C.z + t*(D.z-C.z);
+  }
+  return distances[minIndex];
+}
+
+CompareResult compareLineLine(Line const&a,Line const&b){
+  float za,zb;
+  auto dis = lineLineDistance(za,zb,a.a,a.b,b.a,b.b);
+
+  if(dis > (a.width+b.width))return NOT_COMPARABLE;
+  if(za<zb)return LESS;
+  if(za>zb)return GREATER;
+  return EQUAL;
+}
+
+CompareResult compare(std::unique_ptr<Element>const&a,std::unique_ptr<Element>const&b){
+  if(a->type == Element::CIRCLE){
+    if(b->type == Element::CIRCLE)
+      return compareCircleCircle(a->toCircle(),b->toCircle());
+    if(b->type == Element::LINE){
+      auto r = compareLineCircle(b->toLine(),a->toCircle(),0.005f);
+      if(r == LESS)return GREATER;
+      if(r == GREATER)return LESS;
+      return r;
+    }
+    return NOT_COMPARABLE;
+  }
+  if(a->type == Element::LINE){
+    if(b->type == Element::CIRCLE)
+      return compareLineCircle(a->toLine(),b->toCircle(),0.001f);
+    if(b->type == Element::LINE)
+      return compareLineLine(a->toLine(),b->toLine());
+    return NOT_COMPARABLE;
+  }
+  return NOT_COMPARABLE;
+}
+
+bool operator<(Line const&a,Line const&b){
   return false;
 }
 
@@ -381,10 +522,208 @@ void project(SVG&svg,Scene const&scene,Camera const&camera){
 
 }
 
+class Voxel{
+  public:
+    glm::vec3 corners[8];
+    bool isPlaneCollision(glm::vec4 const&p){
+      bool inFront = false;
+      bool behind = false;
+      for(size_t i=0;i<8;++i){
+        if(glm::dot(p,glm::vec4(corners[i],1.f))<0.f)behind = true;
+        else inFront = true;
+      }
+      return inFront && behind;
+    }
+};
+
+Voxel getVoxel(glm::vec3 const&minAABB,glm::vec3 const&maxAABB,size_t voxFac,glm::vec3 const&l){
+  auto const size = (maxAABB - minAABB);
+  auto const vSize = size / static_cast<float>(voxFac);
+  auto const index = glm::floor(((l-minAABB)/size)*static_cast<float>(voxFac));
+  Voxel result;
+  for(size_t i=0;i<8;++i)
+    result.corners[i] = vSize*index+vSize*glm::vec3((i>>2)&1,(i>>1)&1,(i>>0)&1);
+  return result;
+}
+
+void saveEdgesAsSVG(aiScene const*const ascene){
+  auto edges = SceneEdges(ascene);
+  auto windowSize = glm::uvec2(1920,1080);
+  auto svg = SVG(windowSize);
+  auto camera = Camera(glm::vec3(0,0,3.f),glm::vec3(0,0,0),glm::vec3(0,1,0),windowSize,glm::half_pi<float>(),0.1f,1000.f);
+  VectorScene aSpace;
+
+
+  glm::vec3 minAABB = glm::vec3(+1e10f);
+  glm::vec3 maxAABB = glm::vec3(-1e10f);
+  for(size_t i=0;i<edges.vertices.size();i+=3){
+    auto v = edges.vertices.data();
+    auto p = glm::vec3(v[i+0],v[i+1],v[i+2]);
+    minAABB = glm::min(minAABB,p);
+    maxAABB = glm::max(maxAABB,p);
+  }
+  float scale = 20.f;
+  auto centerAABB = (minAABB + maxAABB)/2.f;
+  auto halfAABB = (maxAABB-minAABB)/2.f;
+  minAABB = centerAABB - halfAABB*scale;
+  maxAABB = centerAABB + halfAABB*scale;
+  size_t voxFac = 32;
+
+  auto const l = glm::vec3(0.f,10.f,0.f);
+
+  auto vox = getVoxel(minAABB,maxAABB,voxFac,l);
+
+  for(size_t i=0;i<edges.vertices.size();i+=3){
+    auto v = edges.vertices.data();
+    aSpace.addCircle(Circle(glm::vec3(v[i+0],v[i+1],v[i+2]),6,1,glm::vec3(0,0,0),glm::vec3(0,0,0)));
+  }
+  if(
+      l.x < minAABB.x || l.y < minAABB.y || l.z < minAABB.z ||
+      l.x > maxAABB.x || l.y > maxAABB.y || l.z > maxAABB.z
+      ){
+    std::cerr << "SVETLO MIMO" << std::endl;
+    exit(0);
+  }
+
+
+
+  auto adj = edges.adjacency;
+  for(size_t e=0;e<adj->getNofEdges();++e){
+    auto v = edges.vertices.data();
+    glm::vec3 aa,bb;
+    int mult = 0;
+    auto a = glm::vec3(
+        v[adj->getEdge(e,0)+0],
+        v[adj->getEdge(e,0)+1],
+        v[adj->getEdge(e,0)+2]);
+    auto b = glm::vec3(
+        v[adj->getEdge(e,1)+0],
+        v[adj->getEdge(e,1)+1],
+        v[adj->getEdge(e,1)+2]);
+    for(size_t i=0;i<adj->getNofOpposite(e);++i){
+      auto o = glm::vec3(
+          v[adj->getOpposite(e,i)+0],
+          v[adj->getOpposite(e,i)+1],
+          v[adj->getOpposite(e,i)+2]);
+      auto n = glm::normalize(glm::cross(b-a,o-a));
+      mult += glm::sign(glm::dot(n,l) - glm::dot(n,a));
+    }
+
+    bool inCollision = false;
+    for(size_t i=0;i<adj->getNofOpposite(e);++i){
+      auto o = glm::vec3(
+          v[adj->getOpposite(e,i)+0],
+          v[adj->getOpposite(e,i)+1],
+          v[adj->getOpposite(e,i)+2]);
+      auto n = glm::normalize(glm::cross(b-a,o-a));
+      auto p = glm::vec4(n,-glm::dot(n,a));
+      if(vox.isPlaneCollision(p))
+        inCollision = true;
+    }
+
+
+    aSpace.addLine(Line(a,b,3,glm::vec3(0,0,0)));
+    /*
+    if(inCollision){
+      if(mult == 0){
+        aSpace.addLine(Line(a,b,9,glm::vec3(1,0,0)));
+      }else{
+        aSpace.addLine(Line(a,b,9,glm::vec3(1,1,0)));
+      }
+    }else{
+      if(mult == 0){
+        aSpace.addLine(Line(a,b,3,glm::vec3(0,0,0)));
+      }else{
+        aSpace.addLine(Line(a,b,3,glm::vec3(0,1,0)));
+      }
+    }
+    */
+  }
+
+
+
+  VectorScene ndc;
+  project(ndc,aSpace,camera);
+
+  std::sort(ndc.elements.begin(),ndc.elements.end(),[](std::unique_ptr<Element>const&a,std::unique_ptr<Element>const&b)->bool{
+    auto r = compare(a,b);
+    if(r == LESS)return true;
+    if(r == GREATER)return false;
+    if(r == EQUAL){
+      if(a->type == Element::CIRCLE && b->type == Element::LINE)return true;
+      return false;
+    }
+    return false;
+  });
+  //std::reverse(ndc.elements.begin(),ndc.elements.end());
+
+
+  for(auto const&e:ndc.elements){
+    if(e->type == Element::CIRCLE){
+      auto const circle = e->toCircle();
+      auto p = viewportTransform(circle.center,camera.windowSize);
+      svg.addCircle(SVGCircle(p,circle.radius,circle.width,circle.sColor,circle.fColor));
+    }
+    if(e->type == Element::LINE){
+      auto const line = e->toLine();
+      auto a = viewportTransform(line.a,camera.windowSize);
+      auto b = viewportTransform(line.b,camera.windowSize);
+      svg.addLine(SVGLine(a,b,line.color,line.width));
+    }
+  }
+  
+
+  /*
+  auto mvp = camera.projection*camera.view;
+  std::vector<glm::vec4>tVer;
+  auto v = edges.vertices.data();
+  for(size_t i=0;i<edges.vertices.size();i+=3)
+    tVer.push_back(mvp * glm::vec4(v[i+0],v[i+1],v[i+2],1.f));
+
+  auto const l = glm::vec3(0,10,0);
+  auto adj = edges.adjacency;
+  for(size_t e=0;e<adj->getNofEdges();++e){
+    auto A = tVer[adj->getEdge(e,0)/3];
+    auto B = tVer[adj->getEdge(e,1)/3];
+    glm::vec3 aa,bb;
+    int mult = 0;
+    for(size_t i=0;i<adj->getNofOpposite(e);++i){
+      auto a = glm::vec3(
+          v[adj->getEdge(e,0)+0],
+          v[adj->getEdge(e,0)+1],
+          v[adj->getEdge(e,0)+2]);
+      auto b = glm::vec3(
+          v[adj->getEdge(e,1)+0],
+          v[adj->getEdge(e,1)+1],
+          v[adj->getEdge(e,1)+2]);
+      auto o = glm::vec3(
+          v[adj->getOpposite(e,i)+0],
+          v[adj->getOpposite(e,i)+1],
+          v[adj->getOpposite(e,i)+2]);
+      auto n = glm::normalize(glm::cross(b-a,o-a));
+      mult += glm::sign(glm::dot(n,l) - glm::dot(n,a));
+    }
+    if(mult == 0){
+      if(line2NDC(aa,bb,A,B))svg.addLine(SVGLine(viewportTransform(aa,camera.windowSize),viewportTransform(bb,camera.windowSize),glm::vec3(1,0,0),1));
+    }else{
+      if(line2NDC(aa,bb,A,B))svg.addLine(SVGLine(viewportTransform(aa,camera.windowSize),viewportTransform(bb,camera.windowSize),glm::vec3(0,0,1),3));
+    }
+  }
+  for(auto const&v:tVer){
+    if(isPointVisible(v)){
+      auto p = viewportTransform(v/v.w,camera.windowSize);
+      svg.addCircle(SVGCircle(p,2,1,glm::vec3(0,0,0),glm::vec3(0,0,0)));
+    }
+  }*/
+  svg.save("test.svg");
+}
+
 int main(int argc,char*argv[]){
   auto args = std::make_shared<argumentViewer::ArgumentViewer>(argc,argv);
   auto const sceneName = args->gets("--model","","model name");
   auto ascene = aiImportFile(sceneName.c_str(),aiProcess_Triangulate|aiProcess_GenNormals|aiProcess_SortByPType);
+  saveEdgesAsSVG(ascene);
+  /*
   auto scene = Scene(ascene);
   auto windowSize = glm::uvec2(1920,1080);
   auto svg = SVG(windowSize);
@@ -393,4 +732,5 @@ int main(int argc,char*argv[]){
   //project(svg,scene,camera);
   projectEdges(svg,edges,camera);
   svg.save("test.svg");
+  */
 }
