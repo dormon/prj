@@ -536,6 +536,12 @@ class Voxel{
     }
 };
 
+void computeCorners(glm::vec3*corners,glm::vec3 const&minAABB,glm::vec3 const&maxAABB){
+  auto const size = (maxAABB - minAABB);
+  for(size_t i=0;i<8;++i)
+    corners[i] = minAABB + size*glm::vec3((i>>2)&1,(i>>1)&1,(i>>0)&1);
+}
+
 Voxel getVoxel(glm::vec3 const&minAABB,glm::vec3 const&maxAABB,size_t voxFac,glm::vec3 const&l){
   auto const size = (maxAABB - minAABB);
   auto const vSize = size / static_cast<float>(voxFac);
@@ -562,12 +568,17 @@ void saveEdgesAsSVG(aiScene const*const ascene){
     minAABB = glm::min(minAABB,p);
     maxAABB = glm::max(maxAABB,p);
   }
+
+
+  glm::vec3 corners[8];
+  computeCorners(corners,minAABB,maxAABB);
+
   float scale = 20.f;
   auto centerAABB = (minAABB + maxAABB)/2.f;
   auto halfAABB = (maxAABB-minAABB)/2.f;
   minAABB = centerAABB - halfAABB*scale;
   maxAABB = centerAABB + halfAABB*scale;
-  size_t voxFac = 32;
+  size_t voxFac = 8;
 
   auto const l = glm::vec3(0.f,10.f,0.f);
 
@@ -584,6 +595,16 @@ void saveEdgesAsSVG(aiScene const*const ascene){
     std::cerr << "SVETLO MIMO" << std::endl;
     exit(0);
   }
+
+  for(size_t i=0;i<7;++i)
+    for(size_t j=i+1;j<8;++j){
+      size_t c = i^j;
+      if(c == 3 || c == 5 || c == 6 || c == 7)continue;
+      std::cerr << "AABB" << std::endl;
+      aSpace.addLine(Line(corners[i],corners[j],3,glm::vec3(1,1,0)));
+    }
+  for(size_t i=0;i<8;++i)
+    std::cerr << corners[i].x << " "<< corners[i].y << " "<< corners[i].z << std::endl;
 
 
 
@@ -622,8 +643,8 @@ void saveEdgesAsSVG(aiScene const*const ascene){
     }
 
 
-    aSpace.addLine(Line(a,b,3,glm::vec3(0,0,0)));
-    /*
+    //aSpace.addLine(Line(a,b,3,glm::vec3(0,0,0)));
+    //*
     if(inCollision){
       if(mult == 0){
         aSpace.addLine(Line(a,b,9,glm::vec3(1,0,0)));
@@ -637,7 +658,7 @@ void saveEdgesAsSVG(aiScene const*const ascene){
         aSpace.addLine(Line(a,b,3,glm::vec3(0,1,0)));
       }
     }
-    */
+    // */
   }
 
 
