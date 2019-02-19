@@ -11,9 +11,9 @@ set(SOURCES
 set(PRIVATE_INCLUDES 
   )
 set(PUBLIC_INCLUDES 
-  src/${PROJECT_NAME}/libb.h
   )
 set(INTERFACE_INCLUDES 
+  src/${PROJECT_NAME}/libb.h
   )
 
 #list of libraries to find
