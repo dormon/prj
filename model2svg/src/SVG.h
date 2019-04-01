@@ -163,6 +163,9 @@ class SVG{
         mmin = glm::min(mmin,e->getMin());
         mmax = glm::max(mmax,e->getMax());
       }
+      //auto cen = (mmax + mmin)/2.f;
+      //mmax = (mmax-cen)*2.f + cen;
+      //mmin = (mmin-cen)*2.f + cen;
       size = mmax - mmin;
 
       ss << headerBegin(size);

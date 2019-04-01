@@ -4,7 +4,7 @@
 #include<vector>
 #include<map>
 #include<cstring>
-#include<vulkan/vulkan.h>
+#include<vulkan/vulkan.hpp>
 #include"vulkanStrings.h"
 
 
@@ -12,6 +12,7 @@
 int main(){
   VkResult result;
 
+  /*
   uint32_t          pPropertyCount = 0;
   VkLayerProperties*pProperties    = nullptr;
   result = vkEnumerateInstanceLayerProperties(&pPropertyCount,nullptr);
@@ -38,28 +39,28 @@ int main(){
       }
     }else std::cout<<"ERROR: vkEnumerateInstanceLayerProperties: "<<translate(result)<<std::endl;
   }else std::cerr<<"ERROR: vkEnumerateInstanceLayerProperties: "<<translate(result)<<std::endl;
+  */
 
-  VkApplicationInfo vkApplicationInfo;
-  vkApplicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  vkApplicationInfo.pNext = nullptr;
-  vkApplicationInfo.pApplicationName = "vulkanTest";
-  vkApplicationInfo.applicationVersion = 1;
-  vkApplicationInfo.pEngineName = "ge";
-  vkApplicationInfo.engineVersion = 1;
-  vkApplicationInfo.apiVersion = 1;
+  vk::ApplicationInfo appInfo;
+  appInfo.pNext              = nullptr                           ;
+  appInfo.pApplicationName   = "vulkanTest"                      ;
+  appInfo.applicationVersion = 1                                 ;
+  appInfo.pEngineName        = "ge"                              ;
+  appInfo.engineVersion      = 1                                 ;
+  appInfo.apiVersion         = VK_MAKE_VERSION(1,1,97)           ;
 
-  VkInstanceCreateInfo vkInstanceCreateInfo;
-  vkInstanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  vkInstanceCreateInfo.pNext = nullptr;
-  vkInstanceCreateInfo.flags = 0;
-  vkInstanceCreateInfo.pApplicationInfo = &vkApplicationInfo;
-  vkInstanceCreateInfo.enabledLayerCount = 0;
-  vkInstanceCreateInfo.ppEnabledLayerNames = nullptr;
-  vkInstanceCreateInfo.enabledExtensionCount = 0;
-  vkInstanceCreateInfo.ppEnabledExtensionNames = nullptr;
+  vk::InstanceCreateFlags a;
+  vk::InstanceCreateInfo instanceCreateInfo;
+  instanceCreateInfo.pNext                   = nullptr                               ;
+  instanceCreateInfo.flags                   = a                                     ;
+  instanceCreateInfo.pApplicationInfo        = &appInfo                              ;
+  instanceCreateInfo.enabledLayerCount       = 0                                     ;
+  instanceCreateInfo.ppEnabledLayerNames     = nullptr                               ;
+  instanceCreateInfo.enabledExtensionCount   = 0                                     ;
+  instanceCreateInfo.ppEnabledExtensionNames = nullptr                               ;
 
   VkInstance vkInstance;
-  result=vkCreateInstance(&vkInstanceCreateInfo,nullptr,&vkInstance);
+  result=vkCreateInstance(&instanceCreateInfo,nullptr,&vkInstance);
   std::cout<<translate(result)<<std::endl;
 
   if(result!=VK_SUCCESS)return 0;

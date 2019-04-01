@@ -584,10 +584,12 @@ void saveEdgesAsSVG(aiScene const*const ascene){
 
   auto vox = getVoxel(minAABB,maxAABB,voxFac,l);
 
+  /*
   for(size_t i=0;i<edges.vertices.size();i+=3){
     auto v = edges.vertices.data();
-    aSpace.addCircle(Circle(glm::vec3(v[i+0],v[i+1],v[i+2]),6,1,glm::vec3(0,0,0),glm::vec3(0,0,0)));
+    aSpace.addCircle(Circle(glm::vec3(v[i+0],v[i+1],v[i+2]),3,1,glm::vec3(0,0,0),glm::vec3(0,0,0)));
   }
+  // */
   if(
       l.x < minAABB.x || l.y < minAABB.y || l.z < minAABB.z ||
       l.x > maxAABB.x || l.y > maxAABB.y || l.z > maxAABB.z
@@ -596,15 +598,69 @@ void saveEdgesAsSVG(aiScene const*const ascene){
     exit(0);
   }
 
+  //AABB
+  /*
   for(size_t i=0;i<7;++i)
     for(size_t j=i+1;j<8;++j){
       size_t c = i^j;
       if(c == 3 || c == 5 || c == 6 || c == 7)continue;
-      std::cerr << "AABB" << std::endl;
-      aSpace.addLine(Line(corners[i],corners[j],3,glm::vec3(1,1,0)));
+      //std::cerr << "AABB" << std::endl;
+      aSpace.addLine(Line(corners[i],corners[j],10,glm::vec3(0,0,1)));
     }
+  // */
+  /*
+  auto cen = (corners[0]+corners[7])/2.f;
+  for(auto&c:corners)c = (c-cen)*2.f + cen;
+  for(size_t a=0;a<3;++a){
+    //0 010 100
+    //1 001 100
+    //2 001 010
+    //
+    //((~(1<<a))>>0)&1
+    glm::vec3 const line[3] = {
+      glm::vec3(corners[7].x-corners[0].x,0,0),
+      glm::vec3(0,corners[7].y-corners[0].y,0),
+      glm::vec3(0,0,corners[7].z-corners[0].z),
+      //(corners[7]-corners[0])*glm::vec3(1,0,0),
+      //(corners[7]-corners[0])*glm::vec3(0,1,0),
+      //(corners[7]-corners[0])*glm::vec3(0,0,1),
+    };
+    glm::vec3 const diffK[3] = {
+      (corners[7]-corners[0])/static_cast<float>(voxFac)*glm::vec3(0,1,0),
+      (corners[7]-corners[0])/static_cast<float>(voxFac)*glm::vec3(1,0,0),
+      (corners[7]-corners[0])/static_cast<float>(voxFac)*glm::vec3(1,0,0),
+    };
+    glm::vec3 const diffL[3] = {
+      (corners[7]-corners[0])/static_cast<float>(voxFac)*glm::vec3(0,0,1),
+      (corners[7]-corners[0])/static_cast<float>(voxFac)*glm::vec3(0,0,1),
+      (corners[7]-corners[0])/static_cast<float>(voxFac)*glm::vec3(0,1,0),
+    };
+
+    //std::cerr << "line[0] - " << line[0].x << " "<< line[0].y << " "<< line[0].z << std::endl;
+    //std::cerr << "line[1] - " << line[1].x << " "<< line[1].y << " "<< line[1].z << std::endl;
+    //std::cerr << "line[2] - " << line[2].x << " "<< line[2].y << " "<< line[2].z << std::endl;
+
+    for(size_t k=0;k<=voxFac;++k){
+      for(size_t l=0;l<=voxFac;++l){
+        auto st = corners[0]+(diffK[a]*(float)k)+(diffL[a]*(float)l);
+        auto en = st + line[a];
+        aSpace.addLine(Line(st,en,8,glm::vec3(0,0,1)));
+        //std::cerr << "k=" << k << " l=" << l << " - " << st.x << " " << st.y << " " << st.z << std::endl;
+
+        //aSpace.addCircle(Circle(st,10,1,glm::vec3(0,0,1),glm::vec3(0,0,1)));
+
+        //aSpace.addCircle(Circle(
+        //      corners[0]+diffK[a]*(float)k+diffL[a]*(float)l+line[a],
+        //      10,1,glm::vec3(0,0,1),glm::vec3(0,0,1)));
+      }
+    }
+  }
+  // */
+
+  /*
   for(size_t i=0;i<8;++i)
     std::cerr << corners[i].x << " "<< corners[i].y << " "<< corners[i].z << std::endl;
+  */
 
 
 
@@ -643,20 +699,20 @@ void saveEdgesAsSVG(aiScene const*const ascene){
     }
 
 
-    //aSpace.addLine(Line(a,b,3,glm::vec3(0,0,0)));
+    //aSpace.addLine(Line(a,b,10,glm::vec3(0,0,0)));
     //*
     if(inCollision){
       if(mult == 0){
-        aSpace.addLine(Line(a,b,9,glm::vec3(1,0,0)));
-      }else{
-        aSpace.addLine(Line(a,b,9,glm::vec3(1,1,0)));
-      }
-    }else{
-      if(mult == 0){
         aSpace.addLine(Line(a,b,3,glm::vec3(0,0,0)));
       }else{
-        aSpace.addLine(Line(a,b,3,glm::vec3(0,1,0)));
+        aSpace.addLine(Line(a,b,8,glm::vec3(1,0,0)));
       }
+    }else{
+      //if(mult == 0){
+      //  aSpace.addLine(Line(a,b,3,glm::vec3(0,0,0)));
+      //}else{
+      //  aSpace.addLine(Line(a,b,3,glm::vec3(0,1,0)));
+      //}
     }
     // */
   }
@@ -666,6 +722,7 @@ void saveEdgesAsSVG(aiScene const*const ascene){
   VectorScene ndc;
   project(ndc,aSpace,camera);
 
+  //*
   std::sort(ndc.elements.begin(),ndc.elements.end(),[](std::unique_ptr<Element>const&a,std::unique_ptr<Element>const&b)->bool{
     auto r = compare(a,b);
     if(r == LESS)return true;
@@ -676,6 +733,7 @@ void saveEdgesAsSVG(aiScene const*const ascene){
     }
     return false;
   });
+  // */
   //std::reverse(ndc.elements.begin(),ndc.elements.end());
 
 

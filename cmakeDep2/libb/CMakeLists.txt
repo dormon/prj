@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.13.0)
 
+include(print_target_properties.cmake)
+
 project(
   libb
   VERSION 1.0.0
@@ -7,13 +9,14 @@ project(
 
 #set these variables to *.cpp, *.c, ..., *.h, *.hpp, ...
 set(SOURCES 
+  src/${PROJECT_NAME}/libb.cpp
   )
 set(PRIVATE_INCLUDES 
   )
 set(PUBLIC_INCLUDES 
+  src/${PROJECT_NAME}/libb.h
   )
 set(INTERFACE_INCLUDES 
-  src/${PROJECT_NAME}/libb.h
   )
 
 #list of libraries to find
@@ -28,12 +31,12 @@ set(INTERFACE_INCLUDES
 #find_package(E F G)
 #If version is specified, it has to be the second parameter (B)
 set(ExternPrivateLibraries )
-set(ExternPublicLibraries)
-set(ExternInterfaceLibraries liba\\ 1.0\\ CONFIG)
+set(ExternPublicLibraries liba\\ 1.0\\ CONFIG)
+set(ExternInterfaceLibraries)
 
 #set these variables to targets
 set(PrivateTargets )
-set(PublicTargets )
+set(PublicTargets liba::liba)
 set(InterfaceTargets )
 
 #set these libraries to variables that are provided by libraries that does not support configs
@@ -323,3 +326,5 @@ if((NOT "${PublicIncludeVariables}" STREQUAL "") OR (NOT "${InterfaceIncludeVari
   install(CODE ${installCode})
 
 endif()
+
+print_target_properties(libb)
