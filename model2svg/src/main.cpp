@@ -552,6 +552,183 @@ Voxel getVoxel(glm::vec3 const&minAABB,glm::vec3 const&maxAABB,size_t voxFac,glm
   return result;
 }
 
+void saveTo(std::string const&name,VectorScene&aSpace,glm::uvec2 const&windowSize = glm::uvec2(1920,1080)){
+  VectorScene ndc;
+  auto svg = SVG(windowSize);
+  auto camera = Camera(glm::vec3(50,50,50),glm::vec3(0,0,0),glm::vec3(0,1,0),windowSize,glm::half_pi<float>(),0.1f,1000.f);
+  project(ndc,aSpace,camera);
+
+  std::sort(ndc.elements.begin(),ndc.elements.end(),[](std::unique_ptr<Element>const&a,std::unique_ptr<Element>const&b)->bool{
+    auto r = compare(a,b);
+    if(r == LESS)return true;
+    if(r == GREATER)return false;
+    if(r == EQUAL){
+      if(a->type == Element::CIRCLE && b->type == Element::LINE)return true;
+      return false;
+    }
+    return false;
+  });
+
+  for(auto const&e:ndc.elements){
+    if(e->type == Element::CIRCLE){
+      auto const circle = e->toCircle();
+      auto p = viewportTransform(circle.center,camera.windowSize);
+      svg.addCircle(SVGCircle(p,circle.radius,circle.width,circle.sColor,circle.fColor));
+    }
+    if(e->type == Element::LINE){
+      auto const line = e->toLine();
+      auto a = viewportTransform(line.a,camera.windowSize);
+      auto b = viewportTransform(line.b,camera.windowSize);
+      svg.addLine(SVGLine(a,b,line.color,line.width));
+    }
+  }
+  
+  svg.save(name);
+}
+
+void saveModelsAsEdges(std::string const&name,aiScene const*const ascene){
+  auto edges = SceneEdges(ascene);
+  VectorScene aSpace;
+
+  auto adj = edges.adjacency;
+  for(size_t e=0;e<adj->getNofEdges();++e){
+    auto v = edges.vertices.data();
+    glm::vec3 aa,bb;
+    int mult = 0;
+    auto a = glm::vec3(
+        v[adj->getEdge(e,0)+0],
+        v[adj->getEdge(e,0)+1],
+        v[adj->getEdge(e,0)+2]);
+    auto b = glm::vec3(
+        v[adj->getEdge(e,1)+0],
+        v[adj->getEdge(e,1)+1],
+        v[adj->getEdge(e,1)+2]);
+    aSpace.addLine(Line(a,b,10,glm::vec3(0,0,0)));
+  }
+
+  saveTo(name,aSpace);
+}
+
+void saveModelsAsSilhouettes(std::string const&name,aiScene const*const ascene){
+  auto edges = SceneEdges(ascene);
+  VectorScene aSpace;
+
+  auto const l = glm::vec3(0.f,10.f,0.f);
+  auto adj = edges.adjacency;
+  for(size_t e=0;e<adj->getNofEdges();++e){
+    auto v = edges.vertices.data();
+    glm::vec3 aa,bb;
+    int mult = 0;
+    auto a = glm::vec3(
+        v[adj->getEdge(e,0)+0],
+        v[adj->getEdge(e,0)+1],
+        v[adj->getEdge(e,0)+2]);
+    auto b = glm::vec3(
+        v[adj->getEdge(e,1)+0],
+        v[adj->getEdge(e,1)+1],
+        v[adj->getEdge(e,1)+2]);
+    for(size_t i=0;i<adj->getNofOpposite(e);++i){
+      auto o = glm::vec3(
+          v[adj->getOpposite(e,i)+0],
+          v[adj->getOpposite(e,i)+1],
+          v[adj->getOpposite(e,i)+2]);
+      auto n = glm::normalize(glm::cross(b-a,o-a));
+      mult += glm::sign(glm::dot(n,l) - glm::dot(n,a));
+    }
+
+    bool inCollision = false;
+    for(size_t i=0;i<adj->getNofOpposite(e);++i){
+      auto o = glm::vec3(
+          v[adj->getOpposite(e,i)+0],
+          v[adj->getOpposite(e,i)+1],
+          v[adj->getOpposite(e,i)+2]);
+      auto n = glm::normalize(glm::cross(b-a,o-a));
+      auto p = glm::vec4(n,-glm::dot(n,a));
+    }
+
+
+      if(mult != 0)
+        aSpace.addLine(Line(a,b,10,glm::vec3(1,0,0)));
+  }
+  saveTo(name,aSpace);
+}
+
+void saveModelsAsPot(std::string const&name,aiScene const*const ascene){
+  auto edges = SceneEdges(ascene);
+  VectorScene aSpace;
+
+  auto const l = glm::vec3(0.f,10.f,0.f);
+  auto adj = edges.adjacency;
+
+  glm::vec3 minAABB = glm::vec3(+1e10f);
+  glm::vec3 maxAABB = glm::vec3(-1e10f);
+  for(size_t i=0;i<edges.vertices.size();i+=3){
+    auto v = edges.vertices.data();
+    auto p = glm::vec3(v[i+0],v[i+1],v[i+2]);
+    minAABB = glm::min(minAABB,p);
+    maxAABB = glm::max(maxAABB,p);
+  }
+
+  glm::vec3 corners[8];
+  computeCorners(corners,minAABB,maxAABB);
+
+  float scale = 20.f;
+  auto centerAABB = (minAABB + maxAABB)/2.f;
+  auto halfAABB = (maxAABB-minAABB)/2.f;
+  minAABB = centerAABB - halfAABB*scale;
+  maxAABB = centerAABB + halfAABB*scale;
+  size_t voxFac = 8;
+
+  auto vox = getVoxel(minAABB,maxAABB,voxFac,l);
+
+  if(
+      l.x < minAABB.x || l.y < minAABB.y || l.z < minAABB.z ||
+      l.x > maxAABB.x || l.y > maxAABB.y || l.z > maxAABB.z
+      ){
+    std::cerr << "SVETLO MIMO" << std::endl;
+    exit(0);
+  }
+
+  for(size_t e=0;e<adj->getNofEdges();++e){
+    auto v = edges.vertices.data();
+    glm::vec3 aa,bb;
+    int mult = 0;
+    auto a = glm::vec3(
+        v[adj->getEdge(e,0)+0],
+        v[adj->getEdge(e,0)+1],
+        v[adj->getEdge(e,0)+2]);
+    auto b = glm::vec3(
+        v[adj->getEdge(e,1)+0],
+        v[adj->getEdge(e,1)+1],
+        v[adj->getEdge(e,1)+2]);
+    for(size_t i=0;i<adj->getNofOpposite(e);++i){
+      auto o = glm::vec3(
+          v[adj->getOpposite(e,i)+0],
+          v[adj->getOpposite(e,i)+1],
+          v[adj->getOpposite(e,i)+2]);
+      auto n = glm::normalize(glm::cross(b-a,o-a));
+      mult += glm::sign(glm::dot(n,l) - glm::dot(n,a));
+    }
+
+    bool inCollision = false;
+    for(size_t i=0;i<adj->getNofOpposite(e);++i){
+      auto o = glm::vec3(
+          v[adj->getOpposite(e,i)+0],
+          v[adj->getOpposite(e,i)+1],
+          v[adj->getOpposite(e,i)+2]);
+      auto n = glm::normalize(glm::cross(b-a,o-a));
+      auto p = glm::vec4(n,-glm::dot(n,a));
+      if(vox.isPlaneCollision(p))
+        inCollision = true;
+    }
+
+
+    if(inCollision)
+        aSpace.addLine(Line(a,b,8,glm::vec3(0,0,0)));
+  }
+  saveTo(name,aSpace);
+}
+
 void saveEdgesAsSVG(aiScene const*const ascene){
   auto edges = SceneEdges(ascene);
   auto windowSize = glm::uvec2(1920,1080);
@@ -699,8 +876,8 @@ void saveEdgesAsSVG(aiScene const*const ascene){
     }
 
 
-    //aSpace.addLine(Line(a,b,10,glm::vec3(0,0,0)));
-    //*
+    aSpace.addLine(Line(a,b,10,glm::vec3(0,0,0)));
+    /*
     if(inCollision){
       if(mult == 0){
         aSpace.addLine(Line(a,b,3,glm::vec3(0,0,0)));
@@ -801,7 +978,10 @@ int main(int argc,char*argv[]){
   auto args = std::make_shared<argumentViewer::ArgumentViewer>(argc,argv);
   auto const sceneName = args->gets("--model","","model name");
   auto ascene = aiImportFile(sceneName.c_str(),aiProcess_Triangulate|aiProcess_GenNormals|aiProcess_SortByPType);
-  saveEdgesAsSVG(ascene);
+  saveModelsAsEdges("edges.svg",ascene);
+  saveModelsAsSilhouettes("silhouettes.svg",ascene);
+  saveModelsAsPot("potential.svg",ascene);
+  //saveEdgesAsSVG(ascene);
   /*
   auto scene = Scene(ascene);
   auto windowSize = glm::uvec2(1920,1080);
