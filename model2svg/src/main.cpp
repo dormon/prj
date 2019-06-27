@@ -14,8 +14,73 @@
 #include<Camera.h>
 #include<Scene.h>
 #include<SVG.h>
+#include<plane.h>
 
 #define ___ std::cerr << __FILE__ << " " << __LINE__ << std::endl
+
+
+void clipLine(float&tmin,float&tmax,glm::vec4 const&a,glm::vec4 const&b,int axis,float s){
+  //+ai+t(bi-ai) >= -aw-t(bw-aw)
+  //+ai+t(bi-ai) <= +aw+t(bw-aw)
+  //
+  //+ai+t(bi-ai) >= -aw-t(bw-aw)
+  //-ai-t(bi-ai) >= -aw-t(bw-aw)
+  //
+  //s(ai+t(bi-ai)) >= -aw-t(bw-aw)
+  //sai+aw+ts(bi-ai) >= t(aw-bw)
+  //sai+aw >= ts(ai-bi) + t(aw-bw)
+  //M >= t(s(ai-bi)+(aw-bw))
+  //M >= tN
+  //tN <= M
+  //t <= M/N
+  //t <= O   N>=0
+  //t >= O   N< 0
+  //
+  float M = s*a[axis]+a[3];
+  float N = s*(a[axis]-b[axis])+a[3]-b[3];
+  if(N==0.f){
+    if(M<0.f)tmax=-1.f;
+    return;
+  }
+  float O = M / N;
+  if(N>=0.f){
+    tmax = glm::min(tmax,O);
+  }else{
+    tmin = glm::max(tmin,O);
+  }
+  return;
+}
+
+enum class ClipPlaneParts: uint32_t{
+  x        = 0   ,
+  y        = 1   ,
+  z        = 2   ,
+  negative = 0   ,
+  positive = 1<<2,
+};
+
+enum class ClipPlane: uint32_t{
+  LEFT   = ClipPlaneParts::x + ClipPlaneParts::negative, 
+  RIGHT  = 0+positive,
+  BOTTOM = 1+negative,
+  TOP    = 2+,
+  FAR    = ,
+  NEAR   = ,
+};
+
+void clipLine(float&tmin,float&tmax,glm::vec4 const&a,glm::vec4 const&b,ClipPlane p){
+  int axis;
+  float s;
+  if(p == LEFT || p == RIGHT || )
+
+  clipPlane(tmin,tmax,a,b,)
+}
+
+bool clip(glm::vec4 const&a,glm::vec4 const&b,glm::vec4 &c,glm::vec4&o0,glm::vec4&o1){
+  
+  // ai+t(bi-ai) > -aw-t(bw-aw)
+  // ai+t(bi-ai) < +aw+t(bw-aw)
+}
 
 float linearizeDepth(float n,float f,float d){
   //d = (-(f+n)/(f-n)*z + -2*f*n/(f-n)*w) / -z
@@ -109,18 +174,20 @@ bool isPointVisible(glm::vec4 const&p){
 
 class Circle;
 class Line;
+class Triangle;
 
 class Element{
   public:
     virtual ~Element(){}
     enum Type{
-      CIRCLE,
-      LINE  ,
+      CIRCLE  ,
+      LINE    ,
+      TRIANGLE,
     }type;
     Element(Type t):type(t){}
-    Circle const&toCircle()const;
-    Line   const&toLine()const;
-
+    Circle   const&toCircle()const;
+    Line     const&toLine()const;
+    Triangle const&toTriangle()const;
 };
 
 class Circle: public Element{
@@ -142,12 +209,34 @@ class Line: public Element{
     glm::vec3 color;
 };
 
+class Triangle: public Element{
+  public:
+    Triangle(
+        glm::vec3 const&a,
+        glm::vec3 const&b,
+        glm::vec3 const&c,
+        glm::vec4 const&ac = glm::vec4(1,0,0,1),
+        glm::vec4 const&bc = glm::vec4(0,1,0,1),
+        glm::vec4 const&cc = glm::vec4(0,0,1,1)
+        ):Element(TRIANGLE),a(a),b(b),c(c),ac(ac),bc(bc),cc(cc){}
+    glm::vec3 a;
+    glm::vec3 b;
+    glm::vec3 c;
+    glm::vec4 ac;
+    glm::vec4 bc;
+    glm::vec4 cc;
+};
+
 Circle const&Element::toCircle()const{
   return *(Circle*)this;
 }
 
 Line   const&Element::toLine()const{
   return *(Line*)this;
+}
+
+Triangle const&Element::toTriangle()const{
+  return *(Triangle*)this;
 }
 
 bool operator<(Circle const&a,Circle const&b){
@@ -230,6 +319,16 @@ CompareResult compareLineCircle(Line const&line,Circle const&circle,float bias =
   if(L.z < C.z + bias)return LESS;
   if(L.z > C.z)return GREATER;
   return EQUAL;
+}
+
+CompareResult operator!(CompareResult const&r){
+  if(r == LESS)return GREATER;
+  if(r == GREATER)return LESS;
+  return r;
+}
+
+CompareResult compareCircleLine(Circle const&circle,Line const&line,float bias = 0.f){
+  return !compareLineCircle(line,circle,bias);
 }
 
 bool operator<(Circle const&cir,Line const&line){
@@ -331,16 +430,37 @@ CompareResult compareLineLine(Line const&a,Line const&b){
   return EQUAL;
 }
 
+CompareResult compareCircleTriangle(Circle const&a,Triangle const&b){
+  //TODO
+  return NOT_COMPARABLE;
+}
+
+CompareResult compareLineTriangle(Line const&a,Triangle const&b){
+  //TODO
+  return NOT_COMPARABLE;
+}
+
+CompareResult compareTriangleCircle(Triangle const&a,Circle const&b){
+  return !compareCircleTriangle(b,a);
+}
+
+CompareResult compareTriangleLine(Triangle const&a,Line const&b){
+  return !compareLineTriangle(b,a);
+}
+
+CompareResult compareTriangleTriangle(Triangle const&a,Triangle const&b){
+  //TODO
+  return NOT_COMPARABLE;
+}
+
 CompareResult compare(std::unique_ptr<Element>const&a,std::unique_ptr<Element>const&b){
   if(a->type == Element::CIRCLE){
     if(b->type == Element::CIRCLE)
       return compareCircleCircle(a->toCircle(),b->toCircle());
-    if(b->type == Element::LINE){
-      auto r = compareLineCircle(b->toLine(),a->toCircle(),0.005f);
-      if(r == LESS)return GREATER;
-      if(r == GREATER)return LESS;
-      return r;
-    }
+    if(b->type == Element::LINE)
+      return compareCircleLine(a->toCircle(),b->toLine(),0.005f);
+    if(b->type == Element::TRIANGLE)
+      return compareCircleTriangle(a->toCircle(),b->toTriangle());
     return NOT_COMPARABLE;
   }
   if(a->type == Element::LINE){
@@ -348,6 +468,17 @@ CompareResult compare(std::unique_ptr<Element>const&a,std::unique_ptr<Element>co
       return compareLineCircle(a->toLine(),b->toCircle(),0.001f);
     if(b->type == Element::LINE)
       return compareLineLine(a->toLine(),b->toLine());
+    if(b->type == Element::TRIANGLE)
+      return compareLineTriangle(a->toLine(),b->toTriangle());
+    return NOT_COMPARABLE;
+  }
+  if(a->type == Element::TRIANGLE){
+    if(b->type == Element::CIRCLE)
+      return compareTriangleCircle(a->toTriangle(),b->toCircle());
+    if(b->type == Element::LINE)
+      return compareTriangleLine(a->toTriangle(),b->toLine());
+    if(b->type == Element::TRIANGLE)
+      return compareTriangleTriangle(a->toTriangle(),b->toTriangle());
     return NOT_COMPARABLE;
   }
   return NOT_COMPARABLE;
@@ -385,6 +516,9 @@ class VectorScene{
     void addLine(Line const&l){
       elements.emplace_back(std::make_unique<Line>(l));
     }
+    void addTriangle(Triangle const&t){
+      elements.emplace_back(std::make_unique<Triangle>(t));
+    }
 };
 
 void project(VectorScene&out,VectorScene const&in,Camera const&camera){
@@ -411,6 +545,23 @@ void project(VectorScene&out,VectorScene const&in,Camera const&camera){
       bb.z = linearizeDepth(bb.z,camera.near,camera.far);
       out.elements.emplace_back(std::make_unique<Line>(aa,bb,newWid.x/newWid.w,line.color));
     }
+    if(e->type == Element::TRIANGLE){
+      auto triangle = e->toTriangle();
+      auto A = mvp * glm::vec4(triangle.a,1);
+      auto B = mvp * glm::vec4(triangle.b,1);
+      auto C = mvp * glm::vec4(triangle.c,1);
+      //TODO do clipping
+      glm::vec3 aa = glm::vec3(A) / A.w;
+      glm::vec3 bb = glm::vec3(B) / B.w;
+      glm::vec3 cc = glm::vec3(C) / C.w;
+
+      aa.z = linearizeDepth(aa.z,camera.near,camera.far);
+      bb.z = linearizeDepth(bb.z,camera.near,camera.far);
+      bb.z = linearizeDepth(bb.z,camera.near,camera.far);
+      cc.z = linearizeDepth(cc.z,camera.near,camera.far);
+      out.elements.emplace_back(std::make_unique<Triangle>(aa,bb,cc,triangle.ac,triangle.bc,triangle.cc));
+    }
+
   }
 }
 
@@ -555,7 +706,7 @@ Voxel getVoxel(glm::vec3 const&minAABB,glm::vec3 const&maxAABB,size_t voxFac,glm
 void saveTo(std::string const&name,VectorScene&aSpace,glm::uvec2 const&windowSize = glm::uvec2(1920,1080)){
   VectorScene ndc;
   auto svg = SVG(windowSize);
-  auto camera = Camera(glm::vec3(50,50,50),glm::vec3(0,0,0),glm::vec3(0,1,0),windowSize,glm::half_pi<float>(),0.1f,1000.f);
+  auto camera = Camera(glm::vec3(5,5,5),glm::vec3(0,0,0),glm::vec3(0,1,0),windowSize,glm::half_pi<float>(),0.1f,1000.f);
   project(ndc,aSpace,camera);
 
   std::sort(ndc.elements.begin(),ndc.elements.end(),[](std::unique_ptr<Element>const&a,std::unique_ptr<Element>const&b)->bool{
@@ -580,6 +731,13 @@ void saveTo(std::string const&name,VectorScene&aSpace,glm::uvec2 const&windowSiz
       auto a = viewportTransform(line.a,camera.windowSize);
       auto b = viewportTransform(line.b,camera.windowSize);
       svg.addLine(SVGLine(a,b,line.color,line.width));
+    }
+    if(e->type == Element::TRIANGLE){
+      auto const triangle = e->toTriangle();
+      auto a = viewportTransform(triangle.a,camera.windowSize);
+      auto b = viewportTransform(triangle.b,camera.windowSize);
+      auto c = viewportTransform(triangle.c,camera.windowSize);
+      svg.addTriangle(SVGTriangle(a,b,c,triangle.ac,triangle.bc,triangle.cc));
     }
   }
   
@@ -651,6 +809,42 @@ void saveModelsAsSilhouettes(std::string const&name,aiScene const*const ascene){
         aSpace.addLine(Line(a,b,10,glm::vec3(1,0,0)));
   }
   saveTo(name,aSpace);
+}
+
+glm::vec3 toVec3(aiVector3D const&a){
+  return glm::vec3(a.x,a.y,a.z);
+}
+
+void saveModel(std::string const&name,aiScene const*const ascene){
+  VectorScene aSpace;
+
+  glm::vec3 light = glm::vec3(10,10,10);
+  for(size_t mm=0;mm<ascene->mNumMeshes;++mm){
+    auto mesh = ascene->mMeshes[mm];
+    auto material = ascene->mMaterials[mesh->mMaterialIndex];
+    aiColor3D color (0.f,0.f,0.f);
+    material->Get(AI_MATKEY_COLOR_DIFFUSE,color);
+    float opacity = 0.f;
+    material->Get(AI_MATKEY_OPACITY,opacity);
+    glm::vec3 clr = glm::vec3(color.r,color.g,color.b);
+
+    for(size_t ff=0;ff<mesh->mNumFaces;++ff){
+      auto&face = mesh->mFaces[ff];
+      if(face.mNumIndices != 3)continue;
+      auto a=toVec3(mesh->mVertices[face.mIndices[0]]);
+      auto b=toVec3(mesh->mVertices[face.mIndices[1]]);
+      auto c=toVec3(mesh->mVertices[face.mIndices[2]]);
+      auto n = glm::normalize(glm::cross(b-a,c-a));
+      auto l = glm::normalize(light-((a+b+c)/3.f));
+
+      float df = glm::abs(glm::dot(n,l));
+      auto cc = glm::vec4(df*clr,opacity);
+      aSpace.addTriangle(Triangle(a,b,c,cc));
+    }
+  }
+
+  saveTo(name,aSpace);
+
 }
 
 void saveModelsAsPot(std::string const&name,aiScene const*const ascene){
@@ -978,9 +1172,10 @@ int main(int argc,char*argv[]){
   auto args = std::make_shared<argumentViewer::ArgumentViewer>(argc,argv);
   auto const sceneName = args->gets("--model","","model name");
   auto ascene = aiImportFile(sceneName.c_str(),aiProcess_Triangulate|aiProcess_GenNormals|aiProcess_SortByPType);
-  saveModelsAsEdges("edges.svg",ascene);
-  saveModelsAsSilhouettes("silhouettes.svg",ascene);
-  saveModelsAsPot("potential.svg",ascene);
+  //saveModelsAsEdges("edges.svg",ascene);
+  //saveModelsAsSilhouettes("silhouettes.svg",ascene);
+  //saveModelsAsPot("potential.svg",ascene);
+  saveModel("model.svg",ascene);
   //saveEdgesAsSVG(ascene);
   /*
   auto scene = Scene(ascene);

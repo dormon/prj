@@ -9,15 +9,18 @@
 
 class SVGLine;
 class SVGCircle;
+class SVGTriangle;
 
 class SVGElement{
   public:
     virtual ~SVGElement(){}
     SVGLine const&toLine()const;
     SVGCircle const&toCircle()const;
+    SVGTriangle const&toTriangle()const;
     enum Type{
-      CIRCLE,
-      LINE  ,
+      CIRCLE  ,
+      LINE    ,
+      TRIANGLE,
     }type;
     SVGElement(Type t):type(t){}
     virtual glm::vec2 getMin()const = 0;
@@ -55,11 +58,38 @@ class SVGCircle: public SVGElement{
     }
 };
 
+class SVGTriangle: public SVGElement{
+  public:
+    SVGTriangle(
+        glm::vec2 const&a,
+        glm::vec2 const&b,
+        glm::vec2 const&c,
+        glm::vec4 const&ac = glm::vec4(1,0,0,1),
+        glm::vec4 const&bc = glm::vec4(0,1,0,1),
+        glm::vec4 const&cc = glm::vec4(0,0,1,1)
+        ):SVGElement(TRIANGLE),a(a),b(b),c(c),ac(ac),bc(bc),cc(cc){}
+    glm::vec2 a;
+    glm::vec2 b;
+    glm::vec2 c;
+    glm::vec4 ac;
+    glm::vec4 bc;
+    glm::vec4 cc;
+    virtual glm::vec2 getMin()const override{
+      return glm::min(glm::min(a,b),c);
+    }
+    virtual glm::vec2 getMax()const override{
+      return glm::max(glm::max(a,b),c);
+    }
+};
+
 SVGLine const&SVGElement::toLine()const{
   return*(SVGLine*)this;
 }
 SVGCircle const&SVGElement::toCircle()const{
   return*(SVGCircle*)this;
+}
+SVGTriangle const&SVGElement::toTriangle()const{
+  return*(SVGTriangle*)this;
 }
 
 
@@ -101,6 +131,9 @@ class SVG{
     std::string fill(glm::vec3 const&color){
       return attribs("fill",rgb(color));
     }
+    std::string fillOpactiy(float v){
+      return attribf("fill-opacity",v);
+    }
     std::string strokeWidth(float value){
       return attribf("stroke-width",value);
     }
@@ -117,6 +150,17 @@ class SVG{
     std::string headerEnd(){
       std::stringstream ss;
       ss << "</svg>";
+      return ss.str();
+    }
+    std::string points(glm::vec2 const&a,glm::vec2 const&b,glm::vec2 const&c){
+      std::stringstream ss;
+      ss << "points=\"";
+      ss << a.x << "," << a.y;
+      ss << " ";
+      ss << b.x << "," << b.y;
+      ss << " ";
+      ss << c.x << "," << c.y;
+      ss << "\"";
       return ss.str();
     }
     std::string line(glm::vec2 const&a,glm::vec2 const&b,glm::vec3 const&color = glm::vec3(1,0,0),float width = 1){
@@ -153,6 +197,18 @@ class SVG{
       ss << "/>";
       return ss.str();
     }
+    std::string triangle(glm::vec2 const&a,glm::vec2 const&b,glm::vec2 const&c,glm::vec4 const&ac,glm::vec4 const&bc,glm::vec4 const&cc){
+      std::stringstream ss;
+      ss << "<polygon";
+      ss << " ";
+      ss << points(a,b,c);
+      ss << " ";
+      ss << fill(ac);
+      ss << " ";
+      ss << fillOpactiy(ac.w);
+      ss << "/>";
+      return ss.str();
+    }
 
     void save(std::string const&n){
       std::ofstream ss;
@@ -178,6 +234,10 @@ class SVG{
           auto c = e->toCircle();
           ss << circle(c.pos-mmin,c.radius,c.width,c.sColor,c.fColor) << std::endl;
         }
+        if(e->type == SVGElement::TRIANGLE){
+          auto t = e->toTriangle();
+          ss << triangle(t.a-mmin,t.b-mmin,t.c-mmin,t.ac,t.bc,t.cc) << std::endl;
+        }
       }
       ss << headerEnd();
     }
@@ -187,5 +247,8 @@ class SVG{
     }
     void addCircle(SVGCircle const&c){
       elements.emplace_back(std::make_unique<SVGCircle>(c));
+    }
+    void addTriangle(SVGTriangle const&t){
+      elements.emplace_back(std::make_unique<SVGTriangle>(t));
     }
 };

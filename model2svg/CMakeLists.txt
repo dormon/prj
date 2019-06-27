@@ -23,6 +23,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules")
 
 find_package(ArgumentViewer 1.0 CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
 
 set(SOURCES
   src/main.cpp
@@ -34,7 +35,12 @@ set(INCLUDES
   src/Camera.h
   src/Scene.h
   src/SVG.h
+  src/plane.h
   )
+
+add_executable(testPlane src/plane.h src/planeTest.cpp src/planeSink.h src/planeSink.cpp)
+target_include_directories(testPlane PUBLIC src)
+target_link_libraries(testPlane PUBLIC glm)
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${INCLUDES})
 
