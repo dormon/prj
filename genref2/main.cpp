@@ -26,6 +26,8 @@ class Op{
       MULTIPLICATION,
       SUBTRACTION   ,
       DIVISION      ,
+      SIN           ,
+      COS           ,
     }type;
     Op(Type const&t):type(t){}
     bool brackets(Type const&o,bool left)const{
@@ -90,6 +92,37 @@ class Binary: public Op<T>{
     virtual ~Binary(){}
 };
 
+template<typename T = float>
+class Unary: public Op<T>{
+  public:
+    std::shared_ptr<Op<T>>op;
+    Unary(typename Op<T>::Type const&t):Op<T>(t){}
+    virtual ~Unary(){}
+};
+
+#define UNARY(NAME,TYPE,FCE)                                                                            \
+template<typename T = float>                                                                            \
+class NAME: public Unary<T>{                                                                            \
+  public:                                                                                               \
+    NAME():Unary<T>(Op<T>::TYPE){}                                                                      \
+    NAME(std::shared_ptr<Op<T>>const&a):NAME(){                                                         \
+      Unary<T>::op = a;                                                                                 \
+    }                                                                                                   \
+    virtual T operator()(std::vector<T>const&d)const override{                                          \
+      return FCE((*Unary<T>::op)(d));                                                                   \
+    }                                                                                                   \
+    virtual std::string toStr(typename Op<T>::Type t = Op<T>::CONSTANT,bool left = true)const override{ \
+      std::stringstream ss;                                                                             \
+      ss << #FCE;                                                                                       \
+      ss << "(";                                                                                        \
+      ss << Unary<T>::op->toStr(Op<T>::type,true);                                                      \
+      ss << ")";                                                                                        \
+      return ss.str();                                                                                  \
+    }                                                                                                   \
+}
+
+UNARY(Sin,SIN,sin);
+UNARY(Cos,COS,cos);
 
 #define BINARY(NAME,TYPE,OP)                                   \
 template<typename T = float>                                   \
@@ -184,33 +217,50 @@ std::shared_ptr<Op<T>>diff(std::shared_ptr<Op<T>>const&o,size_t i){
     auto bottom = std::make_shared<Multiplication<T>>(b,b);
     return std::make_shared<Division<T>>(top,bottom);
   }
+  return nullptr;
 }
-
-template<typename T = float>
-Subtraction<T> diff(Subtraction<T>const&t,size_t i);
 
 template<typename T = float>
 Addition<T> diff(Addition<T>const&t,size_t i);
 
 template<typename T = float>
+Subtraction<T> diff(Subtraction<T>const&t,size_t i);
+
+template<typename T = float>
 Addition<T> diff(Multiplication<T>const&t,size_t i);
+
+template<typename T = float>
+Division<T> diff(Division<T>const&t,size_t i);
 
 template<typename T>
 Addition<T> diff(Addition<T>const&t,size_t i){
-  return diff(*t.op[0],i)+diff(*t.op[1],i);
+  return Addition<T>(diff(t.op[0],i),diff(t.op[1],i));
 }
 
 template<typename T>
 Subtraction<T> diff(Subtraction<T>const&t,size_t i){
-  return diff(*t.op[0],i)-diff(*t.op[1],i);
+  return Subtraction<T>(diff(t.op[0],i),diff(t.op[1],i));
 }
-  
 
 template<typename T>
 Addition<T> diff(Multiplication<T>const&t,size_t i){
-  return diff(*t.op[0],i)*(*t.op[1])+(*t.op[0])*diff(*t.op[1],i);
+  auto a = t.op[0];
+  auto b = t.op[1];
+  auto da = diff(a,i);
+  auto db = diff(b,i);
+  return Multiplication<T>(da,b) + Multiplication<T>(a,db);
 }
 
+template<typename T>
+Division<T> diff(Division<T>const&t,size_t i){
+  auto a = t.op[0];
+  auto b = t.op[1];
+  auto da = diff(a,i);
+  auto db = diff(b,i);
+  auto top = Multiplication<T>(da,b) - Multiplication<T>(a,db);
+  auto bottom = Multiplication<T>(b) * Multiplication<T>(b);
+  return top / bottom;
+}
 
 int main(){
   //std::make_shared<Addition<float>>(nullptr,nullptr);
@@ -229,7 +279,7 @@ int main(){
   std::cerr << ((var(1)+var(2))/var(0)).toStr() << std::endl;
   std::cerr << ((var(1)-var(2))/var(0)).toStr() << std::endl;
 
-  //std::cerr << diff(var(0)+var(1),0).toStr() << std::endl;
+  std::cerr << diff(var(0)+var(1),0).toStr() << std::endl;
 
   std::shared_ptr<Op<float>>a;
   a = std::make_shared<Const<float>>();
