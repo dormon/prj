@@ -78,6 +78,22 @@ class Op{
       if(type == CONST && o.type == VAR)return true;
       return false;
     }
+    Op diff(size_t x)const{
+      switch(type){
+        case ADD  :return Op(a->diff(x),b->diff(x),ADD);
+        case SUB  :return Op(a->diff(x),b->diff(x),SUB);
+        case MUL  :return Op(Op(a->diff(x),*b,MUL),Op(*a,b->diff(x),MUL),ADD);
+        case DIV  :return Op(Op(Op(a->diff(x),*b,MUL),Op(*a,b->diff(x),MUL),SUB),Op(*b,*b,MUL),DIV);
+//        case POW  :return Op();
+//        case CONST:ss << c;break;
+//        case VAR  :ss << "x[" << var << "]";break;
+//        case USUB :usub(ss);break;
+//        case SIN  :una(ss,"sin");break;
+//        case COS  :una(ss,"cos");break;
+//        case LOG  :una(ss,"log");break;
+//        case EXP  :una(ss,"exp");break;
+      }
+    }
 };
 
 std::ostream& operator<<(std::ostream& os,Op const&o){
