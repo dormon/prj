@@ -6,6 +6,36 @@
 #include <cassert>
 #include <time.h>
 #include <chrono>
+// 
+// x0
+// z0(A,a,x0) = A*x0 + a
+// x1(A,a,x0) = f(z0(A,a,x0))
+//
+// f(Cf(Bf(Ax+a)+b)+c)
+//
+// y = f<p>(x)
+//
+// f(x) = [x0*x0]
+//        [x0*x1]
+//
+// [[2x0]]
+// [[ x1]]
+// [[  0]]
+// [[ x0]]
+//
+// g(x) = [x0-x1]
+// [ 1]
+// [-1]
+// 
+// g(f(Ax+a))
+//
+// (a0x0+a1x1+a2x2+aa0)*(a0x0+a1x1+a2x2+aa0) - (a0x0+a1x1+a2x2+aa0)*(a3x0+a4x1+a5x3+aa1)
+//
+// 2(a0x0+a1x1+a2x2+aa0) 
+//
+//
+//
+//
 
 #define ___ std::cerr << __FILE__ << " " << __LINE__ << std::endl
 
@@ -32,19 +62,25 @@ class Vector: public std::vector<float>{
     Vector(size_t l){
       resize(l,0);
     }
-    friend std::ostream& operator<< (std::ostream& stream, const Vector& v) {
-      stream << "[";
-      bool first = true;
-      for(auto const&e:v){
-        if(first)first = false;
-        else stream << ",";
-        stream << e;
-      }
-
-      stream << "]";
-      return stream;
+    void randomize(float mmin,float mmax){
+      for(auto&x:*this)
+        x = randomf(mmin,mmax);
     }
 };
+
+
+std::ostream& operator<< (std::ostream& stream, const Vector& v) {
+  stream << "[";
+  bool first = true;
+  for(auto const&e:v){
+    if(first)first = false;
+    else stream << ",";
+    stream << e;
+  }
+
+  stream << "]";
+  return stream;
+}
 
 
 class Matrix: public std::vector<Vector>{
@@ -62,12 +98,18 @@ class Matrix: public std::vector<Vector>{
     size_t columns()const{
       return this->at(0).size();
     }
-    friend std::ostream& operator<< (std::ostream& stream, const Matrix& v) {
-      for(size_t r=0;r<v.rows();++r)
-        stream << v[r] << std::endl;
-      return stream;
+    void randomize(float mmin,float mmax){
+      for(auto&r:*this)
+        r.randomize(mmin,mmax);
     }
 };
+
+
+std::ostream& operator<< (std::ostream& stream, const Matrix& v) {
+  for(size_t r=0;r<v.rows();++r)
+    stream << v[r] << std::endl;
+  return stream;
+}
 
 void transpose(Matrix&o,Matrix const&i){
   assert(o.rows() == i.columns());
@@ -198,6 +240,10 @@ class Layer{
       apply(gz,z,g);
       return o;
     }
+    void randomize(float mmin,float mmax){
+      bias.randomize(mmin,mmax);
+      weight.randomize(mmin,mmax);
+    }
     size_t output()const{return weight.rows();}
     size_t input()const{return weight.columns();}
     Matrix weight      ;
@@ -307,13 +353,8 @@ class Network{
       return counter / samples.size();
     }
     void randomize(float mmin,float mmax){
-      for(auto&l:layers){
-        for(auto&x:l.bias)
-          x = randomf(mmin,mmax);
-        for(auto&r:l.weight)
-          for(auto&x:r)
-            x = randomf(mmin,mmax);
-      }
+      for(auto&l:layers)
+        l.randomize(mmin,mmax);
     }
     void pushLayer(size_t n,Fce const&f = relu,Fce const&g = diffRelu){
       if(layers.empty())
