@@ -6,36 +6,6 @@
 #include <cassert>
 #include <time.h>
 #include <chrono>
-// 
-// x0
-// z0(A,a,x0) = A*x0 + a
-// x1(A,a,x0) = f(z0(A,a,x0))
-//
-// f(Cf(Bf(Ax+a)+b)+c)
-//
-// y = f<p>(x)
-//
-// f(x) = [x0*x0]
-//        [x0*x1]
-//
-// [[2x0]]
-// [[ x1]]
-// [[  0]]
-// [[ x0]]
-//
-// g(x) = [x0-x1]
-// [ 1]
-// [-1]
-// 
-// g(f(Ax+a))
-//
-// (a0x0+a1x1+a2x2+aa0)*(a0x0+a1x1+a2x2+aa0) - (a0x0+a1x1+a2x2+aa0)*(a3x0+a4x1+a5x3+aa1)
-//
-// 2(a0x0+a1x1+a2x2+aa0) 
-//
-//
-//
-//
 
 #define ___ std::cerr << __FILE__ << " " << __LINE__ << std::endl
 
@@ -198,8 +168,6 @@ using Fce = std::function<float(float)>;
 
 constexpr const auto relu = [](float x){if(x>=0.f)return x;return x*0.1f;};
 constexpr const auto diffRelu = [](float x){if(x>=0.f)return 1.f;return 0.1f;};
-//constexpr const auto relu = [](float x){if(x>=0.f)return x;return x;};
-//constexpr const auto diffRelu = [](float x){if(x>=0.f)return 1.f;return 0.f;};
 
 void apply(Vector&o,Vector&v,Fce const&f){
   assert(o.size() == v.size());
@@ -207,7 +175,22 @@ void apply(Vector&o,Vector&v,Fce const&f){
     o[i] = f(v[i]);
 }
 
-class Layer{
+class LayerBase{
+  public:
+    virtual Vector const&getOutput()const = 0;
+};
+
+class Input: public LayerBase{
+  public:
+    Vector &output;
+    Input(Vector &i):output(i){}
+    void setInput(Vector &i){output = i;}
+    Vector const&getOutput()const override{
+      return output;
+    }
+};
+
+class Layer: public LayerBase{
   public:
     Layer(
         size_t/**/      /**/input /**/ /**/        ,
@@ -228,6 +211,9 @@ class Layer{
       twbu        (input       )
     {
 
+    }
+    Vector const& getOutput()const override{
+      return o;
     }
     Vector const& compute(Vector const&x){
       mul(weightX,weight,x);
@@ -303,24 +289,20 @@ class Network{
       sub(C,layers.back().o,y);
       constMul(C,C,-2*s);
 
-      componentMul(layers.back().biasUpdate,C,layers.back().gz);
-      if(layers.size() > 1)
-        matrixMul(layers.back().weightUpdate,layers.back().biasUpdate,layers[layers.size()-2].o);
-      else
-        matrixMul(layers.back().weightUpdate,layers.back().biasUpdate,x);
-
-      for(size_t i=1;i<layers.size();++i){
-        size_t lid=layers.size()-i-1;
-        auto&l = layers.at(lid);
-        auto&pl = layers.at(lid+1);
-        //transpose(pl.tw,pl.weight);
-        //mul(pl.twbu,pl.tw,pl.biasUpdate);
-        mulTransposed(pl.twbu,pl.weight,pl.biasUpdate);
-        componentMul(l.biasUpdate,pl.twbu,l.gz);
-        if(lid == 0)
-          matrixMul(l.weightUpdate,l.biasUpdate,x);
+      auto const computeUpdate = [&](size_t l,Vector const&C){
+        componentMul(layers[l].biasUpdate,C,layers[l].gz);
+        if(l == 0)
+          matrixMul(layers[l].weightUpdate,layers[l].biasUpdate,x);
         else
-          matrixMul(l.weightUpdate,l.biasUpdate,layers.at(lid-1).o);
+          matrixMul(layers[l].weightUpdate,layers[l].biasUpdate,layers[l-1].o);
+      };
+
+      computeUpdate(layers.size()-1,C);
+
+      for(size_t i=layers.size()-1;i>0;--i){
+        auto&pl = layers.at(i);
+        mulTransposed(pl.twbu,pl.weight,pl.biasUpdate);
+        computeUpdate(i-1,pl.twbu);
       }
     }
     void update(){
