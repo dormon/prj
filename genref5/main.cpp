@@ -11,21 +11,99 @@
 
 #define ___ std::cerr << __FILE__ << " " << __LINE__ << std::endl
 
-std::map<float*,size_t>sizes;
-
-float*mynew(size_t n){
-  auto r = new float[n];
-  sizes[r] = n;
-  return r;
+float uniformf(){
+  return (float)rand() / (float)RAND_MAX;
 }
 
-void mydelete(float*d){
-  sizes.erase(d);
-  delete[]d;
+float randomf(float mmin,float mmax){
+  return uniformf()*(mmax-mmin)+mmin;
 }
 
-size_t getSize(float*d){
-  return sizes[d];
+class Vector{
+  public:
+    Vector(float*d,size_t s):data(d),size(s),allocated(false){}
+    Vector(float const*d,size_t s):data(const_cast<float*>(d)),size(s),allocated(false){}
+    Vector(size_t s):size(s),allocated(true){
+      data = new float[s];
+    }
+    Vector(Vector const&o){
+      if(o.allocated){
+        data = new float[o.size];
+        memcpy(data,o.data,sizeof(float)*o.size);
+      }else
+        data = o.data;
+      size = o.size;
+      allocated = o.allocated;
+    }
+    ~Vector(){
+      if(allocated)delete[]data;
+      data = nullptr;
+      size = 0;
+      allocated = false;
+    }
+    float*getData(){
+      return data;
+    }
+    float const*getData()const{
+      return data;
+    }
+    size_t getSize()const{
+      return size;
+    }
+    bool isAllocated()const{
+      return allocated;
+    }
+    float&operator[](size_t i){
+      return data[i];
+    }
+    float const&operator[](size_t i)const{
+      return data[i];
+    }
+    void randomize(float mmin,float mmax){
+      for(size_t i=0;i<size;++i)
+        data[i] = randomf(mmin,mmax);
+    }
+  protected:
+    float* data      = nullptr;
+    size_t size      = 0      ;
+    bool   allocated = false  ;
+};
+
+class Matrix: public Vector{
+  public:
+    Matrix(size_t r,size_t c):Vector(r*c),rows(r),columns(c){}
+    Matrix(float*d,size_t r,size_t c):Vector(d,r*c),rows(r),columns(c){}
+    Matrix(Matrix const&o):Vector(o),rows(o.rows),columns(o.columns){}
+    size_t getRows()const{return rows;}
+    size_t getColumns()const{return columns;}
+    float&element(size_t r,size_t c){
+      return data[r*columns+c];
+    }
+    Vector operator[](size_t r){
+      return Vector(getData() + getColumns()*r,getColumns());
+    }
+    Vector const operator[](size_t r)const{
+      return Vector(getData() + getColumns()*r,getColumns());
+    }
+  protected:
+    size_t rows    = 0;
+    size_t columns = 0;
+};
+
+std::ostream& operator<< (std::ostream& stream, const Vector& v) {
+  stream << "[";
+  for(size_t i=0;i<v.getSize();++i){
+    if(i>0)stream << ",";
+    stream << v[i];
+  }
+  stream << "]";
+  return stream;
+}
+
+std::ostream& operator<< (std::ostream& stream, const Matrix& v) {
+  for(size_t r=0;r<v.getRows();++r)
+    stream << v[r] << std::endl;
+  return stream;
 }
 
 void measure(std::string const&n,std::function<void()>const&f){
@@ -36,210 +114,188 @@ void measure(std::string const&n,std::function<void()>const&f){
   std::cerr << n << elapsed.count() << std::endl;
 }
 
-float uniformf(){
-  return (float)rand() / (float)RAND_MAX;
-}
-
-float randomf(float mmin,float mmax){
-  return uniformf()*(mmax-mmin)+mmin;
-}
-
-
-std::string vector2Str(float const*const d,size_t n){
-  std::stringstream ss;
-  ss << "[";
-  for(size_t i=0;i<n;++i){
-    if(i>0)ss << ",";
-    ss << d[i];
-  }
-  ss << "]";
-  return ss.str();
-}
-
-void randomize(float*const d,size_t n,float mmin,float mmax){
-  assert(getSize(d) == n);
-  for(size_t i=0;i<n;++i)
-    d[i] = randomf(mmin,mmax);
-}
-
-
-
-float dot(float const*const a,float const*const b,size_t n){
-  float res = 0;
-  for(size_t i=0;i<n;++i)
-    res += a[i] * b[i];
-  return res;
-}
-
-void add(float*const o,float const*const a,float const*const b,size_t n){
-  for(size_t i=0;i<n;++i)
-    o[i] = a[i]+b[i];
-}
-
-void copy(float*const o,float const*const a,size_t n){
-  for(size_t i=0;i<n;++i)
-    o[i] = a[i];
-}
-
-void sub(float*const o,float const*const a,float const*const b,size_t n){
-  for(size_t i=0;i<n;++i)
-    o[i] = a[i]-b[i];
-}
-
-void mulMatrixVector(float*const c,float const*const m,float const*const v,size_t ni,size_t no){
-  for(size_t o=0;o<no;++o)
-    c[o] = dot(m+ni*o,v,ni);
-}
-
-void mulTrasposedMatrixVector(float*const c,float const*const m,float const*const v,size_t ni,size_t no){
-  for(size_t o=0;o<no;++o){
-    float acc = 0;
-    for(size_t i=0;i<ni;++i)
-      acc += m[i*no+o] * v[i];
-    c[o] = acc;
-  }
-}
-
-void componentMul(float*const o,float const*const a,float const*const b,size_t n){
-  for(size_t i=0;i<n;++i)
-    o[i] = a[i] * b[i];
-}
-
-
-void constMul(float*const o,float const*const a,float b,size_t n){
-  for(size_t i=0;i<n;++i)
-    o[i] = a[i] * b;
-}
-
-void matrixMul(float*const O,float const*const a,float const*const b,size_t an,size_t bn){
-  for(size_t o=0;o<an;++o)
-    constMul(O+o*bn,b,a[o],bn);
-}
-
 using Fce = std::function<float(float)>; 
 
 constexpr const auto relu = [](float x){if(x>=0.f)return x;return x*0.1f;};
 constexpr const auto diffRelu = [](float x){if(x>=0.f)return 1.f;return 0.1f;};
 
-void apply(float*const o,float const*const a,Fce const&f,size_t n){
-  for(size_t i=0;i<n;++i)
-    o[i] = f(a[i]);
+void add(Vector&v,Vector const&a,Vector const&b){
+  assert(v.getSize() == a.getSize());
+  assert(a.getSize() == b.getSize());
+  for(size_t i=0;i<a.getSize();++i)
+    v[i] = a[i] + b[i];
 }
 
-class Layer{
+void sub(Vector&v,Vector const&a,Vector const&b){
+  assert(v.getSize() == a.getSize());
+  assert(a.getSize() == b.getSize());
+  for(size_t i=0;i<a.getSize();++i)
+    v[i] = a[i] - b[i];
+}
+
+void mul(Vector&v,Vector const&a,Vector const&b){
+  assert(v.getSize() == a.getSize());
+  assert(a.getSize() == b.getSize());
+  for(size_t i=0;i<a.getSize();++i)
+    v[i] = a[i] * b[i];
+}
+
+void mul(Vector&v,Vector const&a,float b){
+  assert(v.getSize() == a.getSize());
+  for(size_t i=0;i<a.getSize();++i)
+    v[i] = a[i] * b;
+}
+
+float dot(Vector const&a,Vector const&b){
+  assert(a.getSize() == b.getSize());
+  float acc = 0;
+  for(size_t i=0;i<a.getSize();++i)
+    acc += a[i] * b[i];
+  return acc;
+}
+
+void copy(Vector&c,Vector const&a){
+  assert(c.getSize() == a.getSize());
+  for(size_t i=0;i<c.getSize();++i)
+    c[i] = a[i];
+}
+
+void add(Matrix&c,Matrix const&a,Matrix const&b){
+  assert(c.getRows() == a.getRows());
+  assert(c.getColumns() == b.getColumns());
+  for(size_t i=0;i<a.getSize();++i)
+    c.getData()[i] = a.getData()[i] + b.getData()[i];
+}
+
+void mul(Vector&c,Matrix const&a,Vector const&b){
+  assert(a.getRows() == c.getSize());
+  assert(a.getColumns() == b.getSize());
+  for(size_t i=0;i<c.getSize();++i)
+    c[i] = dot(a[i],b);
+}
+
+void mulTransposed(Vector&c,Matrix const&a,Vector const&b){
+  assert(a.getRows() == b.getSize());
+  assert(c.getSize() == a.getColumns());
+  for(size_t o=0;o<c.getSize();++o){
+    float acc = 0;
+    for(size_t i=0;i<b.getSize();++i)
+      acc += a[i][o] * b[i];
+    c[o] = acc;
+  }
+}
+
+void componentMul(Vector&c,Vector const&a,Vector const&b){
+  assert(c.getSize() == a.getSize());
+  assert(c.getSize() == b.getSize());
+  for(size_t i=0;i<a.getSize();++i)
+    c[i] = a[i] * b[i];
+}
+
+void constMul(Vector&c,Vector const&a,float b){
+  assert(c.getSize() == a.getSize());
+  for(size_t i=0;i<a.getSize();++i)
+    c[i] = a[i] * b;
+}
+
+void matrixMul(Matrix&o,Vector const&a,Vector const&b){
+  assert(o.getRows() == a.getSize());
+  assert(o.getColumns() == b.getSize());
+  for(size_t r=0;r<o.getRows();++r)
+    for(size_t c=0;c<o.getColumns();++c)
+      o.element(r,c) = a[r] * b[c];
+}
+
+void apply(Vector&o,Vector const&v,Fce const&f){
+  assert(o.getSize() == v.getSize());
+  for(size_t i=0;i<v.getSize();++i)
+    o[i] = f(v[i]);
+}
+
+class LayerBase{
+  public:
+    virtual Vector const&getOutput()const = 0;
+};
+
+class Input: public LayerBase{
+  public:
+    Vector &output;
+    Input(Vector &i):output(i){}
+    void setInput(Vector &i){output = i;}
+    Vector const&getOutput()const override{
+      return output;
+    }
+};
+
+class Layer: public LayerBase{
   public:
     Layer(
         size_t/**/      /**/input /**/ /**/        ,
         size_t/**/      /**/output/**/ /**/        ,
         Fce   /**/const&/**/fce   /**/=/**/relu    ,
-        Fce   /**/const&/**/gce   /**/=/**/diffRelu):f(fce),g(gce),inputSize(input),outputSize(output)
+        Fce   /**/const&/**/gce   /**/=/**/diffRelu):
+      weight      (output,input),
+      bias        (output      ),
+      f           (fce         ),
+      g           (gce         ), 
+      weightX     (output      ),
+      z           (output      ),
+      o           (output      ),
+      weightUpdate(output,input),
+      biasUpdate  (output      ),
+      gz          (output      ),
+      tw          (input,output),
+      twbu        (input       )
     {
-      alloc(input,output);
+
     }
-    Layer(Layer const&oo){
-      alloc(oo.input(),oo.output());
-      copy(weight      ,oo.weight      ,oo.input()*oo.output());
-      copy(bias        ,oo.bias        ,oo.output()           );
-      copy(weightX     ,oo.weightX     ,oo.output()           );
-      copy(z           ,oo.z           ,oo.output()           );
-      copy(o           ,oo.o           ,oo.output()           );
-      copy(weightUpdate,oo.weightUpdate,oo.input()*oo.output());
-      copy(biasUpdate  ,oo.biasUpdate  ,oo.output()           );
-      copy(gz          ,oo.gz          ,oo.output()           );
-      copy(tw          ,oo.tw          ,oo.input()*oo.output());
-      copy(twbu        ,oo.twbu        ,oo.output()           );
-      inputSize = oo.input();
-      outputSize = oo.output();
-      f = oo.f;
-      g = oo.g;
+    Vector const& getOutput()const override{
+      return o;
     }
-    void alloc(size_t input,size_t output){
-      weight       = new float[input*output];
-      bias         = new float[output      ];
-      weightX      = new float[output      ];
-      z            = new float[output      ];
-      o            = new float[output      ];
-      weightUpdate = new float[input*output];
-      biasUpdate   = new float[output      ];
-      gz           = new float[output      ];
-      tw           = new float[input*output];
-      twbu         = new float[output      ];
+    Vector const& compute(Vector const&x){
+      mul(weightX,weight,x);
+      add(z,weightX,bias);
+      apply(o,z,f);
+      return o;
     }
-    ~Layer(){
-      delete[]weight      ;
-      delete[]bias        ;
-      delete[]weightX     ;
-      delete[]z           ;
-      delete[]o           ;
-      delete[]weightUpdate;
-      delete[]biasUpdate  ;
-      delete[]gz          ;
-      delete[]tw          ;
-      delete[]twbu        ;
-    }
-    void compute(float const*const x){
-      mulMatrixVector(weightX,weight,x,inputSize,outputSize);
-      add(z,weightX,bias,outputSize);
-      apply(o,z,f,outputSize);
-    }
-    void forward(float const*const x){
+    Vector const& forward(Vector const&x){
       compute(x);
-      apply(gz,z,g,outputSize);
+      apply(gz,z,g);
+      return o;
     }
-    void rand(float mmin,float mmax){
-      randomize(bias,outputSize,mmin,mmax);
-      randomize(weight,inputSize*outputSize,mmin,mmax);
+    void randomize(float mmin,float mmax){
+      bias.randomize(mmin,mmax);
+      weight.randomize(mmin,mmax);
     }
-    size_t output()const{return outputSize;}
-    size_t input()const{return inputSize;}
-    float* weight      ;
-    float* bias        ;
+    size_t output()const{return weight.getRows();}
+    size_t input()const{return weight.getColumns();}
+    Matrix weight      ;
+    Vector bias        ;
     Fce    f           ;
     Fce    g           ;
-    float* weightX     ;
-    float* z           ;
-    float* o           ;
-    float* weightUpdate;
-    float* biasUpdate  ;
-    float* gz          ;
-    float* tw          ;
-    float* twbu        ;
-    size_t inputSize;
-    size_t outputSize;
+    Vector weightX     ;
+    Vector z           ;
+    Vector o           ;
+    Matrix weightUpdate;
+    Vector biasUpdate  ;
+    Vector gz          ;
+    Matrix tw          ;
+    Vector twbu        ;
 };
 
 class Sample{
   public:
-    Sample(size_t i,size_t o):inputSize(i),outputSize(o){
-      alloc(i,o);
-    }
-    ~Sample(){
-      delete[]x;
-      delete[]y;
-    }
-    Sample(Sample const&o){
-      alloc(o.inputSize,o.outputSize);
-      copy(x,o.x,o.inputSize);
-      copy(y,o.y,o.outputSize);
-      inputSize = o.inputSize;
-      outputSize = o.outputSize;
-    }
-    void alloc(size_t i,size_t o){
-      x = new float[i];
-      y = new float[o];
-    }
-    float*x;
-    float*y;
-    size_t inputSize;
-    size_t outputSize;
+    Sample(size_t i,size_t o):x(i),y(o){}
+    Vector x;
+    Vector y;
 };
 
 class Network{
   public:
     size_t inputSize = 0;
-    Network(size_t i):inputSize(i){}
+    Network(size_t i):inputSize(i),C(i){}
     std::vector<Layer>layers;
-    void forward(float const*const x){
+    Vector const& forward(Vector const&x){
       bool first = true;
       Layer*prev;
       for(auto&l:layers){
@@ -250,11 +306,9 @@ class Network{
           l.forward(prev->o);
         prev = &l;
       }
+      return prev->o;
     }
-    ~Network(){
-      if(C)delete[]C;
-    }
-    void compute(float*const O,float const*const i){
+    void compute(Vector&o,Vector const&i){
       bool first = true;
       Layer*prev = nullptr;
       for(auto&l:layers){
@@ -265,33 +319,33 @@ class Network{
           l.compute(prev->o);
         prev = &l;
       }
-      copy(O,prev->o,prev->output());
+      copy(o,prev->o);
     }
-    float*C = nullptr;
-    void backward(float const*const x,float const*const y,float s){
-      sub(C,layers.back().o,y,layers.back().output());
-      constMul(C,C,-2*s,layers.back().output());
+    Vector C;
+    void backward(Vector const&x,Vector const&y,float s){
+      sub(C,layers.back().o,y);
+      constMul(C,C,-2*s);
 
-      auto const computeUpdate = [&](size_t l,float const*const C){
-        componentMul(layers[l].biasUpdate,C,layers[l].gz,layers[l].output());
+      auto const computeUpdate = [&](size_t l,Vector const&C){
+        componentMul(layers[l].biasUpdate,C,layers[l].gz);
         if(l == 0)
-          matrixMul(layers[l].weightUpdate,layers[l].biasUpdate,x,layers[l].output(),layers[l].input());
+          matrixMul(layers[l].weightUpdate,layers[l].biasUpdate,x);
         else
-          matrixMul(layers[l].weightUpdate,layers[l].biasUpdate,layers[l-1].o,layers[l].output(),layers[l].input());
+          matrixMul(layers[l].weightUpdate,layers[l].biasUpdate,layers[l-1].o);
       };
 
       computeUpdate(layers.size()-1,C);
 
       for(size_t i=layers.size()-1;i>0;--i){
         auto&pl = layers.at(i);
-        mulTrasposedMatrixVector(pl.twbu,pl.weight,pl.biasUpdate,pl.output(),pl.input());
+        mulTransposed(pl.twbu,pl.weight,pl.biasUpdate);
         computeUpdate(i-1,pl.twbu);
       }
     }
     void update(){
       for(auto&l:layers){
-        add(l.bias,l.bias,l.biasUpdate,l.output());
-        add(l.weight,l.weight,l.weightUpdate,l.output()*l.input());
+        add(l.bias,l.bias,l.biasUpdate);
+        add(l.weight,l.weight,l.weightUpdate);
       }
     }
     void sampleTrain(Sample const&sample,float s){
@@ -306,34 +360,33 @@ class Network{
       }
     }
     float test(std::vector<Sample>const&samples){
-      float*o  = new float[output()];
-      float*oy = new float[output()];
+      Vector o(output());
+      Vector oy(output());
       float counter = 0;
       for(size_t i=0;i<samples.size();++i){
         //std::cerr << "TEST: " << i << "/" << samples.size() << std::endl;
         compute(o,samples[i].x);
-        sub(oy,o,samples[i].y,output());
-        counter += dot(oy,o,output());
+        sub(oy,o,samples[i].y);
+        counter += dot(oy,oy);
       }
-      delete[]o;
-      delete[]oy;
       return counter / samples.size();
     }
     void randomize(float mmin,float mmax){
       for(auto&l:layers)
-        l.rand(mmin,mmax);
+        l.randomize(mmin,mmax);
     }
     void pushLayer(size_t n,Fce const&f = relu,Fce const&g = diffRelu){
       if(layers.empty())
         layers.emplace_back(input(),n,f,g);
       else
         layers.emplace_back(layers.back().output(),n,f,g);
-      if(C != nullptr)delete[]C;
-      C = new float[n];
+      C = Vector(n);
     }
 
-    void operator()(float*const y,float const*const x){
+    Vector operator()(Vector const&x){
+      Vector y(output());
       compute(y,x);
+      return y;
     }
 
     size_t input()const{return inputSize;}
@@ -361,16 +414,13 @@ int main(){
     }
     return samples;
   };
-  auto trainSamples = genSamples(nn.input(),nn.output(),1,-2,2);
-  auto testSamples  = genSamples(nn.input(),nn.output(),1,-2,2);
+  auto trainSamples = genSamples(nn.input(),nn.output(),100000,-2,2);
+  auto testSamples  = genSamples(nn.input(),nn.output(),1000,-2,2);
 
-  nn.trainSGD(trainSamples,0.001f);
-  //measure("traininig ",[&](){
-  //  nn.trainSGD(trainSamples,0.001f);
-  //});
-  //std::cerr << "err: " << nn.test(testSamples) << std::endl;
-
-
+  measure("traininig ",[&](){
+    nn.trainSGD(trainSamples,0.001f);
+  });
+  std::cerr << "err: " << nn.test(testSamples) << std::endl;
   //
   //for(auto const&l:nn.layers){
   //  std::cerr << "bias: " << std::endl;
@@ -379,12 +429,10 @@ int main(){
   //  std::cerr << l.weight << std::endl;
   //}
 
-  //std::vector<float>x(2);
-  //std::vector<float>y(1);
-  //x[0] = 1;
-  //x[1] = 2;
-  //nn(y.data(),x.data());
-  //std::cerr << vector2Str(y.data(),y.size()) << std::endl;
+  Vector x(2);
+  x[0] = 1;
+  x[1] = 2;
+  std::cerr << nn(x) << std::endl;
 
   return 0;
 }
