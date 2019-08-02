@@ -1,5 +1,5 @@
 BIN      = genref
-LIB      = -pthread
+LIB      = -pthread -lvulkan
 #CPPFLAGS = -std=c++17 -Wall -O3 -DNDEBUG -I/media/data/install/linux2/include
 CPPFLAGS = -std=c++17 -Wall -O3 -I/media/data/install/linux2/include
 CPP      = g++

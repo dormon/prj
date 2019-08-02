@@ -23,23 +23,15 @@ class Vector{
   public:
     Vector(float*d,size_t s):data(d),size(s),allocated(false){}
     Vector(float const*d,size_t s):data(const_cast<float*>(d)),size(s),allocated(false){}
-    Vector(size_t s):size(s),allocated(true){
-      data = new float[s];
-    }
-    Vector(Vector const&o){
-      if(o.allocated){
-        data = new float[o.size];
-        memcpy(data,o.data,sizeof(float)*o.size);
-      }else
-        data = o.data;
-      size = o.size;
-      allocated = o.allocated;
+    Vector(size_t s):size(s),allocated(true){data = new float[s];}
+    Vector(Vector const&o){copy(o);}
+    Vector&operator=(Vector const&o){
+      free();
+      copy(o);
+      return*this;
     }
     ~Vector(){
-      if(allocated)delete[]data;
-      data = nullptr;
-      size = 0;
-      allocated = false;
+      free();
     }
     float*getData(){
       return data;
@@ -53,17 +45,31 @@ class Vector{
     bool isAllocated()const{
       return allocated;
     }
-    float&operator[](size_t i){
-      return data[i];
-    }
-    float const&operator[](size_t i)const{
-      return data[i];
-    }
+    //float&operator[](size_t i){
+    //  return data[i];
+    //}
+    //float const&operator[](size_t i)const{
+    //  return data[i];
+    //}
     void randomize(float mmin,float mmax){
       for(size_t i=0;i<size;++i)
         data[i] = randomf(mmin,mmax);
     }
-  protected:
+    void free(){
+      if(allocated)delete[]data;
+      data = nullptr;
+      size = 0;
+      allocated = false;
+    }
+    void copy(Vector const&o){
+      if(o.allocated){
+        data = new float[o.size];
+        memcpy(data,o.data,sizeof(float)*o.size);
+      }else
+        data = o.data;
+      size = o.size;
+      allocated = o.allocated;
+    }
     float* data      = nullptr;
     size_t size      = 0      ;
     bool   allocated = false  ;
@@ -74,6 +80,13 @@ class Matrix: public Vector{
     Matrix(size_t r,size_t c):Vector(r*c),rows(r),columns(c){}
     Matrix(float*d,size_t r,size_t c):Vector(d,r*c),rows(r),columns(c){}
     Matrix(Matrix const&o):Vector(o),rows(o.rows),columns(o.columns){}
+    Matrix&operator=(Matrix const&o){
+      free();
+      copy(o);
+      rows = o.getRows();
+      columns = o.getColumns();
+      return*this;
+    }
     size_t getRows()const{return rows;}
     size_t getColumns()const{return columns;}
     float&element(size_t r,size_t c){
@@ -94,7 +107,7 @@ std::ostream& operator<< (std::ostream& stream, const Vector& v) {
   stream << "[";
   for(size_t i=0;i<v.getSize();++i){
     if(i>0)stream << ",";
-    stream << v[i];
+    stream << v.data[i];
   }
   stream << "]";
   return stream;
@@ -122,94 +135,109 @@ constexpr const auto diffRelu = [](float x){if(x>=0.f)return 1.f;return 0.1f;};
 void add(Vector&v,Vector const&a,Vector const&b){
   assert(v.getSize() == a.getSize());
   assert(a.getSize() == b.getSize());
-  for(size_t i=0;i<a.getSize();++i)
-    v[i] = a[i] + b[i];
+  auto const n = a.getSize();
+  for(size_t i=0;i<n;++i)
+    v.data[i] = a.data[i] + b.data[i];
 }
 
 void sub(Vector&v,Vector const&a,Vector const&b){
   assert(v.getSize() == a.getSize());
   assert(a.getSize() == b.getSize());
-  for(size_t i=0;i<a.getSize();++i)
-    v[i] = a[i] - b[i];
+  auto const n = a.getSize();
+  for(size_t i=0;i<n;++i)
+    v.data[i] = a.data[i] - b.data[i];
 }
 
 void mul(Vector&v,Vector const&a,Vector const&b){
   assert(v.getSize() == a.getSize());
   assert(a.getSize() == b.getSize());
-  for(size_t i=0;i<a.getSize();++i)
-    v[i] = a[i] * b[i];
+  auto const n = a.getSize();
+  for(size_t i=0;i<n;++i)
+    v.data[i] = a.data[i] * b.data[i];
 }
 
 void mul(Vector&v,Vector const&a,float b){
   assert(v.getSize() == a.getSize());
-  for(size_t i=0;i<a.getSize();++i)
-    v[i] = a[i] * b;
+  auto const n = a.getSize();
+  for(size_t i=0;i<n;++i)
+    v.data[i] = a.data[i] * b;
 }
 
 float dot(Vector const&a,Vector const&b){
   assert(a.getSize() == b.getSize());
   float acc = 0;
-  for(size_t i=0;i<a.getSize();++i)
-    acc += a[i] * b[i];
+  auto const n = a.getSize();
+  for(size_t i=0;i<n;++i)
+    acc += a.data[i] * b.data[i];
   return acc;
 }
 
 void copy(Vector&c,Vector const&a){
   assert(c.getSize() == a.getSize());
-  for(size_t i=0;i<c.getSize();++i)
-    c[i] = a[i];
+  auto const n = c.getSize();
+  for(size_t i=0;i<n;++i)
+    c.data[i] = a.data[i];
 }
 
 void add(Matrix&c,Matrix const&a,Matrix const&b){
   assert(c.getRows() == a.getRows());
   assert(c.getColumns() == b.getColumns());
-  for(size_t i=0;i<a.getSize();++i)
-    c.getData()[i] = a.getData()[i] + b.getData()[i];
+  auto const n = a.getSize();
+  for(size_t i=0;i<n;++i)
+    c.data[i] = a.data[i] + b.data[i];
 }
 
 void mul(Vector&c,Matrix const&a,Vector const&b){
   assert(a.getRows() == c.getSize());
   assert(a.getColumns() == b.getSize());
-  for(size_t i=0;i<c.getSize();++i)
-    c[i] = dot(a[i],b);
+  auto const n = c.getSize();
+  for(size_t i=0;i<n;++i)
+    c.data[i] = dot(a[i],b);
 }
 
 void mulTransposed(Vector&c,Matrix const&a,Vector const&b){
   assert(a.getRows() == b.getSize());
   assert(c.getSize() == a.getColumns());
-  for(size_t o=0;o<c.getSize();++o){
+  auto const on = c.getSize();
+  auto const in = b.getSize();
+  for(size_t o=0;o<on;++o){
     float acc = 0;
-    for(size_t i=0;i<b.getSize();++i)
-      acc += a[i][o] * b[i];
-    c[o] = acc;
+    for(size_t i=0;i<in;++i)
+      acc += a.data[i*on+o] * b.data[i];
+    c.data[o] = acc;
   }
 }
 
 void componentMul(Vector&c,Vector const&a,Vector const&b){
   assert(c.getSize() == a.getSize());
   assert(c.getSize() == b.getSize());
-  for(size_t i=0;i<a.getSize();++i)
-    c[i] = a[i] * b[i];
+  auto const n = a.getSize();
+  for(size_t i=0;i<n;++i)
+    c.data[i] = a.data[i] * b.data[i];
 }
 
 void constMul(Vector&c,Vector const&a,float b){
   assert(c.getSize() == a.getSize());
-  for(size_t i=0;i<a.getSize();++i)
-    c[i] = a[i] * b;
+  auto const n = a.getSize();
+  for(size_t i=0;i<n;++i)
+    c.data[i] = a.data[i] * b;
 }
 
 void matrixMul(Matrix&o,Vector const&a,Vector const&b){
   assert(o.getRows() == a.getSize());
   assert(o.getColumns() == b.getSize());
-  for(size_t r=0;r<o.getRows();++r)
-    for(size_t c=0;c<o.getColumns();++c)
-      o.element(r,c) = a[r] * b[c];
+  auto const rn = o.getRows();
+  auto const cn = o.getColumns();
+  for(size_t r=0;r<rn;++r)
+    for(size_t c=0;c<cn;++c)
+      o.element(r,c) = a.data[r] * b.data[c];
 }
 
 void apply(Vector&o,Vector const&v,Fce const&f){
   assert(o.getSize() == v.getSize());
-  for(size_t i=0;i<v.getSize();++i)
-    o[i] = f(v[i]);
+  auto const n = v.getSize();
+  for(size_t i=0;i<n;++i)
+    o.data[i] = f(v.data[i]);
 }
 
 class LayerBase{
@@ -244,7 +272,6 @@ class Layer: public LayerBase{
       weightUpdate(output,input),
       biasUpdate  (output      ),
       gz          (output      ),
-      tw          (input,output),
       twbu        (input       )
     {
 
@@ -279,7 +306,6 @@ class Layer: public LayerBase{
     Matrix weightUpdate;
     Vector biasUpdate  ;
     Vector gz          ;
-    Matrix tw          ;
     Vector twbu        ;
 };
 
@@ -408,9 +434,9 @@ int main(){
     for(size_t i=0;i<N;++i){
       samples.push_back(Sample(input,output));
       auto&s = samples.back();
-      s.x[0] = randomf(mmin,mmax);
-      s.x[1] = randomf(mmin,mmax);
-      s.y[0] = s.x[0] + s.x[1];
+      s.x.data[0] = randomf(mmin,mmax);
+      s.x.data[1] = randomf(mmin,mmax);
+      s.y.data[0] = s.x.data[0] + s.x.data[1];
     }
     return samples;
   };
@@ -430,8 +456,8 @@ int main(){
   //}
 
   Vector x(2);
-  x[0] = 1;
-  x[1] = 2;
+  x.data[0] = 1;
+  x.data[1] = 2;
   std::cerr << nn(x) << std::endl;
 
   return 0;
