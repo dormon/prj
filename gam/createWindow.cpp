@@ -22,42 +22,6 @@ void createWindow(vars::Vars&vars){
     throw std::runtime_error(SDL_GetError());
   *vars.add<SDL_Window*>("window") = window;
 
-  /*
-  std::cerr << "info"<< std::endl;
-  SDL_SysWMinfo info;
-  SDL_VERSION(&info.version);
-  if(SDL_GetWindowWMInfo(window,&info)) {
-    const char *subsystem = "an unknown system!";
-    switch(info.subsystem) {
-      case SDL_SYSWM_UNKNOWN:   break;
-      case SDL_SYSWM_WINDOWS:   subsystem = "Microsoft Windows(TM)";  break;
-      case SDL_SYSWM_X11:       subsystem = "X Window System";        break;
-#if SDL_VERSION_ATLEAST(2, 0, 3)
-      case SDL_SYSWM_WINRT:     subsystem = "WinRT";                  break;
-#endif
-      case SDL_SYSWM_DIRECTFB:  subsystem = "DirectFB";               break;
-      case SDL_SYSWM_COCOA:     subsystem = "Apple OS X";             break;
-      case SDL_SYSWM_UIKIT:     subsystem = "UIKit";                  break;
-#if SDL_VERSION_ATLEAST(2, 0, 2)
-      case SDL_SYSWM_WAYLAND:   subsystem = "Wayland";                break;
-      case SDL_SYSWM_MIR:       subsystem = "Mir";                    break;
-#endif
-#if SDL_VERSION_ATLEAST(2, 0, 4)
-      case SDL_SYSWM_ANDROID:   subsystem = "Android";                break;
-#endif
-#if SDL_VERSION_ATLEAST(2, 0, 5)
-      case SDL_SYSWM_VIVANTE:   subsystem = "Vivante";                break;
-#endif
-    }
-    std::cerr << subsystem << std::endl;
-  }else{
-    std::cerr << SDL_GetError() << std::endl;
-  }
-  */
-
-
-
-
   if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_PROFILE_CORE) < 0)
     throw std::runtime_error(SDL_GetError());
   if (SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE) < 0)

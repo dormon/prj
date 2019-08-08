@@ -45,12 +45,6 @@ class Vector{
     bool isAllocated()const{
       return allocated;
     }
-    //float&operator[](size_t i){
-    //  return data[i];
-    //}
-    //float const&operator[](size_t i)const{
-    //  return data[i];
-    //}
     void randomize(float mmin,float mmax){
       for(size_t i=0;i<size;++i)
         data[i] = randomf(mmin,mmax);
@@ -208,22 +202,7 @@ void mulTransposed(Vector&c,Matrix const&a,Vector const&b){
   }
 }
 
-void componentMul(Vector&c,Vector const&a,Vector const&b){
-  assert(c.getSize() == a.getSize());
-  assert(c.getSize() == b.getSize());
-  auto const n = a.getSize();
-  for(size_t i=0;i<n;++i)
-    c.data[i] = a.data[i] * b.data[i];
-}
-
-void constMul(Vector&c,Vector const&a,float b){
-  assert(c.getSize() == a.getSize());
-  auto const n = a.getSize();
-  for(size_t i=0;i<n;++i)
-    c.data[i] = a.data[i] * b;
-}
-
-void matrixMul(Matrix&o,Vector const&a,Vector const&b){
+void mul(Matrix&o,Vector const&a,Vector const&b){
   assert(o.getRows() == a.getSize());
   assert(o.getColumns() == b.getSize());
   auto const rn = o.getRows();
@@ -350,14 +329,18 @@ class Network{
     Vector C;
     void backward(Vector const&x,Vector const&y,float s){
       sub(C,layers.back().o,y);
-      constMul(C,C,-2*s);
+      mul(C,C,-2*s);
 
       auto const computeUpdate = [&](size_t l,Vector const&C){
-        componentMul(layers[l].biasUpdate,C,layers[l].gz);
+        auto&ll           = layers[l];
+        auto&biasUpdate   = ll.biasUpdate  ;
+        auto&gz           = ll.gz          ;
+        auto&weightUpdate = ll.weightUpdate;
+        mul(biasUpdate,C,gz);
         if(l == 0)
-          matrixMul(layers[l].weightUpdate,layers[l].biasUpdate,x);
+          mul(weightUpdate,biasUpdate,x);
         else
-          matrixMul(layers[l].weightUpdate,layers[l].biasUpdate,layers[l-1].o);
+          mul(weightUpdate,biasUpdate,layers[l-1].o);
       };
 
       computeUpdate(layers.size()-1,C);
