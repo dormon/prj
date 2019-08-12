@@ -2,6 +2,7 @@
 #include <X11/extensions/XInput.h>
 #include <tabletSDL2.h>
 #include <vector>
+#include <iostream>
 
 /* These C functions are copied from Wine 3.12's wintab.c */
 static bool match_token(const char *haystack, const char *needle)
@@ -163,6 +164,7 @@ class TabletSDL2Impl {
  public:
   TabletSDL2Impl(SDL_Window *sdlWin)
   {
+    SDL_EventState(SDL_SYSWMEVENT,SDL_ENABLE);
     SDL_SysWMinfo info;
     SDL_VERSION(&info.version);
     SDL_GetWindowWMInfo(sdlWin, &info);
@@ -193,11 +195,8 @@ class TabletSDL2Impl {
     XSelectExtensionEvent(dpy, ww, xevents.data(), (int)xevents.size());
   }
   ~TabletSDL2Impl() { freeDevices(devs, dpy); }
-  bool getTabletData(TabletData *ddd)
+  bool getTabletData(TabletData *ddd,XEvent const&ee)
   {
-    if (XPending(dpy)) {
-      XEvent ee;
-      XPeekEvent(dpy, &ee);
       auto xe = &ee;
       for (auto &xtablet : devs) {
         XDeviceMotionEvent *dd = (XDeviceMotionEvent *)xe;
@@ -266,7 +265,7 @@ class TabletSDL2Impl {
           return true;
         }
       }
-    }
+      //XPutBackEvent(dpy,&ee);
     return false;
   }
   Display *        dpy;
@@ -281,7 +280,7 @@ TabletSDL2::TabletSDL2(SDL_Window *window)
 
 TabletSDL2::~TabletSDL2() { delete impl; }
 
-bool TabletSDL2::getTabletData(TabletData *data)
+bool TabletSDL2::getTabletData(TabletData *data,XEvent const&event)
 {
-  return impl->getTabletData(data);
+  return impl->getTabletData(data,event);
 }

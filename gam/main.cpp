@@ -15,6 +15,7 @@
 #include <createWindow.h>
 #include <destroyWindow.h>
 #include <tabletSDL2.h>
+#include <SDL_syswm.h>
 
 #define ___ std::cerr << __FILE__ << " " << __LINE__ << std::endl
 
@@ -28,24 +29,14 @@ int main(){
 
 
   auto window = *vars.get<SDL_Window*>("window");
+
   auto tabletSDL2 = TabletSDL2(window);
 
 
   SDL_Event event;
   while(running){
 
-    while(1){
-      TabletData td;
-      if(tabletSDL2.getTabletData(&td)){
-        std::cerr << td.pressure << std::endl;
-      }
-
-
-
-      auto pol = SDL_PollEvent(&event);
-
-
-      if(!pol)break;
+    while(SDL_PollEvent(&event)){
       switch(event.type){
         case SDL_QUIT:
           running = false;
@@ -56,7 +47,7 @@ int main(){
         case SDL_KEYUP:
           break;
         case SDL_MOUSEMOTION:
-          std::cerr << "x: " << event.motion.x << " y: " << event.motion.y << std::endl;
+          //std::cerr << "x: " << event.motion.x << " y: " << event.motion.y << std::endl;
           break;
         case SDL_MOUSEBUTTONDOWN:
           break;
@@ -70,6 +61,14 @@ int main(){
           break;
         case SDL_FINGERMOTION:
           std::cerr << "finger motion" << std::endl;
+          break;
+        case SDL_SYSWMEVENT:
+          {
+            TabletData td;
+            if(tabletSDL2.getTabletData(&td,event.syswm.msg->msg.x11.event)){
+              std::cerr << td.pressure << std::endl;
+            }
+          }
           break;
       }
     }

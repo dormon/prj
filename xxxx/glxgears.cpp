@@ -576,7 +576,13 @@ static void event_loop(Display *dpy, Window win)
       XEvent event;
       XNextEvent(dpy, &event);
       fprintf(stderr, "type: %u\n", event.type);
+      auto xe = &event;
+      XDeviceMotionEvent *dd = (XDeviceMotionEvent *)xe;
+      XDeviceMotionEvent *data = (XDeviceMotionEvent *)xe;
       switch (event.type) {
+        case 71:
+          fprintf(stderr,"f: %u\n",data->axis_data[2]);
+          break;
         case Expose:
           /* we'll redraw below */
           break;

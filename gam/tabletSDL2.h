@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SDL.h>
+#include <SDL_syswm.h>
 
 class TabletData{
   public:
@@ -19,7 +20,7 @@ class TabletSDL2{
   public:
     TabletSDL2(SDL_Window*window);
     ~TabletSDL2();
-    bool getTabletData(TabletData*data);
+    bool getTabletData(TabletData*data,XEvent const&event);
   protected:
     TabletSDL2Impl*impl;
 };
