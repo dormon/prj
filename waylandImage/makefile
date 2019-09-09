@@ -1,10 +1,10 @@
-WAYLAND=`pkg-config wayland-client --cflags --libs` -lpthread
+WAYLAND=`pkg-config wayland-client --cflags --libs` -lpthread -lEGL -lwayland-egl
 CFLAGS?=-std=c11 -Wall -Werror -O3 -fvisibility=hidden
 
-CC = gcc
+CC = g++
 BIN = hello_wayland
-${BIN}: main.c helpers.c helpers.h images.bin
-	$(CC) -o ${BIN} *.c $(WAYLAND) -lrt
+${BIN}: main.cpp images.bin
+	$(CC) -o ${BIN} main.cpp $(WAYLAND) -lrt
 
 images.bin: images/convert.py images/window.png images/fish.png
 	images/convert.py
