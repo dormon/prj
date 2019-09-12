@@ -2,10 +2,11 @@ WAYLAND=`pkg-config wayland-client --cflags --libs` -lpthread
 YOCTO    = /media/devel/poky/2.7.1/sysroots/aarch64-poky-linux/
 CFLAGS?=-std=c11 -Wall -Werror -O3 -fvisibility=hidden
 
-CC = aarch64-linux-gnu-gcc --sysroot=${YOCTO}
+CC = aarch64-linux-gnu-g++ --sysroot=${YOCTO}
 
-hello_wayland: hello_wayland.c helpers.c helpers.h images.bin
-	$(CC) -o hello_wayland *.c $(WAYLAND) -lrt
+BIN = hello_wayland
+${BIN}: main.cpp images.bin
+	$(CC) -o ${BIN} main.cpp $(WAYLAND) -lrt
 
 images.bin: images/convert.py images/window.png images/fish.png
 	images/convert.py
@@ -13,3 +14,7 @@ images.bin: images/convert.py images/window.png images/fish.png
 
 clean:
 	$(RM) fish.bin window.bin hello_wayland
+
+run: ${BIN}
+	./${BIN}
+

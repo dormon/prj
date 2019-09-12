@@ -1,7 +1,7 @@
-BIN      = threadPool
+BIN      = genref
 LIB      = -pthread
-CPPFLAGS = -std=c++17 -Wall -O3
-CPP      = g++-8
+CPPFLAGS = -std=c++17 -Wall -O3 -I/media/data/install/linux2/include
+CPP      = g++
 OBJ      = main.o
 
 all: ${BIN}

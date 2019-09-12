@@ -34,9 +34,9 @@ class Device{
   public:
     Device(VkDevice const&d){
       device = std::shared_ptr<VkDevice>(new VkDevice,[](VkDevice*i){vkDestroyDevice(*i,nullptr);delete i;});
+      *device = d;
     }
     ~Device(){
-      vkDestroyDevice(*device,nullptr);
     }
     Queue getQueue(){
       VkQueue res;
@@ -50,7 +50,7 @@ class Device{
       info.pNext            = nullptr;
       info.flags            = 0;
       info.queueFamilyIndex = 0;
-      CALL(vkCreateCommandPool,device,&info,nullptr,&res);
+      CALL(vkCreateCommandPool,*device,&info,nullptr,&res);
       return CommandPool(res,*device);
     }
     std::shared_ptr<VkDevice> device;
@@ -83,8 +83,6 @@ class PhysicalDevice{
       qInfo.queueFamilyIndex = 0;
       qInfo.queueCount       = 1;
       qInfo.pQueuePriorities = &priorities;
-
-
 
       VkDeviceCreateInfo info;
       info.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -196,10 +194,7 @@ int main(){
   auto dev = physicalDevices[0].getDevice();
   auto queue = dev.getQueue();
   auto pool  = dev.getCommandPool();
-
-
-
-
+  (void)queue;
 
   return 0;
 }

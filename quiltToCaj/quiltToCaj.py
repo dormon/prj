@@ -51,6 +51,8 @@ if outputFileName == "":
 quilt = Image.open(inputFileName)
 caj   = Image.new('RGB', (width, height))
 
+#where = Image.new('RGB',(quilt.width,quilt.height))
+
 def clamp(x,mmin,mmax):
     if x < mmin:
         return mmin
@@ -96,6 +98,8 @@ for y in range(caj.height):
             z = abs(z)-int(abs(z))
             z = 1-z
             rgb[i] = quilt.getpixel(recomputeCoord(xx,yy,z))[i]
+            #where.putpixel(recomputeCoord(xx,yy,z),(255,255,255))
+        
         caj.putpixel((x,caj.height-1-y),(rgb[0],rgb[1],rgb[2]))
 
 
@@ -103,6 +107,7 @@ for y in range(caj.height):
 #TODO do the transformation
 
 caj.save(outputFileName)
+#where.save("w_"+outputFileName)
 
 exit()
 

@@ -1,18 +1,32 @@
 WAYLAND=`pkg-config wayland-client --cflags --libs` -lpthread -lEGL -lwayland-egl
-CFLAGS?=-std=c11 -Wall -Werror -O3 -fvisibility=hidden
+CFLAGS?=-std=c++1z -Wall -Werror -O3 -fvisibility=hidden
+
+CCFLAGS=-std=c++17
 
 CC = g++
-BIN = hello_wayland
-${BIN}: main.cpp images.bin
-	$(CC) -o ${BIN} main.cpp $(WAYLAND) -lrt
+
+YOCTO    = /media/devel/poky/2.7.1/sysroots/aarch64-poky-linux/
+CC_ARM = aarch64-linux-gnu-g++ --sysroot=${YOCTO}
+
+
+BIN_ELF = wayImELF
+
+BIN_ARM = wayImARM
+LIB_ARM = -lm-2.29
+
+${BIN_ARM}: main.cpp images.bin
+	$(CC_ARM) ${CCFLAGS} -o ${BIN_ARM} main.cpp $(WAYLAND) ${LIB_ARM} -lrt
+
+${BIN_ELF}: main.cpp images.bin
+	$(CC) ${CCFLAGS} -o ${BIN_ELF} main.cpp $(WAYLAND) -lrt
 
 images.bin: images/convert.py images/window.png images/fish.png
 	images/convert.py
 	cat window.bin fish.bin > images.bin
 
 clean:
-	$(RM) fish.bin window.bin hello_wayland
+	$(RM) fish.bin window.bin ${BIN_ARM} ${BIN_ELF}
 
-run: ${BIN}
-	./${BIN}
+run: ${BIN_ELF}
+	./${BIN_ELF}
 
