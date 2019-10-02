@@ -60,7 +60,7 @@ static struct wl_shell_surface_listener shell_surface_listener = {&shell_surface
 
 static void create_window (struct window *window, int32_t width, int32_t height) {
   ___;
-	eglBindAPI (EGL_OPENGL_API);
+	eglBindAPI (EGL_OPENGL_API);//
   ___;
 	EGLint attributes[] = {
 		EGL_RED_SIZE, 8,
@@ -70,24 +70,24 @@ static void create_window (struct window *window, int32_t width, int32_t height)
 	EGLConfig config;
 	EGLint num_config;
   ___;
-	eglChooseConfig (egl_display, attributes, &config, 1, &num_config);
+	eglChooseConfig (egl_display, attributes, &config, 1, &num_config);//
   ___;
-	window->egl_context = eglCreateContext (egl_display, config, EGL_NO_CONTEXT, NULL);
+	window->egl_context = eglCreateContext (egl_display, config, EGL_NO_CONTEXT, NULL);//
   ___;
 	
-	window->surface = wl_compositor_create_surface (compositor);
+	window->surface = wl_compositor_create_surface (compositor);//
   ___;
-	window->shell_surface = wl_shell_get_shell_surface (shell, window->surface);
+	window->shell_surface = wl_shell_get_shell_surface (shell, window->surface);//
   ___;
-	wl_shell_surface_add_listener (window->shell_surface, &shell_surface_listener, window);
+	wl_shell_surface_add_listener (window->shell_surface, &shell_surface_listener, window);//
   ___;
-	wl_shell_surface_set_toplevel (window->shell_surface);
+	wl_shell_surface_set_toplevel (window->shell_surface);//
   ___;
-	window->egl_window = wl_egl_window_create (window->surface, width, height);
+	window->egl_window = wl_egl_window_create (window->surface, width, height);//
   ___;
-	window->egl_surface = eglCreateWindowSurface (egl_display, config, window->egl_window, NULL);
+	window->egl_surface = eglCreateWindowSurface (egl_display, config, window->egl_window, NULL);//
   ___;
-	eglMakeCurrent (egl_display, window->egl_surface, window->egl_surface, window->egl_context);
+	eglMakeCurrent (egl_display, window->egl_surface, window->egl_surface, window->egl_context);//
   ___;
 }
 static void delete_window (struct window *window) {
@@ -115,23 +115,23 @@ static void draw_window (struct window *window) {
 
 int main () {
   ___;
-	display = wl_display_connect (NULL);
+	display = wl_display_connect (NULL);//
   ___;
-	struct wl_registry *registry = wl_display_get_registry (display);
+	struct wl_registry *registry = wl_display_get_registry (display);//
   ___;
-	wl_registry_add_listener (registry, &registry_listener, NULL);
+	wl_registry_add_listener (registry, &registry_listener, NULL);//
   ___;
-	wl_display_roundtrip (display);
+	wl_display_roundtrip (display);//
   ___;
 	
-	egl_display = eglGetDisplay (display);
+	egl_display = eglGetDisplay (display);//
   ___;
-	eglInitialize (egl_display, NULL, NULL);
+	eglInitialize (egl_display, NULL, NULL);//
   ___;
 	
 	struct window window;
   ___;
-	create_window (&window, WIDTH, HEIGHT);
+	create_window (&window, WIDTH, HEIGHT);//
   ___;
 	
 	while (running) {

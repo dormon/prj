@@ -15,10 +15,14 @@
 #include <EGL/egl.h>
 #include <geGL/geGL.h>
 #include <geGL/StaticCalls.h>
+
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #define ___ std::cerr << __FILE__ << " : " << __LINE__ << std::endl
 //#include "helpers.h"
+
+using namespace ge::gl;
 
 namespace wayland{
   class Display;
@@ -340,6 +344,7 @@ class egl::Display{
     }
     Context getContext(Config const&c,ContextAttrib const&ctxAtt = {})const;
     Context getContext(ConfigAttrib const&confAtt = {},ContextAttrib const&ctxAtt = {})const;
+    Context getContext(ContextAttrib const&ctxAtt)const;
     EGLDisplay get()const{
       return *display;
     }
@@ -394,6 +399,12 @@ egl::Context egl::Display::getContext(ConfigAttrib const&confAtt,ContextAttrib c
   return getContext(confs[0],ctxAtt);
 }
 
+egl::Context egl::Display::getContext(ContextAttrib const&ctxAtt)const{
+  auto const confs = getConfigs();
+  if(confs.empty())std::runtime_error("egl::Display::getContext() - getConfigs returned zero number of configs");
+  return getContext(confs[0],ctxAtt);
+}
+
 class egl::Window{
   public:
     Window(struct wl_surface* waylandSurface,uint32_t width,uint32_t height){
@@ -431,18 +442,6 @@ egl::Surface egl::Window::getSurface(Context const&ctx)const{
   return Surface(ctx,*this);
 }
 
-static const unsigned WIDTH = 320;
-static const unsigned HEIGHT = 200;
-
-static bool done = false;
-
-void on_button(uint32_t button)
-{
-    done = true;
-}
-
-
-
 int main(void)
 {
   ___;
@@ -461,9 +460,16 @@ int main(void)
   ___;
   auto eglDisplay   = egl::Display(display.get());
   ___;
-  auto context      = eglDisplay.getContext();
+  auto configAttrib  = egl::ConfigAttrib();
+  configAttrib.setRedSize(8);
+  configAttrib.setBlueSize(8);
+  configAttrib.setGreenSize(8);
+  auto contextAttrib = egl::ContextAttrib();
+  contextAttrib.setContextMajorVersion(3);
+  contextAttrib.setContextMinorVersion(1);
+  auto context      = eglDisplay.getContext(configAttrib,contextAttrib);
   ___;
-  auto window       = egl::Window(surface.get(),1920,1200);
+  auto window       = egl::Window(surface.get(),1920*2,1080*2);
   ___;
   auto eglSurface   = window.getSurface(context);
   ___;
@@ -472,52 +478,66 @@ int main(void)
   bool running = true;
 
   ge::gl::init((ge::gl::GET_PROC_ADDRESS)eglGetProcAddress);
-  //auto eglClear = (decltype(glClear)*)eglGetProcAddress("glClear");
-  //auto eglClearColor = (decltype(glClearColor)*)eglGetProcAddress("glClearColor");
-  while(running){
+  std::cerr << ge::gl::glGetString(GL_VERSION) << std::endl;
+  //auto vs = ge::gl::glCreateShader(GL_VERTEX_SHADER);
+  auto vs = std::make_shared<ge::gl::Shader>(GL_VERTEX_SHADER,
+  R".(
+  #version 310 es
+  #line 478
+  out highp vec2 vCoord;
+  void main(){
+    vCoord = vec2(gl_VertexID&1,gl_VertexID>>1);
+    gl_Position = vec4(vCoord*2.f-1.f,0.f,1.f);
+  }
+  ).");
+  auto fs = std::make_shared<ge::gl::Shader>(GL_FRAGMENT_SHADER,
+  R".(
+  #version 310 es
+  #line 488
 
+  uniform sampler2D caj;
+  in  highp vec2 vCoord;
+  out highp vec4 fColor;
+  void main(){
+    //fColor = vec4(vCoord,0,1);
+    fColor = texture(caj,vec2(vCoord.x,1.f-vCoord.y));
+  }
+  ).");
+
+  auto prg = std::make_shared<ge::gl::Program>(vs,fs);
+
+  int w;
+  int h;
+  int comp;
+  unsigned char* image = stbi_load("h.png", &w, &h, &comp, STBI_rgb);
+
+  /*
+  auto tex = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGB8,1,w,h);
+  ge::gl::glBindTexture(GL_TEXTURE_2D,tex->getId());
+  ge::gl::glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+  */
+  GLuint m_texture;
+  glGenTextures(1, &m_texture);
+
+glBindTexture(GL_TEXTURE_2D, m_texture);
+
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+if(comp == 3)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+else if(comp == 4)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+
+//glBindTexture(GL_TEXTURE_2D, 0);
+
+  while(running){
 		wl_display_dispatch_pending (display.get());
-    ge::gl::glClearColor(0,1,0,1);
+    ge::gl::glClearColor(0,0.1,0,1);
     ge::gl::glClear(GL_COLOR_BUFFER_BIT);
-	  //eglClearColor (0.0, 1.0, 0.0, 1.0);
-	  //eglClear (GL_COLOR_BUFFER_BIT);
+    prg->use();
+    ge::gl::glDrawArrays(GL_TRIANGLE_STRIP,0,4);
     eglSurface.swap();
   }
-  /*
-    struct wl_buffer *buffer;
-    struct wl_shm_pool *pool;
-    struct wl_shell_surface *surface;
-    int image;
-
-    hello_setup_wayland();
-
-    image = open("images.bin", O_RDWR);
-
-    if (image < 0) {
-        perror("Error opening surface image");
-        return EXIT_FAILURE;
-    }
-
-    pool = hello_create_memory_pool(image);
-    surface = hello_create_surface();
-    buffer = hello_create_buffer(pool, WIDTH, HEIGHT);
-    hello_bind_buffer(buffer, surface);
-
-    while (!done) {
-        if (wl_display_dispatch(display) < 0) {
-            perror("Main loop error");
-            done = true;
-        }
-    }
-
-    fprintf(stderr, "Exiting sample wayland client...\n");
-
-    hello_free_buffer(buffer);
-    hello_free_surface(surface);
-    hello_free_memory_pool(pool);
-    close(image);
-
-    hello_cleanup_wayland();
-*/
-    return EXIT_SUCCESS;
+  return EXIT_SUCCESS;
 }

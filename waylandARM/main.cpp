@@ -7,8 +7,8 @@
 #include <string.h>
 #include <iostream>
 
-#define WIDTH 256
-#define HEIGHT 256
+#define WIDTH (1920*2)
+#define HEIGHT (1080*2)
 
 #define ___ std::cerr << __FILE__ << " : " << __LINE__ << std::endl
 
@@ -17,6 +17,10 @@ static struct wl_compositor *compositor = NULL;
 static struct wl_shell *shell = NULL;
 static EGLDisplay egl_display;
 static char running = 1;
+
+
+decltype(glClear)* ptr2;
+decltype(glClearColor)* ptr3;
 
 struct window {
 	EGLContext egl_context;
@@ -105,9 +109,14 @@ static void create_window (struct window *window, int32_t width, int32_t height)
   std::cerr << __LINE__ << " - " << translateError(eglGetError()) << std::endl;
   ___;
 	EGLint attributes[] = {
+    //EGL_SAMPLES,0,
 		EGL_RED_SIZE, 8,
 		EGL_GREEN_SIZE, 8,
 		EGL_BLUE_SIZE, 8,
+    //EGL_ALPHA_SIZE,0,
+    //EGL_DEPTH_SIZE,24,
+    //EGL_RENDERABLE_TYPE,EGL_OPENGL_ES_BIT|EGL_OPENGL_ES2_BIT|EGL_OPENGL_ES3_BIT,
+    //EGL_SURFACE_TYPE,EGL_PBUFFER_BIT|EGL_PIXMAP_BIT|EGL_SWAP_BEHAVIOR_PRESERVED_BIT|EGL_WINDOW_BIT|0x180,
 	EGL_NONE};
 	EGLConfig config;
 	EGLint num_config;
@@ -135,11 +144,14 @@ static void create_window (struct window *window, int32_t width, int32_t height)
   } 
   std::cerr << __LINE__ << " - " << translateError(eglGetError()) << std::endl;
 
+  ptr2 = (decltype(glClear)*)eglGetProcAddress("glClear");
+  ptr3 = (decltype(glClearColor)*)eglGetProcAddress("glClearColor");
   ___;
 	
 	window->surface = wl_compositor_create_surface (compositor);
   ___;
 	window->shell_surface = wl_shell_get_shell_surface (shell, window->surface);
+  wl_shell_surface_set_fullscreen(window->shell_surface,WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,0,nullptr);
   ___;
 	wl_shell_surface_add_listener (window->shell_surface, &shell_surface_listener, window);
   ___;
@@ -171,11 +183,14 @@ static void delete_window (struct window *window) {
 }
 static void draw_window (struct window *window) {
   ___;
-  auto ptr = (decltype(glClearColor)*)eglGetProcAddress("glClearColor");
-  
-  std::cerr << "glClearColor: " << (void*)ptr << std::endl;
-  //ptr(0,1,0,1);
-  ___;
+  //glGetError();
+  //auto ptr = (decltype(glGetError)*)eglGetProcAddress("glGetError");
+  //auto a = ptr();
+  //std::cerr << "glGetError() - " << a << std::endl;
+  ptr3(1.f,1.f,1.f,1.f);
+  ptr2(GL_COLOR_BUFFER_BIT);
+  //std::cerr << "ahoj" << std::endl;
+  ////((decltype(glGetError)*)eglGetProcAddress("glGetError"))();
 	//glClearColor (0.0, 1.0, 0.0, 1.0);
   ___;
 	//glClear (GL_COLOR_BUFFER_BIT);
