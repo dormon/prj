@@ -469,7 +469,7 @@ int main(void)
   contextAttrib.setContextMinorVersion(1);
   auto context      = eglDisplay.getContext(configAttrib,contextAttrib);
   ___;
-  auto window       = egl::Window(surface.get(),1920*2,1080*2);
+  auto window       = egl::Window(surface.get(),1920,1080);
   ___;
   auto eglSurface   = window.getSurface(context);
   ___;
