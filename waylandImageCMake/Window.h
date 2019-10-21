@@ -1,6 +1,8 @@
 #pragma once
 
 #include "util.h"
+#include "wayland.hpp"
+#include "egl.hpp"
 
 class Window{
   public:
@@ -9,9 +11,11 @@ class Window{
       ,registry    (display.getRegistry())
       ,compositor  (registry.getCompositor())
       ,shell       (registry.getShell())
+      ,seat        (registry.getSeat())
       ,surface     (compositor.getSurface())
       ,shellSurface(wayland::ShellSurface(shell,surface))
     {
+      seat.addListener();
       //std::cerr << "Window::Window()" << std::endl;
       //___;
       //display      = wayland::Display();
@@ -39,7 +43,7 @@ class Window{
       contextAttrib.setContextMinorVersion(1);
       context      = eglDisplay.getContext(configAttrib,contextAttrib);
       ___;
-      window       = egl::Window(surface.get(),width,height);
+      window       = egl::Window((NativeWindowType)surface.get(),width,height);
       ___;
       eglSurface   = window.getSurface(context);
       ___;
@@ -67,7 +71,8 @@ class Window{
         std::cerr << "ddd: " << ddd << std::endl;
 
         //wl_display_dispatch(ddd);
-	    	wl_display_dispatch_pending (ddd);
+        wl_display_dispatch(ddd);
+	    	//wl_display_dispatch_pending (ddd);
         ___;
         onDraw();
         ___;
@@ -82,6 +87,7 @@ class Window{
     wayland::Registry     registry;
     wayland::Compositor   compositor;
     wayland::Shell        shell;
+    wayland::Seat         seat;
     wayland::Surface      surface;
     wayland::ShellSurface shellSurface;
     egl::Display          eglDisplay;

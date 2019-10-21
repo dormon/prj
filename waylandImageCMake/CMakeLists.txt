@@ -10,7 +10,7 @@ find_package(Vars CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package (Threads)
 
-add_executable(${PROJECT_NAME} main.cpp stb_image.h util.h QuiltImage.h)
+add_executable(${PROJECT_NAME} main.cpp stb_image.h util.h QuiltImage.h wayland.hpp egl.hpp)
 
 if(${CMAKE_CXX_COMPILER} STREQUAL "/usr/bin/aarch64-linux-gnu-g++")
   target_link_libraries(${PROJECT_NAME} PUBLIC geGL::geGL Vars::Vars glm -lEGL -lwayland-client -ldl -lwayland-egl ${CMAKE_THREAD_LIBS_INIT} -lm-2.29)
