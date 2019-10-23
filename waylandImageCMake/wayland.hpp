@@ -7,8 +7,11 @@
 
 #include <wayland-client.h>
 #include <wayland-cursor.h>
+#include <wayland-egl.h>
 
 #include "util.h"
+#define ENABLE_PRINT_CALL_STACK
+#include "callstackPrinter.h"
 
 namespace wayland{
   class Display;
@@ -17,6 +20,7 @@ namespace wayland{
   class Shell;
   class Seat;
   class Surface;
+  class EGLWindow;
   class ShellSurface;
 };
 
@@ -30,30 +34,20 @@ namespace wayland{
 
 class wayland::Display{
   public:
-    Display(char const*name = nullptr){
-      auto d = [](struct wl_display**p){wl_display_disconnect(*p);delete p;};
-      display = std::shared_ptr<struct wl_display*>(new struct wl_display*,d);
-      WAYLAND_CALLV(*display,wl_display_connect,name);
-    }
+    Display(char const*name = nullptr);
     Registry getRegistry()const;
-    int roundtrip()const{
-      return wl_display_roundtrip(*display);
-    }
-    struct wl_display*get()const{return *display;}
+    int roundtrip()const;
+    struct wl_display*get()const;
   protected:
     std::shared_ptr<struct wl_display*>display;
 };
 
 class wayland::Compositor{
   public:
-    Compositor(std::shared_ptr<struct wl_compositor*>c):compositor(c){}
-    Compositor(){}
-    auto get()const{
-      return *compositor;
-    }
-    bool isReady()const{
-      return compositor != nullptr && *compositor != nullptr;
-    }
+    Compositor(std::shared_ptr<struct wl_compositor*>c);
+    Compositor();
+    struct wl_compositor* get()const;
+    bool isReady()const;
     Surface getSurface()const;
   protected:
     std::shared_ptr<struct wl_compositor*>compositor;
@@ -61,11 +55,9 @@ class wayland::Compositor{
 
 class wayland::Shell{
   public:
-    Shell(std::shared_ptr<struct wl_shell*>const&s):shell(s){}
-    Shell(){}
-    auto get()const{
-      return *shell;
-    }
+    Shell(std::shared_ptr<struct wl_shell*>const&s);
+    Shell();
+    struct wl_shell* get()const;
   protected:
     std::shared_ptr<struct wl_shell*>shell;
 };
@@ -78,13 +70,12 @@ class wayland::Seat{
       return *seat;
     }
     void addListener(){
-      WAYLAND_CALLR(wl_seat_add_listener,*seat, &seat_listener,*seat);
+      WAYLAND_CALLR(wl_seat_add_listener,*seat, &seat_listener,this);
     }
-  protected:
     std::shared_ptr<struct wl_seat*>seat;
 
     //struct wl_pointer *pointer;
-	  struct wl_keyboard *keyboard;
+	  struct wl_keyboard *keyboard = nullptr;
     //struct wl_cursor_theme *cursor_theme;
 	  //struct wl_cursor *default_cursor;
 	  //struct wl_surface *cursor_surface;
@@ -151,26 +142,31 @@ class wayland::Seat{
     static void keyboard_handle_keymap(void *data, struct wl_keyboard *keyboard,
     		       uint32_t format, int fd, uint32_t size)
     {
+      std::cerr << __func__ << std::endl;
     }
     
     static void keyboard_handle_enter(void *data, struct wl_keyboard *keyboard,
     		      uint32_t serial, struct wl_surface *surface,
     		      struct wl_array *keys)
     {
+      std::cerr << __func__ << std::endl;
     }
     
     static void keyboard_handle_leave(void *data, struct wl_keyboard *keyboard,
     		      uint32_t serial, struct wl_surface *surface)
     {
+      std::cerr << __func__ << std::endl;
     }
     
     static void keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
     		    uint32_t serial, uint32_t time, uint32_t key,
     		    uint32_t state)
     {
+      std::cerr << __func__ << std::endl;
+      std::cerr << "key: " << key << std::endl;
     	Seat *d = (Seat*)data;
     
-      std::cerr << "key: " << key << std::endl;
+      exit(0);
     	//if (key == KEY_F11 && state)
     	//	toggle_fullscreen(d->window, d->window->fullscreen ^ 1);
     	//else if (key == KEY_ESC && state)
@@ -182,6 +178,7 @@ class wayland::Seat{
     			  uint32_t mods_latched, uint32_t mods_locked,
     			  uint32_t group)
     {
+      std::cerr << __func__ << std::endl;
     }
     
     static constexpr struct wl_keyboard_listener keyboard_listener = {
@@ -194,9 +191,11 @@ class wayland::Seat{
 
 
     static void seat_handle_capabilities(void *data, struct wl_seat *seat,uint32_t capabilities){
+      PRINT_CALL_STACK(data,seat,capabilities);
       enum wl_seat_capability caps = (enum wl_seat_capability)capabilities;
     	Seat *d = (Seat*)data;
-    
+      std::cerr << "seat_handle_capabilities" << std::endl;
+      ___;
     	//if ((caps & WL_SEAT_CAPABILITY_POINTER) && !d->pointer) {
     	//	d->pointer = wl_seat_get_pointer(seat);
     	//	wl_pointer_add_listener(d->pointer, &Seat::pointer_listener, d);
@@ -204,13 +203,17 @@ class wayland::Seat{
     	//	wl_pointer_destroy(d->pointer);
     	//	d->pointer = NULL;
     	//}
+      std::cerr << "caps: " << caps << "  keyboard: " << d->keyboard << std::endl;
     	if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !d->keyboard) {
+        ___;
     		d->keyboard = wl_seat_get_keyboard(seat);
     		wl_keyboard_add_listener(d->keyboard, &keyboard_listener, d);
     	} else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD) && d->keyboard) {
+        ___;
     		wl_keyboard_destroy(d->keyboard);
     		d->keyboard = NULL;
     	}
+      ___;
     }
 
     struct wl_seat_listener seat_listener = {
@@ -218,18 +221,21 @@ class wayland::Seat{
     };
 };
 
+class wayland::EGLWindow{
+  public:
+    EGLWindow(struct wl_surface* waylandSurface,uint32_t width,uint32_t height);
+    EGLWindow();
+    struct wl_egl_window* get()const;
+  protected:
+    std::shared_ptr<struct wl_egl_window*>window;
+};
+
 class wayland::Surface{
   public:
-    Surface(Compositor const&c){
-      auto d = [](struct wl_surface**p){wl_surface_destroy(*p);delete p;};
-      surface = std::shared_ptr<struct wl_surface*>(new struct wl_surface*,d);
-      auto cc = c.get();
-      if(!cc)
-        throw std::runtime_error("wayland::Surface::Surface() - compositor is empty");
-      WAYLAND_CALLV(*surface,wl_compositor_create_surface,cc);
-    }
-    Surface(){}
-    struct wl_surface*get()const{return *surface;}
+    Surface(Compositor const&c);
+    Surface();
+    struct wl_surface*get()const;
+    EGLWindow getEGLWindow(uint32_t width,uint32_t height)const;
   protected:
     std::shared_ptr<struct wl_surface*>surface;
 };
@@ -267,10 +273,6 @@ class wayland::ShellSurface{
     }
     struct wl_shell_surface_listener shell_surface_listener = {&shell_surface_ping, &shell_surface_configure, &shell_surface_popup_done};
 };
-
-wayland::Surface wayland::Compositor::getSurface()const{
-  return Surface(*this);
-}
 
 class wayland::Registry{
   public:
@@ -336,7 +338,106 @@ class wayland::Registry{
 
 };
 
+// DISPLAY IMPL
+
+wayland::Display::Display(char const*name){
+  auto d = [](struct wl_display**p){wl_display_disconnect(*p);delete p;};
+  display = std::shared_ptr<struct wl_display*>(new struct wl_display*,d);
+  WAYLAND_CALLV(*display,wl_display_connect,name);
+}
+
 wayland::Registry wayland::Display::getRegistry()const{
   return Registry(*this);
 }
 
+int wayland::Display::roundtrip()const{
+  return wl_display_roundtrip(*display);
+}
+
+struct wl_display*wayland::Display::get()const{return *display;}
+
+// DISPLAY IMPL END
+
+
+
+
+
+// COMPOSITOR IMPL
+
+wayland::Compositor::Compositor(std::shared_ptr<struct wl_compositor*>c):compositor(c){}
+
+wayland::Compositor::Compositor(){}
+
+struct wl_compositor* wayland::Compositor::get()const{
+  return *compositor;
+}
+
+bool wayland::Compositor::isReady()const{
+  return compositor != nullptr && *compositor != nullptr;
+}
+
+wayland::Surface wayland::Compositor::getSurface()const{
+  return Surface(*this);
+}
+
+// COMPOSITOR IMPL END
+
+
+
+
+
+// SHELL IMPL
+
+wayland::Shell::Shell(std::shared_ptr<struct wl_shell*>const&s):shell(s){}
+
+wayland::Shell::Shell(){}
+
+struct wl_shell* wayland::Shell::get()const{
+  return *shell;
+}
+
+// SHELL IMPL END
+
+
+
+
+
+
+// EGLWindow IMPL
+
+wayland::EGLWindow::EGLWindow(struct wl_surface* waylandSurface,uint32_t width,uint32_t height){
+  auto d = [](struct wl_egl_window**p){wl_egl_window_destroy(*p);delete p;};
+  window = std::shared_ptr<struct wl_egl_window*>(new struct wl_egl_window*,d);
+  WAYLAND_CALLV(*window,wl_egl_window_create,waylandSurface, width, height);
+}
+
+wayland::EGLWindow::EGLWindow(){}
+
+struct wl_egl_window* wayland::EGLWindow::get()const{return*window;}
+
+// EGLWindow IMPL END
+
+
+
+
+
+// Surface IMPL
+
+wayland::Surface::Surface(Compositor const&c){
+  auto d = [](struct wl_surface**p){wl_surface_destroy(*p);delete p;};
+  surface = std::shared_ptr<struct wl_surface*>(new struct wl_surface*,d);
+  auto cc = c.get();
+  if(!cc)
+    throw std::runtime_error("wayland::Surface::Surface() - compositor is empty");
+  WAYLAND_CALLV(*surface,wl_compositor_create_surface,cc);
+}
+
+wayland::Surface::Surface(){}
+
+struct wl_surface*wayland::Surface::get()const{return *surface;}
+
+wayland::EGLWindow wayland::Surface::getEGLWindow(uint32_t width,uint32_t height)const{
+  return EGLWindow(*surface,width,height);
+}
+
+// Surface IMPL END

@@ -16,17 +16,14 @@
 #include <geGL/geGL.h>
 #include <geGL/StaticCalls.h>
 #include <Vars/Vars.h>
+#include "Timer.h"
 
 #include <functional>
 
 //#define STB_IMAGE_IMPLEMENTATION
 //#include "stb_image.h"
 
-#ifdef DEBUG
-  #define ___ std::cerr << __FILE__ << " : " << __LINE__ << std::endl
-#else
-  #define ___ [](){}
-#endif
+#define DEBUG
 
 #include "util.h"
 #include "Window.h"
@@ -61,16 +58,23 @@ void SimpleWindow::onInit(){
   ge::gl::init((ge::gl::GET_PROC_ADDRESS)eglGetProcAddress);
   ___;
   std::cerr << ge::gl::glGetString(GL_VERSION) << std::endl;
-  quiltImage = std::make_shared<QuiltImage>(argv[1],vars);
+  //quiltImage = std::make_shared<QuiltImage>(argv[1],vars);
 }
 
 void SimpleWindow::onDraw(){
-  ge::gl::glClearColor(0,0.1,0,1);
-  ge::gl::glClear(GL_COLOR_BUFFER_BIT);
+  Timer<float>timer;
+  timer.reset();
 
-  quiltImage->draw();
+  //ge::gl::glClearColor(0,0.1,0,1);
+  //ge::gl::glClear(GL_COLOR_BUFFER_BIT);
+
+  //quiltImage->draw();
+  ge::gl::glFinish();
 
   eglSurface.swap();
+
+  auto t = timer.elapsedFromStart();
+  std::cerr << "frame time: " << t << " - fps: " << 1/t << std::endl;
 }
 
 

@@ -29,81 +29,53 @@ class QuiltImage{
       auto fs = std::make_shared<ge::gl::Shader>(GL_FRAGMENT_SHADER,
       R".(
       #version 310 es
-      #line 29
+      #line 32
 
       in highp vec2 texCoords;
       
-      out highp vec4 fragColor;
+      out lowp vec4 fragColor;
       
-      uniform int showQuilt;
-      uniform int showAsSequence;
-      uniform uint selectedView;
       // HoloPlay values
-      uniform highp float pitch;
-      uniform highp float tilt;
-      uniform highp float center;
-      uniform highp float invView;
-      uniform highp float subp;
-      uniform int ri;
-      uniform int bi;
-      uniform highp vec4 tile;
-      uniform highp vec4 viewPortion;
-      uniform highp vec4 aspect;
-      uniform uint drawOnlyOneImage;
+      uniform lowp float pitch;
+      uniform lowp float tilt;
+      uniform lowp float center;
+      uniform lowp float invView;
+      uniform lowp float subp;
+      uniform lowp vec4 tile;
+      uniform lowp vec4 viewPortion;
+      uniform lowp vec4 aspect;
       
       uniform sampler2D screenTex;
       
-      uniform highp float focus;
+      uniform lowp float focus;
 
-      vec2 texArr(vec3 uvz)
+      vec2 texArr(highp vec3 uvz)
       {
           // decide which section to take from based on the z.
           
-          highp float z = floor(uvz.z * tile.z);
-          highp float focusMod = focus*(1.f-2.f*clamp(uvz.z,0.f,1.f));
-          highp float x = (mod(z, tile.x) + clamp(uvz.x+focusMod,0.f,1.f)) / tile.x;
-          highp float y = (floor(z / tile.x) + uvz.y) / tile.y;
+          lowp float z = floor(uvz.z * 45.f /*tile.z*/);
+          lowp float focusMod = focus*(1.f-2.f*clamp(uvz.z,0.f,1.f));
+          highp float x = (mod(z, tile.x) + clamp(uvz.x+focusMod,0.f,1.f)) * (1.f/5.f) /* / tile.x*/;
+          highp float y = (floor(z *(1.f/5.f) /* / tile.x*/) + uvz.y) * (1.f/9.f) /* / tile.y*/;
           return vec2(x, y) * viewPortion.xy;
       }
       #line 64
       void main()
       {
-      	highp vec3 nuv = vec3(texCoords.xy, 0.0);
-      
-      	highp vec4 rgb[3];
-      	for (int i=0; i < 3; i = i+1) 
-      	{
-      		nuv.z = (texCoords.x + float(i) * subp + texCoords.y * tilt) * pitch - center;
-      		nuv.z = fract(nuv.z);
-      		nuv.z = (1.f - nuv.z);
-          if(drawOnlyOneImage == 1u){
-            if(uint(nuv.z *tile.z) == selectedView)
-      		    rgb[i] = texture(screenTex, texArr(nuv));
-            else
-              rgb[i] = vec4(0.f);
-          }else{
-      		  rgb[i] = texture(screenTex, texArr(nuv));
-          }
-      		//rgb[i] = vec4(nuv.z, nuv.z, nuv.z, 1.f);
-      	}
-        
-
-
-
-
-
-
-
-        if(showQuilt == 0){
-          fragColor = vec4(rgb[ri].r, rgb[1].g, rgb[bi].b, 1.f);
-        }else{
-          if(showAsSequence == 0){
-            fragColor = texture(screenTex, texCoords.xy);
-          }else{
-            uint sel = min(selectedView,uint(tile.x*tile.y-1.f));
-            fragColor = texture(screenTex, texCoords.xy/vec2(tile.xy) + vec2(vec2(1.f)/tile.xy)*vec2(sel%uint(tile.x),sel/uint(tile.x)));
-          }
-        }
+//        fragColor = vec4(texCoords,0.f,1.f);
+//        lowp float z = (texCoords.x + texCoords.y * tilt) * pitch - center;
+//        fragColor[0] = texArr(vec3(texCoords.xy,1.f-fract(z)))[0];
+//        z = z + subp*pitch;
+//        fragColor[1] = texArr(vec3(texCoords.xy,1.f-fract(z)))[1];
+//        fragColor[2] = 0.f;
+//*
+        lowp float z = (texCoords.x + texCoords.y * tilt) * pitch - center;
+        fragColor[0] = texture(screenTex, texArr(vec3(texCoords.xy,1.f-fract(z))))[0];
+        z = z + subp*pitch;
+        fragColor[1] = texture(screenTex, texArr(vec3(texCoords.xy,1.f-fract(z))))[1];
+        z = z + subp*pitch;
+        fragColor[2] = texture(screenTex, texArr(vec3(texCoords.xy,1.f-fract(z))))[2];
+// */      
       }
       ).");
       prg = std::make_shared<ge::gl::Program>(vs,fs);
@@ -140,7 +112,7 @@ class QuiltImage{
       ge::gl::glPixelStorei(GL_UNPACK_ROW_LENGTH,w);
       ge::gl::glPixelStorei(GL_UNPACK_ALIGNMENT ,1);
       if(comp == 3)
-          ge::gl::glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
+          ge::gl::glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB565, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
       else if(comp == 4)
           ge::gl::glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
       ___;
@@ -150,19 +122,10 @@ class QuiltImage{
       vars.addFloat      ("quiltView.center"     ,0.4528985f);
       vars.addFloat      ("quiltView.invView"    ,1.00f);
       vars.addFloat      ("quiltView.subp"       ,1.f/(1920*2*3.f));
-      vars.addInt32      ("quiltView.ri"         ,0);
-      vars.addInt32      ("quiltView.bi"         ,2);
       vars.add<glm::vec4>("quiltView.tile"       ,5.00f, 9.00f, 45.00f, 45.00f);
       vars.add<glm::vec4>("quiltView.viewPortion",0.99976f, 0.99976f, 0.00f, 0.00f);
-      vars.addFloat      ("quiltView.focus"      ,0.00f);
+      vars.addFloat      ("quiltView.focus"      ,-0.1f);
       //addVarsLimitsF(vars,"quiltView.focus",-1,+1,0.001f);
-      vars.addBool ("showQuilt");
-      vars.addBool ("renderQuilt");
-      vars.addBool ("renderScene",false);
-      vars.addBool ("showAsSequence",false);
-      vars.addBool ("drawOnlyOneImage",false);
-      vars.addUint32("selectedView",0);
-      //addVarsLimitsU(vars,"selectedView",0,44);
       //addVarsLimitsF(vars,"quiltView.tilt",-10,10,0.01);
 
       vars.addFloat("quiltRender.size",5.f);
@@ -178,22 +141,24 @@ class QuiltImage{
       ge::gl::glDeleteTextures(1,&tex);
     }
     void draw(){
-      prg->set1i ("showQuilt"       ,                vars.getBool       ("showQuilt"            ))
-         ->set1i ("showAsSequence"  ,                vars.getBool       ("showAsSequence"       ))
-         ->set1ui("selectedView"    ,                vars.getUint32     ("selectedView"         ))
-         ->set1i ("showQuilt"       ,                vars.getBool       ("showQuilt"            ))
+      auto&focus = vars.getFloat("quiltView.focus");
+      focus += 0.004f;
+      if(focus > .1f)focus = -0.1f;
+      prg
          ->set1f ("pitch"           ,                vars.getFloat      ("quiltView.pitch"      ))
          ->set1f ("tilt"            ,                vars.getFloat      ("quiltView.tilt"       ))
          ->set1f ("center"          ,                vars.getFloat      ("quiltView.center"     ))
-         //->set1f ("invView"         ,                vars.getFloat      ("quiltView.invView"    ))
          ->set1f ("subp"            ,                vars.getFloat      ("quiltView.subp"       ))
-         ->set1i ("ri"              ,                vars.getInt32      ("quiltView.ri"         ))
-         ->set1i ("bi"              ,                vars.getInt32      ("quiltView.bi"         ))
          ->set4fv("tile"            ,glm::value_ptr(*vars.get<glm::vec4>("quiltView.tile"       )))
          ->set4fv("viewPortion"     ,glm::value_ptr(*vars.get<glm::vec4>("quiltView.viewPortion")))
-         ->set1ui("drawOnlyOneImage",                vars.getBool       ("drawOnlyOneImage"     ))
          ->set1f ("focus"           ,                vars.getFloat      ("quiltView.focus"      ))
          ->use();
+      //auto const w = 1920*2;
+      //auto const h = 1080*2;
+      //auto const ww = 2560;
+      //auto const hh = 1600;
+      //ge::gl::glEnable(GL_SCISSOR_TEST);
+      //ge::gl::glScissor((w-ww)/2,(h-hh)/2,ww,hh);
       ge::gl::glDrawArrays(GL_TRIANGLE_STRIP,0,4);
     }
   protected:

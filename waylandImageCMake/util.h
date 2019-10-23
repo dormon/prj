@@ -1,9 +1,9 @@
 #pragma once
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
-  #define ___ std::cerr << __FILE__ << " : " << __LINE__ << std::endl
+  #define ___ std::cerr << __FILE__ << " : " << __func__ << " " << __LINE__ << std::endl
 #else
   #define ___ [](){}
 #endif
