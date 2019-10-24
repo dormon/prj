@@ -58,7 +58,7 @@ void SimpleWindow::onInit(){
   ge::gl::init((ge::gl::GET_PROC_ADDRESS)eglGetProcAddress);
   ___;
   std::cerr << ge::gl::glGetString(GL_VERSION) << std::endl;
-  //quiltImage = std::make_shared<QuiltImage>(argv[1],vars);
+  quiltImage = std::make_shared<QuiltImage>(argv[1],vars);
 }
 
 void SimpleWindow::onDraw(){
@@ -68,7 +68,7 @@ void SimpleWindow::onDraw(){
   //ge::gl::glClearColor(0,0.1,0,1);
   //ge::gl::glClear(GL_COLOR_BUFFER_BIT);
 
-  //quiltImage->draw();
+  quiltImage->draw();
   ge::gl::glFinish();
 
   eglSurface.swap();
