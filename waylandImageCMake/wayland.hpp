@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <iostream>
+#include <functional>
 
 #include <string.h>
 
@@ -19,6 +20,7 @@ namespace wayland{
   class Compositor;
   class Shell;
   class Seat;
+  class SeatListener;
   class Surface;
   class EGLWindow;
   class ShellSurface;
@@ -62,18 +64,8 @@ class wayland::Shell{
     std::shared_ptr<struct wl_shell*>shell;
 };
 
-class wayland::Seat{
+class wayland::SeatListener{
   public:
-    Seat(std::shared_ptr<struct wl_seat*>const&s):seat(s){}
-    Seat(){}
-    auto get()const{
-      return *seat;
-    }
-    void addListener(){
-      WAYLAND_CALLR(wl_seat_add_listener,*seat, &seat_listener,this);
-    }
-    std::shared_ptr<struct wl_seat*>seat;
-
     //struct wl_pointer *pointer;
 	  struct wl_keyboard *keyboard = nullptr;
     //struct wl_cursor_theme *cursor_theme;
@@ -164,9 +156,10 @@ class wayland::Seat{
     {
       std::cerr << __func__ << std::endl;
       std::cerr << "key: " << key << std::endl;
-    	Seat *d = (Seat*)data;
-    
-      exit(0);
+      std::cerr << "state: " << state << std::endl;
+    	SeatListener *d = (SeatListener*)data;
+      if(state == 1 && d->onKeyDown)d->onKeyDown(key);
+      //exit(0);
     	//if (key == KEY_F11 && state)
     	//	toggle_fullscreen(d->window, d->window->fullscreen ^ 1);
     	//else if (key == KEY_ESC && state)
@@ -193,7 +186,7 @@ class wayland::Seat{
     static void seat_handle_capabilities(void *data, struct wl_seat *seat,uint32_t capabilities){
       PRINT_CALL_STACK(data,seat,capabilities);
       enum wl_seat_capability caps = (enum wl_seat_capability)capabilities;
-    	Seat *d = (Seat*)data;
+    	SeatListener *d = (SeatListener*)data;
       std::cerr << "seat_handle_capabilities" << std::endl;
       ___;
     	//if ((caps & WL_SEAT_CAPABILITY_POINTER) && !d->pointer) {
@@ -216,9 +209,30 @@ class wayland::Seat{
       ___;
     }
 
-    struct wl_seat_listener seat_listener = {
+    struct wl_seat_listener static constexpr  seat_listener = {
 	    seat_handle_capabilities,
     };
+
+    std::function<void(uint32_t)>onKeyDown;
+
+};
+
+class wayland::Seat{
+  public:
+    Seat(std::shared_ptr<struct wl_seat*>const&s):seat(s){seatListener = std::make_shared<SeatListener>();}
+    Seat(){}
+    auto get()const{
+      return *seat;
+    }
+    void addListener(){
+      WAYLAND_CALLR(wl_seat_add_listener,*seat, &SeatListener::seat_listener,&*seatListener);
+    }
+    void setOnKeyDown(std::function<void(uint32_t)>const&fce){
+      seatListener->onKeyDown = fce;
+    }
+    std::shared_ptr<struct wl_seat*>seat;
+    std::shared_ptr<SeatListener>seatListener;
+
 };
 
 class wayland::EGLWindow{

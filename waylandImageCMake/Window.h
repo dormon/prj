@@ -19,6 +19,8 @@ class Window{
       ,shellSurface(wayland::ShellSurface(shell,surface))
     {
       seat.addListener();
+      seat.setOnKeyDown([&](uint32_t v){onKeyDown(v);});
+
       //std::cerr << "Window::Window()" << std::endl;
       //___;
       //display      = wayland::Display();
@@ -94,23 +96,20 @@ class Window{
     virtual void onInit(){}
     virtual void onExit(){}
     virtual void onDraw(){}
+    virtual void onKeyDown(uint32_t v){}
 
     void start(){
       ___;
       onInit();
       ___;
       while(running){
-        ___;
         auto ddd = display.get();
-        ___;
         //std::cerr << "ddd: " << ddd << std::endl;
 
         //wl_display_dispatch(ddd);
         wl_display_dispatch(ddd);
 	    	//wl_display_dispatch_pending (ddd);
-        ___;
         onDraw();
-        ___;
       }
       ___;
       onExit();
