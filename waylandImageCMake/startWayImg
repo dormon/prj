@@ -1,0 +1,15 @@
+#!/bin/sh
+
+echo "" > /home/root/procNebezi
+
+counter=4
+while [ $counter -gt 0 -a ! -e /run/user/0/wayland-0 ];
+do
+     echo "cekam" >> /home/root/procNebezi
+     counter=$((counter - 1))
+     sleep 1
+done
+
+. /etc/profile.d/weston.sh
+
+/home/root/wayImg /home/root/quilts/hellblade.jpg 2> /home/root/procNebezi

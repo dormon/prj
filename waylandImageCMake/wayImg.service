@@ -1,0 +1,10 @@
+[Unit]
+Description=start holo app wayImg
+After=weston.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh /usr/bin/startWayImg
+
+[Install]
+WantedBy=multi-user.target
