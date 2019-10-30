@@ -76,6 +76,23 @@ class SimpleWindow: public Window{
     size_t selectedQuilt = 0;
     GLuint m_texture;
     std::vector<std::string>quiltFileNames;
+    bool autoMode = true;
+    Timer<float>autoTimer;
+    float const timePerPhoto = 5;
+    void nextPhoto(){
+      selectedQuilt++;
+      if(selectedQuilt >= quiltFileNames.size())
+        selectedQuilt = 0;
+    }
+    void prevPhoto(){
+      selectedQuilt--;
+      if(selectedQuilt >= quiltFileNames.size())
+        selectedQuilt = quiltFileNames.size()-1;
+    }
+    void loadPhoto(){
+      quiltImage = std::make_shared<QuiltImage>(quiltFileNames.at(selectedQuilt),vars);
+      autoTimer.reset();
+    }
 };
 
 
@@ -105,7 +122,10 @@ void SimpleWindow::onInit(){
   //addVarsLimitsF(vars,"quiltRender.texScaleAspect",0.1f,10,0.01f);
 
   quiltFileNames = getDirFiles(argv[1]);
-  quiltImage = std::make_shared<QuiltImage>(quiltFileNames.at(selectedQuilt),vars);
+  std::sort(std::begin(quiltFileNames),std::end(quiltFileNames));
+
+  loadPhoto();
+  autoTimer.reset();
 }
 
 void SimpleWindow::onDraw(){
@@ -131,41 +151,79 @@ void SimpleWindow::onDraw(){
 
   auto t = timer.elapsedFromStart();
   std::cerr << "frame time: " << t << " - fps: " << 1/t << std::endl;
+
+  if(autoTimer.elapsedFromStart() > timePerPhoto){
+    autoTimer.reset();
+    if(autoMode){
+      nextPhoto();
+      loadPhoto();
+    }
+  }
 }
 
 void SimpleWindow::onKeyDown(uint32_t k){
   std::cerr << "klavesa: " << k << std::endl;
   if(k == KEY_LEFT){
+    autoMode = false;
     quiltImage->decViewport();
-    //glDisable(GL_SCISSOR_TEST);
-    //ge::gl::glClearColor(0,0,0,1);
-    //ge::gl::glClear(GL_COLOR_BUFFER_BIT);
   }
   if(k == KEY_RIGHT){
-    //glDisable(GL_SCISSOR_TEST);
-    //ge::gl::glClearColor(0,0,0,1);
-    //ge::gl::glClear(GL_COLOR_BUFFER_BIT);
+    autoMode = false;
     quiltImage->incViewport();
   }
   if(k == KEY_UP){
-    quiltImage->incFocus();
+    autoMode = false;
+    quiltImage->focusPlaneFarrer();
   }
   if(k == KEY_DOWN){
-    quiltImage->decFocus();
+    autoMode = false;
+    quiltImage->focusPlaneNearer();
   }
   if(k == KEY_N){
+    autoMode = false;
     ___;
-    selectedQuilt++;
-    if(selectedQuilt >= quiltFileNames.size())selectedQuilt = 0;
-    quiltImage = std::make_shared<QuiltImage>(quiltFileNames.at(selectedQuilt),vars);
+    nextPhoto();
+    loadPhoto();
     ___;
   }
   if(k == KEY_P){
+    autoMode = false;
     ___;
-    selectedQuilt--;
-    if(selectedQuilt >= quiltFileNames.size())selectedQuilt = 0;
-    quiltImage = std::make_shared<QuiltImage>(quiltFileNames.at(selectedQuilt),vars);
+    prevPhoto();
+    loadPhoto();
     ___;
+  }
+  if(k == KEY_KPMINUS){
+    autoMode = false;
+    quiltImage->zoomOut();
+  }
+  if(k == KEY_KPPLUS){
+    autoMode = false;
+    quiltImage->zoomIn();
+  }
+  if(k == KEY_KP8){
+    autoMode = false;
+    quiltImage->panUp();
+  }
+  if(k == KEY_KP2){
+    autoMode = false;
+    quiltImage->panDown();
+  }
+  if(k == KEY_KP4){
+    autoMode = false;
+    quiltImage->panLeft();
+  }
+  if(k == KEY_KP6){
+    autoMode = false;
+    quiltImage->panRight();
+  }
+  if(k == KEY_R){
+    autoMode = false;
+    quiltImage->reset();
+  }
+
+  if(k == KEY_SPACE){
+    autoMode = !autoMode;
   }
 }
 
@@ -173,8 +231,6 @@ void SimpleWindow::onKeyDown(uint32_t k){
 int main(int argc,char*argv[])
 {
   auto win = SimpleWindow(1920*2,1080*2,true,argc,argv);
-  //auto win = SimpleWindow(800,600,false);
   win.start();
-
   return EXIT_SUCCESS;
 }

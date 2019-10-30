@@ -48,6 +48,8 @@ class QuiltImage{
       uniform sampler2D screenTex;
       
       uniform lowp float focus;
+      uniform lowp float zoom;
+      uniform lowp vec2 pan;
 
       vec2 texArr(highp vec3 uvz)
       {
@@ -55,8 +57,8 @@ class QuiltImage{
           
           lowp float z = floor(uvz.z * 45.f /*tile.z*/);
           lowp float focusMod = focus*(1.f-2.f*clamp(uvz.z,0.f,1.f));
-          highp float x = (mod(z, tile.x) + clamp(uvz.x+focusMod,0.f,1.f)) * (1.f/5.f) /* / tile.x*/;
-          highp float y = (floor(z *(1.f/5.f) /* / tile.x*/) + uvz.y) * (1.f/9.f) /* / tile.y*/;
+          highp float x = (mod(z, tile.x) + clamp((uvz.x+focusMod)*zoom-zoom*.5f+.5f+pan.x,0.f,1.f) )  * (1.f/5.f) /* / tile.x*/;
+          highp float y = (floor(z *(1.f/5.f) /* / tile.x*/) + clamp(uvz.y * zoom-zoom*.5f+.5f+pan.y,0.f,1.f)) * (1.f/9.f) /* / tile.y*/;
           return vec2(x, y) * viewPortion.xy;
       }
       #line 64
@@ -135,6 +137,8 @@ class QuiltImage{
          ->set4fv("tile"            ,glm::value_ptr(*vars.get<glm::vec4>("quiltView.tile"       )))
          ->set4fv("viewPortion"     ,glm::value_ptr(*vars.get<glm::vec4>("quiltView.viewPortion")))
          ->set1f ("focus"           ,focus                                                        )
+         ->set1f ("zoom"            ,zoom                                                         )
+         ->set2fv("pan"             ,glm::value_ptr(pan)                                          )
          ->use();
       ___;
       auto const w = 1920*2;
@@ -148,24 +152,73 @@ class QuiltImage{
       ge::gl::glDrawArrays(GL_TRIANGLE_STRIP,0,4);
       ___;
     }
+
+    static void plusInRange(float&v,glm::vec2 const&range,float s){
+      v += s;
+      if(v > range.y)v = range.y;
+    }
+    
+    static void minusInRange(float&v,glm::vec2 const&range,float s){
+      v -= s;
+      if(v < range.x)v = range.x;
+    }
+
+
     void incViewport(){
-      crop += 0.05f;
-      if(crop > 1.f)crop = 1.f;
+      plusInRange(crop,cropRange,cropStep);
     }
     void decViewport(){
-      crop -= 0.05f;
-      if(crop < .3f)crop = .3f;
+      minusInRange(crop,cropRange,cropStep);
     }
-    void incFocus(){
-      focus += 0.004f;
-      if(focus > .1f)focus = -.1f;
+    void focusPlaneNearer(){
+      plusInRange(focus,focusRange,focusStep);
     }
-    void decFocus(){
-      focus -= 0.004f;
-      if(focus < -.1f)focus = -.1f;
+    void focusPlaneFarrer(){
+      minusInRange(focus,focusRange,focusStep);
     }
+    void zoomIn(){
+      minusInRange(zoom,zoomRange,zoomStep);
+    }
+    void zoomOut(){
+      plusInRange(zoom,zoomRange,zoomStep);
+    }
+
+    void panLeft(){
+      plusInRange(pan.x,xPanRange,panStep);
+    }
+    void panRight(){
+      minusInRange(pan.x,xPanRange,panStep);
+    }
+    void panDown(){
+      plusInRange(pan.y,yPanRange,panStep);
+    }
+    void panUp(){
+      minusInRange(pan.y,yPanRange,panStep);
+    }
+
+    void reset(){
+      crop = 1.f;
+      focus = 0.f;
+      zoom = 1.f;
+      pan = glm::vec2(0.f);
+    }
+
     float crop = 1.f;
+    glm::vec2 const cropRange = glm::vec2(.3f,1.f);
+    float const cropStep = 0.05f;
+
     float focus = 0.f;
+    glm::vec2 const focusRange = glm::vec2(-.13f,.13f);
+    float const focusStep = 0.004f;
+
+    float zoom = 1.f;
+    glm::vec2 const zoomRange = glm::vec2(0.4f,1.f);
+    float const zoomStep = 0.01;
+
+    glm::vec2 pan = glm::vec2(0.f);
+    glm::vec2 const xPanRange = glm::vec2(-1.f,+1.f);
+    glm::vec2 const yPanRange = glm::vec2(-1.f,+1.f);
+    float const panStep = 0.01f;
   protected:
 
     vars::Vars&vars;
