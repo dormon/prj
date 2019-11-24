@@ -11,6 +11,7 @@
 #include <Vars/Vars.h>
 #include <FunctionPrologue.h>
 #include <Timer.h>
+#include "costring.h"
 
 #define ___ std::cerr << __FILE__ << " " << __LINE__ << std::endl
 
@@ -66,8 +67,25 @@ HUNCTION(5,"obj gall5 a0 a1 a2 a3 a4");
 HUNCTION(6,"obj gall6 a0 a1 a2 a3 a4 a5");
 
 
+#define JUNCTION(N,...)\
+void jall##N(vars::Vars&vars){\
+  if(notChanged2(vars,getName(__VA_ARGS__).c_str()))return;\
+  FUNCTION_CALLER();\
+  vars.reCreate<uint32_t>("v",10);\
+}
+
+
+JUNCTION(0,"obj","gall0");
+JUNCTION(1,"obj","gall1","a0");
+JUNCTION(2,"obj","gall2","a0","a1");
+JUNCTION(3,"obj","gall3","a0","a1","a2");
+JUNCTION(4,"obj","gall4","a0","a1","a2","a3");
+JUNCTION(5,"obj","gall5","a0","a1","a2","a3","a4");
+JUNCTION(6,"obj","gall6","a0","a1","a2","a3","a4","a5");
 
 using FCE = void(*)(vars::Vars&);
+
+
 
 int main(){
   vars::Vars vars;
@@ -116,13 +134,22 @@ int main(){
   measure("gall6",gall6);
   std::cerr << std::endl;
 
-  measure("hall0",gall0);
-  measure("hall1",gall1);
-  measure("hall2",gall2);
-  measure("hall3",gall3);
-  measure("hall4",gall4);
-  measure("hall5",gall5);
-  measure("hall6",gall6);
+  measure("hall0",hall0);
+  measure("hall1",hall1);
+  measure("hall2",hall2);
+  measure("hall3",hall3);
+  measure("hall4",hall4);
+  measure("hall5",hall5);
+  measure("hall6",hall6);
+  std::cerr << std::endl;
+
+  measure("jall0",jall0);
+  measure("jall1",jall1);
+  measure("jall2",jall2);
+  measure("jall3",jall3);
+  measure("jall4",jall4);
+  measure("jall5",jall5);
+  measure("jall6",jall6);
   std::cerr << std::endl;
   return 0;
 }
