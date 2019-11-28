@@ -1,0 +1,18 @@
+#include"catch.hpp"
+
+#include "morton.h"
+
+TEST_CASE("shortest")
+{
+  REQUIRE(SHORTEST(32,1920,1080,10) == 8);
+  REQUIRE(SHORTEST(32,8   ,4   ,10) == 0);
+  REQUIRE(SHORTEST(32,16  ,8   ,10) == 1);
+  REQUIRE(SHORTEST(32,32  ,1080,10) == 2);
+  REQUIRE(SHORTEST(32,512 ,512 ,2 ) == 6);
+
+  REQUIRE(SHORTEST(64,1920,1080,10) == 8);
+  REQUIRE(SHORTEST(64,8   ,4   ,10) == 0);
+  REQUIRE(SHORTEST(64,16  ,8   ,10) == 0);
+  REQUIRE(SHORTEST(64,32  ,1080,10) == 2);
+  REQUIRE(SHORTEST(64,512 ,512 ,2 ) == 6);
+}
