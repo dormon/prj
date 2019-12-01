@@ -48,35 +48,17 @@ struct uvec3{
 // .*.|   ...|...|...|       o    |     n     |   2n+3m   |  xxxxxxx
 // ...|   ...|...|...|       o    |     n     |   2n+3m   |  xxxxxxx
 
-#line 409
-#define REQUIRED_BITS(x)  uint(ceil(log2(float(x))))
-#define DIV_ROUND_UP(x,y) (uint(x/y) + uint(x%y != 0u))
-
-#define UINTS_PER_WARP( w        ) uint((w)/32u)
-
-#line 452
-#define EXPAND_BITS0(V,O) ((uint(V) * (0x00010001u<<uint(O))) & (0xFF0000FFu<<uint(O)))
-#define EXPAND_BITS1(V,O) ((uint(V) * (0x00000101u<<uint(O))) & (0x0F00F00Fu<<uint(O)))
-#define EXPAND_BITS2(V,O) ((uint(V) * (0x00000011u<<uint(O))) & (0xC30C30C3u<<uint(O)))
-#define EXPAND_BITS3(V,O) ((uint(V) * (0x00000005u<<uint(O))) & (0x49249249u<<uint(O)))
-
-#define EXPAND_BITS(V,O) EXPAND_BITS3(EXPAND_BITS2(EXPAND_BITS1(EXPAND_BITS0(V,0),0),0),O)
-
-#define MERGE_BITS(A,B,C) (EXPAND_BITS((A),0) | EXPAND_BITS((B),1) | EXPAND_BITS((C),2))
-
-#line 123
-
 template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z=9u,bool BIT2 = true,bool BIT1 = true>
 uint morton(uvec3 v){
-  const uint warpBits      = REQUIRED_BITS(WARP);
-  const uint warpBitsX     = DIV_ROUND_UP(warpBits,2u);
+  const uint warpBits      = uint(ceil(log2(float(WARP))));
+  const uint warpBitsX     = uint(warpBits/2u) + uint(warpBits%2 != 0u);
   const uint warpBitsY     = uint(warpBits-warpBitsX);
   const uint warpX         = uint(1u<<warpBitsX);
   const uint warpY         = uint(1u<<warpBitsY);
-  const uint clustersX     = DIV_ROUND_UP(WINDOW_X,warpX);
-  const uint clustersY     = DIV_ROUND_UP(WINDOW_Y,warpY);
-  const uint xBits         = REQUIRED_BITS(clustersX);
-  const uint yBits         = REQUIRED_BITS(clustersY);
+  const uint clustersX     = uint(WINDOW_X/warpX) + uint(WINDOW_X%warpX != 0u);
+  const uint clustersY     = uint(WINDOW_Y/warpY) + uint(WINDOW_Y%warpY != 0u);
+  const uint xBits         = uint(ceil(log2(float(clustersX))));
+  const uint yBits         = uint(ceil(log2(float(clustersY))));
   const uint zBits         = MIN_Z>0?MIN_Z:max(max(xBits,yBits),MIN_Z);
   const uint shortest      = min(min(xBits,yBits),zBits);
   const uint middle        = max(max(min(xBits,yBits),min(xBits,zBits)),min(yBits,zBits));
@@ -94,41 +76,88 @@ uint morton(uvec3 v){
   const uint isLongest     = uint(longest > 0);
   const uint bits2Shifts   = uint(uint(bits2Length - uint(shortestZ | (shortestY & longestZ))) * isMiddle);
 
-  #define BITS2_OFFSET(i) uint(bits3Length*3u + shortestAxis + uint(i)*2u)
-  #define BITS2_LMASK( i) uint((1u << BITS2_OFFSET(i))-1u)
-  #define BITS2_HMASK( i) uint(~ BITS2_LMASK(i))
-  
+  const uint bits2OffsetB   = bits3Length*3u + shortestAxis;
+  const uint bits2Offset00  = bits2OffsetB + 2* 0;
+  const uint bits2Offset01  = bits2OffsetB + 2* 1;
+  const uint bits2Offset02  = bits2OffsetB + 2* 2;
+  const uint bits2Offset03  = bits2OffsetB + 2* 3;
+  const uint bits2Offset04  = bits2OffsetB + 2* 4;
+  const uint bits2Offset05  = bits2OffsetB + 2* 5;
+  const uint bits2Offset06  = bits2OffsetB + 2* 6;
+  const uint bits2Offset07  = bits2OffsetB + 2* 7;
+  const uint bits2Offset08  = bits2OffsetB + 2* 8;
+  const uint bits2Offset09  = bits2OffsetB + 2* 9;
+  const uint bits2Offset10  = bits2OffsetB + 2*10;
 
-  uint res = MERGE_BITS(v[0],v[1],v[2]);
+  const uint bits2LMask00 = uint((1u << bits2Offset00)-1u);
+  const uint bits2LMask01 = uint((1u << bits2Offset01)-1u);
+  const uint bits2LMask02 = uint((1u << bits2Offset02)-1u);
+  const uint bits2LMask03 = uint((1u << bits2Offset03)-1u);
+  const uint bits2LMask04 = uint((1u << bits2Offset04)-1u);
+  const uint bits2LMask05 = uint((1u << bits2Offset05)-1u);
+  const uint bits2LMask06 = uint((1u << bits2Offset06)-1u);
+  const uint bits2LMask07 = uint((1u << bits2Offset07)-1u);
+  const uint bits2LMask08 = uint((1u << bits2Offset08)-1u);
+  const uint bits2LMask09 = uint((1u << bits2Offset09)-1u);
+  const uint bits2LMask10 = uint((1u << bits2Offset10)-1u);
+
+  const uint bits2HMask00 = ~bits2LMask00;
+  const uint bits2HMask01 = ~bits2LMask01;
+  const uint bits2HMask02 = ~bits2LMask02;
+  const uint bits2HMask03 = ~bits2LMask03;
+  const uint bits2HMask04 = ~bits2LMask04;
+  const uint bits2HMask05 = ~bits2LMask05;
+  const uint bits2HMask06 = ~bits2LMask06;
+  const uint bits2HMask07 = ~bits2LMask07;
+  const uint bits2HMask08 = ~bits2LMask08;
+  const uint bits2HMask09 = ~bits2LMask09;
+  const uint bits2HMask10 = ~bits2LMask10;
+
+  uint res = 0;
+  uint vv;
+  vv   = (v[0] * (0x00010001u<<0u)) & (0xFF0000FFu<<0u);
+  vv   = (vv   * (0x00000101u<<0u)) & (0x0F00F00Fu<<0u);
+  vv   = (vv   * (0x00000011u<<0u)) & (0xC30C30C3u<<0u);
+  res |= (vv   * (0x00000005u<<0u)) & (0x49249249u<<0u);
+
+  vv   = (v[1] * (0x00010001u<<0u)) & (0xFF0000FFu<<0u);
+  vv   = (vv   * (0x00000101u<<0u)) & (0x0F00F00Fu<<0u);
+  vv   = (vv   * (0x00000011u<<0u)) & (0xC30C30C3u<<0u);
+  res |= (vv   * (0x00000005u<<1u)) & (0x49249249u<<1u);
+
+  vv   = (v[2] * (0x00010001u<<0u)) & (0xFF0000FFu<<0u);
+  vv   = (vv   * (0x00000101u<<0u)) & (0x0F00F00Fu<<0u);
+  vv   = (vv   * (0x00000011u<<0u)) & (0xC30C30C3u<<0u);
+  res |= (vv   * (0x00000005u<<2u)) & (0x49249249u<<2u);
+
 
   std::cerr << std::endl;
+
+  std::cerr << "mer          : " << std::bitset<32>(res) << std::endl;
   std::cerr << "bits2Length  : " << bits2Length << std::endl;
   std::cerr << "bits2Shifts  : " << bits2Shifts << std::endl;
-  std::cerr << "mer          : " << std::bitset<32>(res) << std::endl;
 
   if constexpr(BIT2){
-  if(0  < bits2Shifts)res = ((res & BITS2_HMASK( 0))>>1u) | (res & BITS2_LMASK( 0));
-  if(1  < bits2Shifts)res = ((res & BITS2_HMASK( 1))>>1u) | (res & BITS2_LMASK( 1));
-  if(2  < bits2Shifts)res = ((res & BITS2_HMASK( 2))>>1u) | (res & BITS2_LMASK( 2));
-  if(3  < bits2Shifts)res = ((res & BITS2_HMASK( 3))>>1u) | (res & BITS2_LMASK( 3));
-  if(4  < bits2Shifts)res = ((res & BITS2_HMASK( 4))>>1u) | (res & BITS2_LMASK( 4));
-  if(5  < bits2Shifts)res = ((res & BITS2_HMASK( 5))>>1u) | (res & BITS2_LMASK( 5));
-  if(6  < bits2Shifts)res = ((res & BITS2_HMASK( 6))>>1u) | (res & BITS2_LMASK( 6));
-  if(7  < bits2Shifts)res = ((res & BITS2_HMASK( 7))>>1u) | (res & BITS2_LMASK( 7));
-  if(8  < bits2Shifts)res = ((res & BITS2_HMASK( 8))>>1u) | (res & BITS2_LMASK( 8));
-  if(9  < bits2Shifts)res = ((res & BITS2_HMASK( 9))>>1u) | (res & BITS2_LMASK( 9));
-  if(10 < bits2Shifts)res = ((res & BITS2_HMASK(10))>>1u) | (res & BITS2_LMASK(10));
+  if(0  < bits2Shifts)res = ((res & bits2HMask00)>>1u) | (res & bits2LMask00);
+  if(1  < bits2Shifts)res = ((res & bits2HMask01)>>1u) | (res & bits2LMask01);
+  if(2  < bits2Shifts)res = ((res & bits2HMask02)>>1u) | (res & bits2LMask02);
+  if(3  < bits2Shifts)res = ((res & bits2HMask03)>>1u) | (res & bits2LMask03);
+  if(4  < bits2Shifts)res = ((res & bits2HMask04)>>1u) | (res & bits2LMask04);
+  if(5  < bits2Shifts)res = ((res & bits2HMask05)>>1u) | (res & bits2LMask05);
+  if(6  < bits2Shifts)res = ((res & bits2HMask06)>>1u) | (res & bits2LMask06);
+  if(7  < bits2Shifts)res = ((res & bits2HMask07)>>1u) | (res & bits2LMask07);
+  if(8  < bits2Shifts)res = ((res & bits2HMask08)>>1u) | (res & bits2LMask08);
+  if(9  < bits2Shifts)res = ((res & bits2HMask09)>>1u) | (res & bits2LMask09);
+  if(10 < bits2Shifts)res = ((res & bits2HMask10)>>1u) | (res & bits2LMask10);
   }
   
   std::cerr << "2b           : " << std::bitset<32>(res) << std::endl;
 
-  if constexpr(BIT1){
   const uint bits1Count    = uint(bits1Length - uint(shortestY & longestX) + uint(shortestY & longestZ)) * isLongest;
   const uint bits1used     = longest - bits1Count;
   const uint bits1DstMask  = uint((1u<<(bits3Length*3u + bits2Length*2u + uint(shortestY & longestX)/*- longestZ*/)) -1u);
   const uint bits1SrcShift = bits3Length*3u + bits2Length*2u - uint(shortestY & longestZ) + uint(shortestY & longestX)  - bits1used;
   const uint bits1SrcMask  = ~((1u<<bits1used)-1u);
-
   //*
   std::cerr << "bits1DstMask : " << std::bitset<32>(bits1DstMask)  << std::endl;
   std::cerr << "bits1SrcMask : " << std::bitset<32>(bits1SrcMask)  << std::endl;
@@ -149,6 +178,10 @@ uint morton(uvec3 v){
   std::cerr << "res          : " << std::bitset<32>(res) << std::endl;
   std::cerr << "res&m        : " << std::bitset<32>(res&bits1DstMask) << std::endl;
   // */
+
+
+  if constexpr(BIT1){
+
   if(bits1Count != 0)
     res = uint(res & bits1DstMask) | uint((v[longestAxis]&bits1SrcMask)<<bits1SrcShift);
   }
@@ -161,6 +194,14 @@ uint morton(uvec3 v){
 #line 152
 TEST_CASE("morton")
 {
+
+  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x3ff,0x3ff,0x3ff}) == 0b111111111111111111111111111111);
+  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x3ff,0x000,0x000}) == 0b001001001001001001001001001001);
+  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x000,0x3ff,0x000}) == 0b010010010010010010010010010010);
+  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x000,0x000,0x3ff}) == 0b100100100100100100100100100100);
+  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x3ff,0x3ff,0x000}) == 0b011011011011011011011011011011);
+  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x000,0x3ff,0x3ff}) == 0b110110110110110110110110110110);
+  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x3ff,0x000,0x3ff}) == 0b101101101101101101101101101101);
 
   REQUIRE(morton<64, 512, 512, 6            >({0x000,0x000,0x000}) ==                                0);
   REQUIRE(morton<64, 512, 512, 6            >({0x03f,0x03f,0x03f}) ==                          0x3ffff);
