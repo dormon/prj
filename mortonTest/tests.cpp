@@ -48,8 +48,10 @@ struct uvec3{
 // .*.|   ...|...|...|       o    |     n     |   2n+3m   |  xxxxxxx
 // ...|   ...|...|...|       o    |     n     |   2n+3m   |  xxxxxxx
 
-template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z=9u,bool BIT2 = true,bool BIT1 = true>
-uint morton(uvec3 v){
+
+
+template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z=9u>
+uint morton2(uvec3 v){
   const uint warpBits      = uint(ceil(log2(float(WARP))));
   const uint warpBitsX     = uint(warpBits/2u) + uint(warpBits%2 != 0u);
   const uint warpBitsY     = uint(warpBits-warpBitsX);
@@ -57,6 +59,35 @@ uint morton(uvec3 v){
   const uint warpY         = uint(1u<<warpBitsY);
   const uint clustersX     = uint(WINDOW_X/warpX) + uint(WINDOW_X%warpX != 0u);
   const uint clustersY     = uint(WINDOW_Y/warpY) + uint(WINDOW_Y%warpY != 0u);
+  const uint xBits         = uint(ceil(log2(float(clustersX))));
+  const uint yBits         = uint(ceil(log2(float(clustersY))));
+  const uint zBits         = MIN_Z>0?MIN_Z:max(max(xBits,yBits),MIN_Z);
+  uint res = 0;
+  uint xb[3] = {0,0,0};
+  uint mb[3] = {xBits,yBits,zBits};
+  const uint allBits = xBits + yBits + zBits;
+  uint a = 0;
+  for(uint b=0;b<allBits;++b){
+    res |= ((v[a]>>xb[a])&1u) << b;
+    xb[a]++;
+    a = (a+1u)%3u;
+    if(xb[a] >= mb[a])a = (a+1u)%3u;
+    if(xb[a] >= mb[a])a = (a+1u)%3u;
+  }
+  return res;
+}
+
+template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z=9u,bool BIT2 = true,bool BIT1 = true,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
+uint morton(uvec3 v){
+  //const uint warpBits      = uint(ceil(log2(float(WARP))));
+  //const uint warpBitsX     = uint(warpBits/2u) + uint(warpBits%2 != 0u);
+  //const uint warpBitsY     = uint(warpBits-warpBitsX);
+  //const uint warpX         = uint(1u<<warpBitsX);
+  //const uint warpY         = uint(1u<<warpBitsY);
+  //const uint clustersX     = uint(WINDOW_X/warpX) + uint(WINDOW_X%warpX != 0u);
+  //const uint clustersY     = uint(WINDOW_Y/warpY) + uint(WINDOW_Y%warpY != 0u);
+  const uint clustersX     = uint(WINDOW_X/TILE_X) + uint(WINDOW_X%TILE_X != 0u);
+  const uint clustersY     = uint(WINDOW_Y/TILE_Y) + uint(WINDOW_Y%TILE_Y != 0u);
   const uint xBits         = uint(ceil(log2(float(clustersX))));
   const uint yBits         = uint(ceil(log2(float(clustersY))));
   const uint zBits         = MIN_Z>0?MIN_Z:max(max(xBits,yBits),MIN_Z);
@@ -131,11 +162,13 @@ uint morton(uvec3 v){
   res |= (vv   * (0x00000005u<<2u)) & (0x49249249u<<2u);
 
 
+  /*
   std::cerr << std::endl;
 
   std::cerr << "mer          : " << std::bitset<32>(res) << std::endl;
   std::cerr << "bits2Length  : " << bits2Length << std::endl;
   std::cerr << "bits2Shifts  : " << bits2Shifts << std::endl;
+  */
 
   if constexpr(BIT2){
   if(0  < bits2Shifts)res = ((res & bits2HMask00)>>1u) | (res & bits2LMask00);
@@ -151,14 +184,14 @@ uint morton(uvec3 v){
   if(10 < bits2Shifts)res = ((res & bits2HMask10)>>1u) | (res & bits2LMask10);
   }
   
-  std::cerr << "2b           : " << std::bitset<32>(res) << std::endl;
+  //std::cerr << "2b           : " << std::bitset<32>(res) << std::endl;
 
   const uint bits1Count    = uint(bits1Length - uint(shortestY & longestX) + uint(shortestY & longestZ)) * isLongest;
   const uint bits1used     = longest - bits1Count;
   const uint bits1DstMask  = uint((1u<<(bits3Length*3u + bits2Length*2u + uint(shortestY & longestX)/*- longestZ*/)) -1u);
   const uint bits1SrcShift = bits3Length*3u + bits2Length*2u - uint(shortestY & longestZ) + uint(shortestY & longestX)  - bits1used;
   const uint bits1SrcMask  = ~((1u<<bits1used)-1u);
-  //*
+  /*
   std::cerr << "bits1DstMask : " << std::bitset<32>(bits1DstMask)  << std::endl;
   std::cerr << "bits1SrcMask : " << std::bitset<32>(bits1SrcMask)  << std::endl;
   std::cerr << "v[lo]        : " << std::bitset<32>(v[longestAxis]) << std::endl;
@@ -186,7 +219,7 @@ uint morton(uvec3 v){
     res = uint(res & bits1DstMask) | uint((v[longestAxis]&bits1SrcMask)<<bits1SrcShift);
   }
 
-  std::cerr << "1b           : " << std::bitset<32>(res) << std::endl;
+  //std::cerr << "1b           : " << std::bitset<32>(res) << std::endl;
   
   return res;
 }
@@ -310,4 +343,11 @@ TEST_CASE("morton")
   REQUIRE(morton<64,4096,  16, 9, true,true >({0x1ff,0x000,0x000}) ==             0b101010101010101001);
   REQUIRE(morton<64,4096,  16, 9, true,true >({0x000,0x001,0x000}) ==                             0b10);
   REQUIRE(morton<64,4096,  16, 9, true,true >({0x000,0x000,0x1ff}) ==            0b1010101010101010100);
+
+  for(uint32_t y=0;y<512;y+=4){
+    for(uint32_t x=0;x<512;x+=4){
+      for(uint32_t z=0;z<512;z+=4)
+        REQUIRE(morton<64,512,512,9>({x,y,z}) == morton2<64,512,512,9>({x,y,z}));
+    }
+  }
 }
