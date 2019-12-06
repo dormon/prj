@@ -21,6 +21,17 @@ T max(T const& x,T const& y){return x>y?x:y;}
 
 template<uint32_t WARP = 64,bool VERBOSE = false>
 void reduceAdvanced(std::vector<float>&reductionArray){
+  //const uint warpBits        = uint(ceil(log2(float(WARP))));
+  //const uint clustersX       = uint(WINDOW_X/TILE_X) + uint(WINDOW_X%TILE_X != 0u);
+  //const uint clustersY       = uint(WINDOW_Y/TILE_Y) + uint(WINDOW_Y%TILE_Y != 0u);
+  //const uint xBits           = uint(ceil(log2(float(clustersX))));
+  //const uint yBits           = uint(ceil(log2(float(clustersY))));
+  //const uint zBits           = MIN_Z_BITS>0?MIN_Z_BITS:max(max(xBits,yBits),uint(MIN_Z_BITS));
+  //const uint allBits         = xBits + yBits + zBits;
+  //const uint nofLevels       = uint(allBits/warpBits) + uint(allBits%warpBits != 0u);
+  //const uint uintsPerWarp    = uint(WARP/32u);
+  //const uint floatsPerAABB   = 6u;
+
   const uint halfWarp        = WARP / 2u;
   const uint halfWarpMask    = uint(halfWarp - 1u);
 
@@ -91,18 +102,9 @@ void reduceAdvanced(std::vector<float>&reductionArray){
 
   /////(32t -> 16 minx + 16 maxx) + (32t -> 16miny + 16 maxy)
   PARALLEL(){
-  if(VERBOSE){
-  std::cerr << WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>1u)) +             0u + (uint(gl_LocalInvocationIndex)>>4u)*(halfWarp>>0u);
-  std::cerr << " - ";
-  std::cerr << WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>1u)) + (halfWarp>>1u) + (uint(gl_LocalInvocationIndex)>>4u)*(halfWarp>>0u);
-  std::cerr << " - ";
-  std::cerr << float((uint(gl_LocalInvocationIndex)&(halfWarp>>1u))!=0u);
-  std::cerr << std::endl;
-  }
-
-  ab[0] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>1u)) +             0u + (uint(gl_LocalInvocationIndex)>>4u)*(halfWarp>>0u)];                 
-  ab[1] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>1u)) + (halfWarp>>1u) + (uint(gl_LocalInvocationIndex)>>4u)*(halfWarp>>0u)];                 
-  w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(halfWarp>>1u))!=0u)) > 0.f);
+  ab[0] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)<<1u) + 0u];                 
+  ab[1] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)<<1u) + 1u];                 
+  w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(WARP>>2u))!=0u)) > 0.f);
   }PARALLEL()
   reductionArray[WARP*0u + gl_LocalInvocationIndex] = ab[w];
 
@@ -120,23 +122,14 @@ void reduceAdvanced(std::vector<float>&reductionArray){
 
   /////(32t -> 16 minz + 16 maxz)
   PARALLEL()
-  if(gl_LocalInvocationIndex < halfWarp){
-
-  if(VERBOSE){
-  std::cerr << "first of 2 warps" << std::endl;
-  std::cerr << WARP*2u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>1u)) +             0u + (uint(gl_LocalInvocationIndex)>>4u)*(halfWarp>>0u);
-  std::cerr << " - ";
-  std::cerr << WARP*2u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>1u)) + (halfWarp>>1u) + (uint(gl_LocalInvocationIndex)>>4u)*(halfWarp>>0u);
-  std::cerr << " - ";
-  std::cerr << float((uint(gl_LocalInvocationIndex)&(halfWarp>>1u))!=0u);
-  std::cerr << std::endl;
+  if(gl_LocalInvocationIndex < (WARP>>1u)){
+    ab[0] = reductionArray[WARP*2u+(uint(gl_LocalInvocationIndex)<<1u) + 0u];                 
+    ab[1] = reductionArray[WARP*2u+(uint(gl_LocalInvocationIndex)<<1u) + 1u];                 
+    w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(WARP>>2u))!=0u)) > 0.f);
   }
-
-  ab[0] = reductionArray[WARP*2u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>1u)) +             0u + (uint(gl_LocalInvocationIndex)>>4u)*(halfWarp>>0u)];                 
-  ab[1] = reductionArray[WARP*2u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>1u)) + (halfWarp>>1u) + (uint(gl_LocalInvocationIndex)>>4u)*(halfWarp>>0u)];                 
-  w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(halfWarp>>1u))!=0u)) > 0.f);
-  }PARALLEL()
-  reductionArray[WARP*1u + gl_LocalInvocationIndex] = ab[w];
+  PARALLEL()
+  if(gl_LocalInvocationIndex < (WARP>>1u))
+    reductionArray[WARP*1u + gl_LocalInvocationIndex] = ab[w];
 
   if(VERBOSE){
   std::cerr << "second of 2 warps" << std::endl;
@@ -150,12 +143,15 @@ void reduceAdvanced(std::vector<float>&reductionArray){
   }
 
   /////(48t -> 8 minx + 8 maxx + 8miny + 8maxy + 8minz + 8maxz)
-  PARALLEL(){
-  ab[0] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>2u)) +             0u + (uint(gl_LocalInvocationIndex)>>3u)*(halfWarp>>1u)];                 
-  ab[1] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>2u)) + (halfWarp>>2u) + (uint(gl_LocalInvocationIndex)>>3u)*(halfWarp>>1u)];                 
-  w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(halfWarp>>2u)) != 0u)) > 0.f);
-  }PARALLEL()
-  reductionArray[WARP*0u + gl_LocalInvocationIndex] = ab[w];
+  PARALLEL()
+  if((WARP>>3u) > 0u){
+    ab[0] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)<<1u) + 0u];                 
+    ab[1] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)<<1u) + 1u];                 
+    w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(WARP>>3u)) != 0u)) > 0.f);
+  }
+  PARALLEL()
+  if((WARP>>3u) > 0u)
+    reductionArray[WARP*0u + gl_LocalInvocationIndex] = ab[w];
 
   if(VERBOSE){
   PRINT(WARP/8,WARP/8*0);
@@ -168,12 +164,15 @@ void reduceAdvanced(std::vector<float>&reductionArray){
   }
 
   /////(24t -> 4 minx + 4 maxx + 4miny + 4maxy + 4minz + 4maxz)
-  PARALLEL(){
-  ab[0] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>3u)) +             0u + (uint(gl_LocalInvocationIndex)>>2u)*(halfWarp>>2u)];                 
-  ab[1] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>3u)) + (halfWarp>>3u) + (uint(gl_LocalInvocationIndex)>>2u)*(halfWarp>>2u)];                 
-  w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(halfWarp>>3u)) != 0u)) > 0.f);
-  }PARALLEL()
-  reductionArray[WARP*0u + gl_LocalInvocationIndex] = ab[w];
+  PARALLEL()
+  if((WARP>>4u) > 0u){
+    ab[0] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)<<1u) + 0u];                 
+    ab[1] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)<<1u) + 1u];                 
+    w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(WARP>>4u)) != 0u)) > 0.f);
+  }
+  PARALLEL()
+  if((WARP>>4u) > 0u)
+    reductionArray[WARP*0u + gl_LocalInvocationIndex] = ab[w];
 
   if(VERBOSE){
   PRINT(WARP/16,WARP/16*0);
@@ -186,12 +185,15 @@ void reduceAdvanced(std::vector<float>&reductionArray){
   }
 
   /////(12t -> 2 minx + 2 maxx + 2miny + 2maxy + 2minz + 2maxz)
-  PARALLEL(){
-  ab[0] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>4u)) +             0u + (uint(gl_LocalInvocationIndex)>>1u)*(halfWarp>>3u)];                 
-  ab[1] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>4u)) + (halfWarp>>4u) + (uint(gl_LocalInvocationIndex)>>1u)*(halfWarp>>3u)];                 
-  w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(halfWarp>>4u)) != 0u)) > 0.f);
-  }PARALLEL()
-  reductionArray[WARP*0u + gl_LocalInvocationIndex] = ab[w];
+  PARALLEL()
+  if((WARP>>5u) > 0u){
+    ab[0] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)<<1u) + 0u];                 
+    ab[1] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)<<1u) + 1u];                 
+    w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(WARP>>5u)) != 0u)) > 0.f);
+  }
+  PARALLEL()
+  if((WARP>>5u) > 0u)
+    reductionArray[WARP*0u + gl_LocalInvocationIndex] = ab[w];
   
   if(VERBOSE){
   PRINT(WARP/32,WARP/32*0);
@@ -203,13 +205,17 @@ void reduceAdvanced(std::vector<float>&reductionArray){
   std::cerr << std::endl;
   }
 
+
   /////(6t -> 1 minx + 1 maxx + 1miny + 1maxy + 1minz + 1maxz)
-  PARALLEL(){
-  ab[0] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>5u)) +             0u + (uint(gl_LocalInvocationIndex)>>0u)*(halfWarp>>4u)];                 
-  ab[1] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)&(halfWarpMask>>5u)) + (halfWarp>>5u) + (uint(gl_LocalInvocationIndex)>>0u)*(halfWarp>>4u)];                 
-  w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(halfWarp>>5u)) != 0u)) > 0.f);
-  }PARALLEL()
-  reductionArray[WARP*0u + gl_LocalInvocationIndex] = ab[w];
+  PARALLEL()
+  if((WARP>>6u) > 0u){
+    ab[0] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)<<1u) + 0u];                 
+    ab[1] = reductionArray[WARP*0u+(uint(gl_LocalInvocationIndex)<<1u) + 1u];                 
+    w = uint((ab[1]-ab[0])*(-1.f+2.f*float((uint(gl_LocalInvocationIndex)&(WARP>>6u)) != 0u)) > 0.f);
+  }
+  PARALLEL()
+  if((WARP>>6u) > 0u)
+    reductionArray[WARP*0u + gl_LocalInvocationIndex] = ab[w];
 
   if(VERBOSE){
   PRINT(WARP/64,WARP/64*0);
@@ -266,17 +272,31 @@ void test(std::vector<float>const&ar){
 
   aData.resize(6);
   bData.resize(6);
+  bool suc = true;
   if(aData != bData){
+    suc = false;
     std::cerr << "test failed for: WARP: " << WARP << std::endl;
     for(int i=0;i<6;++i)
       std::cerr << "  " << aData[i] << " should be " << bData[i] << std::endl;
   }
-  std::cerr << "test for WARP: " << WARP << " had ended" << std::endl;
+  std::cerr << "test for WARP: " << WARP << " had ended ";
+  if(suc)std::cerr << "successfully";
+  else std::cerr << "with error";
+  std::cerr << std::endl;
 }
 
 int main()
 {
+  std::cerr << std::endl;
   test<64>(getData<64>());
+  std::cerr << std::endl;
   test<32>(getData<32>());
+  std::cerr << std::endl;
+  test<16>(getData<16>());
+  std::cerr << std::endl;
+  test<8>(getData<8>());
+  std::cerr << std::endl;
+  test<4>(getData<4>());
+  std::cerr << std::endl;
   return 0;
 }
