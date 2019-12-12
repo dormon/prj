@@ -116,7 +116,7 @@ uvec3 demorton2(uint v){
 }
 
 
-template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u,bool BIT2 = true,bool BIT1 = true,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
+template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
 uint morton(uvec3 v){
   /*
   std::cerr << v[0] << " " << v[1] << " " << v[2] << std::endl;
@@ -209,7 +209,6 @@ uint morton(uvec3 v){
   std::cerr << "bits2Shifts  : " << bits2Shifts << std::endl;
   // */
 
-  if constexpr(BIT2){
   if(0  < bits2Shifts)res = ((res & bits2HMask00)>>1u) | (res & bits2LMask00);
   if(1  < bits2Shifts)res = ((res & bits2HMask01)>>1u) | (res & bits2LMask01);
   if(2  < bits2Shifts)res = ((res & bits2HMask02)>>1u) | (res & bits2LMask02);
@@ -221,7 +220,6 @@ uint morton(uvec3 v){
   if(8  < bits2Shifts)res = ((res & bits2HMask08)>>1u) | (res & bits2LMask08);
   if(9  < bits2Shifts)res = ((res & bits2HMask09)>>1u) | (res & bits2LMask09);
   if(10 < bits2Shifts)res = ((res & bits2HMask10)>>1u) | (res & bits2LMask10);
-  }
 
   /*
   std::cerr << "2b           : " << std::bitset<32>(res) << std::endl;
@@ -254,11 +252,8 @@ uint morton(uvec3 v){
   // */
 
 
-  if constexpr(BIT1){
-
   if(bits1Count != 0)
     res = uint(res & bits1DstMask) | uint((v[longestAxis]&bits1SrcMask)<<bits1SrcShift);
-  }
 
   /*
   std::cerr << "1b           : " << std::bitset<32>(res) << std::endl;
@@ -268,7 +263,7 @@ uint morton(uvec3 v){
 }
 
 
-template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u,bool BIT2 = true,bool BIT1 = true,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
+template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
 uvec3 demorton(uint res){
   const uint clustersX     = uint((WINDOW_X)/(TILE_X)) + uint(((WINDOW_X)%(TILE_X)) != 0u);
   const uint clustersY     = uint((WINDOW_Y)/(TILE_Y)) + uint(((WINDOW_Y)%(TILE_Y)) != 0u);
