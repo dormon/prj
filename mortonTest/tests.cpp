@@ -39,6 +39,12 @@ struct uvec3{
 #define min(x,y) ((x)<(y)?(x):(y))
 #define max(x,y) ((x)>(y)?(x):(y))
 
+uint32_t clamp(uint32_t a,uint32_t b,uint32_t c){
+  if(a<b)return b;
+  if(a>c)return c;
+  return a;
+}
+
 #define uint uint32_t 
 
 // m - length of 3 bits together
@@ -112,11 +118,15 @@ uvec3 demorton2(uint v){
 
 template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u,bool BIT2 = true,bool BIT1 = true,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
 uint morton(uvec3 v){
-  const uint clustersX     = uint(WINDOW_X/TILE_X) + uint(WINDOW_X%TILE_X != 0u);
-  const uint clustersY     = uint(WINDOW_Y/TILE_Y) + uint(WINDOW_Y%TILE_Y != 0u);
+  /*
+  std::cerr << v[0] << " " << v[1] << " " << v[2] << std::endl;
+
+  // */
+  const uint clustersX     = uint((WINDOW_X)/(TILE_X)) + uint(((WINDOW_X)%(TILE_X)) != 0u);
+  const uint clustersY     = uint((WINDOW_Y)/(TILE_Y)) + uint(((WINDOW_Y)%(TILE_Y)) != 0u);
   const uint xBits         = uint(ceil(log2(float(clustersX))));
   const uint yBits         = uint(ceil(log2(float(clustersY))));
-  const uint zBits         = MIN_Z_BITS>0?MIN_Z_BITS:max(max(xBits,yBits),MIN_Z_BITS);
+  const uint zBits         = (MIN_Z_BITS)>0u?(MIN_Z_BITS):max(max(xBits,yBits),(MIN_Z_BITS));
   const uint shortest      = min(min(xBits,yBits),zBits);
   const uint middle        = max(max(min(xBits,yBits),min(xBits,zBits)),min(yBits,zBits));
   const uint longest       = max(max(xBits,yBits),zBits);
@@ -124,14 +134,17 @@ uint morton(uvec3 v){
   const uint bits2Length   = uint(middle-shortest);
   const uint bits1Length   = uint(longest-middle);
   const uint shortestAxis  = uint(uint(shortest == yBits) + uint(shortest == zBits)*2u);
+  //const uint longestAxis   = clamp(uint(uint(longest  == yBits) + uint(longest  == zBits)*2u),0u,2u);
   const uint longestAxis   = uint(uint(longest  == yBits) + uint(longest  == zBits)*2u);
   const uint shortestZ     = uint(shortestAxis == 2u);
   const uint shortestY     = uint(shortestAxis == 1u);
-  const uint longestZ      = uint(longestAxis == 2u);
-  const uint longestX      = uint(longestAxis == 0u);
-  const uint isMiddle      = uint(middle > 0);
-  const uint isLongest     = uint(longest > 0);
+  const uint isMiddle      = uint(bits2Length > 0u);
+  const uint isLongest     = uint(bits1Length > 0u);
+  const uint longestZ      = uint(longestAxis == 2u) * isLongest;
+  const uint longestX      = uint(longestAxis == 0u) * isLongest;
   const uint bits2Shifts   = uint(uint(bits2Length - uint(shortestZ | (shortestY & longestZ))) * isMiddle);
+
+
 
   const uint bits2OffsetB   = bits3Length*3u + shortestAxis;
   const uint bits2Offset00  = bits2OffsetB + 2* 0;
@@ -194,7 +207,7 @@ uint morton(uvec3 v){
   std::cerr << "mer          : " << std::bitset<32>(res) << std::endl;
   std::cerr << "bits2Length  : " << bits2Length << std::endl;
   std::cerr << "bits2Shifts  : " << bits2Shifts << std::endl;
-  */
+  // */
 
   if constexpr(BIT2){
   if(0  < bits2Shifts)res = ((res & bits2HMask00)>>1u) | (res & bits2LMask00);
@@ -209,8 +222,10 @@ uint morton(uvec3 v){
   if(9  < bits2Shifts)res = ((res & bits2HMask09)>>1u) | (res & bits2LMask09);
   if(10 < bits2Shifts)res = ((res & bits2HMask10)>>1u) | (res & bits2LMask10);
   }
-  
-  //std::cerr << "2b           : " << std::bitset<32>(res) << std::endl;
+
+  /*
+  std::cerr << "2b           : " << std::bitset<32>(res) << std::endl;
+  // */
 
   const uint bits1Count    = uint(bits1Length - uint(shortestY & longestX) + uint(shortestY & longestZ)) * isLongest;
   const uint bits1used     = longest - bits1Count;
@@ -245,7 +260,9 @@ uint morton(uvec3 v){
     res = uint(res & bits1DstMask) | uint((v[longestAxis]&bits1SrcMask)<<bits1SrcShift);
   }
 
-  //std::cerr << "1b           : " << std::bitset<32>(res) << std::endl;
+  /*
+  std::cerr << "1b           : " << std::bitset<32>(res) << std::endl;
+  // */
   
   return res;
 }
@@ -253,12 +270,11 @@ uint morton(uvec3 v){
 
 template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u,bool BIT2 = true,bool BIT1 = true,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
 uvec3 demorton(uint res){
-  
-  const uint clustersX     = uint(WINDOW_X/TILE_X) + uint(WINDOW_X%TILE_X != 0u);
-  const uint clustersY     = uint(WINDOW_Y/TILE_Y) + uint(WINDOW_Y%TILE_Y != 0u);
+  const uint clustersX     = uint((WINDOW_X)/(TILE_X)) + uint(((WINDOW_X)%(TILE_X)) != 0u);
+  const uint clustersY     = uint((WINDOW_Y)/(TILE_Y)) + uint(((WINDOW_Y)%(TILE_Y)) != 0u);
   const uint xBits         = uint(ceil(log2(float(clustersX))));
   const uint yBits         = uint(ceil(log2(float(clustersY))));
-  const uint zBits         = MIN_Z_BITS>0?MIN_Z_BITS:max(max(xBits,yBits),MIN_Z_BITS);
+  const uint zBits         = (MIN_Z_BITS)>0u?(MIN_Z_BITS):max(max(xBits,yBits),(MIN_Z_BITS));
   const uint shortest      = min(min(xBits,yBits),zBits);
   const uint middle        = max(max(min(xBits,yBits),min(xBits,zBits)),min(yBits,zBits));
   const uint longest       = max(max(xBits,yBits),zBits);
@@ -266,15 +282,15 @@ uvec3 demorton(uint res){
   const uint bits2Length   = uint(middle-shortest);
   const uint bits1Length   = uint(longest-middle);
   const uint shortestAxis  = uint(uint(shortest == yBits) + uint(shortest == zBits)*2u);
-  const uint longestAxis   = uint(uint(longest  == yBits) + uint(longest  == zBits)*2u);
+  const uint longestAxis   = clamp(uint(uint(longest  == yBits) + uint(longest  == zBits)*2u),0u,2u);
   const uint shortestZ     = uint(shortestAxis == 2u);
   const uint shortestY     = uint(shortestAxis == 1u);
-  const uint longestZ      = uint(longestAxis == 2u);
-  const uint longestX      = uint(longestAxis == 0u);
-  const uint isMiddle      = uint(middle > 0);
-  const uint isLongest     = uint(longest > 0);
+  const uint isMiddle      = uint(bits2Length > 0u);
+  const uint isLongest     = uint(bits1Length > 0u);
+  const uint longestZ      = uint(longestAxis == 2u) * isLongest;
+  const uint longestX      = uint(longestAxis == 0u) * isLongest;
   const uint bits2Shifts   = uint(uint(bits2Length - uint(shortestZ | (shortestY & longestZ))) * isMiddle);
-
+  
   const uint bits2OffsetB   = bits3Length*3u + shortestAxis;
   const uint bits2Offset00  = bits2OffsetB + 2* 0;
   const uint bits2Offset01  = bits2OffsetB + 2* 1;
@@ -319,7 +335,7 @@ uvec3 demorton(uint res){
   const uint bits1SrcShift = bits3Length*3u + bits2Length*2u - uint(shortestY & longestZ) + uint(shortestY & longestX)  - bits1used;
   const uint bits1SrcMask  = ~((1u<<bits1used)-1u);
 
-  uvec3 v;
+  uvec3 v = uvec3(0);
 
   //std::cerr << "resA         : " << std::bitset<32>(res) << std::endl;
   uint last = 0;
@@ -390,24 +406,6 @@ uvec3 demorton(uint res){
 TEST_CASE("morton")
 {
 
-  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x3ff,0x3ff,0x3ff}) == 0b111111111111111111111111111111);
-  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x3ff,0x000,0x000}) == 0b001001001001001001001001001001);
-  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x000,0x3ff,0x000}) == 0b010010010010010010010010010010);
-  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x000,0x000,0x3ff}) == 0b100100100100100100100100100100);
-  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x3ff,0x3ff,0x000}) == 0b011011011011011011011011011011);
-  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x000,0x3ff,0x3ff}) == 0b110110110110110110110110110110);
-  REQUIRE(morton<64,4096*2,4096*2,10,false,false>({0x3ff,0x000,0x3ff}) == 0b101101101101101101101101101101);
-
-
-  REQUIRE(uvec3{0x3ff,0x3ff,0x3ff} == demorton<64,4096*2,4096*2,10,false,false>(0b111111111111111111111111111111));
-  REQUIRE(uvec3{0x3ff,0x000,0x000} == demorton<64,4096*2,4096*2,10,false,false>(0b001001001001001001001001001001));
-  REQUIRE(uvec3{0x000,0x3ff,0x000} == demorton<64,4096*2,4096*2,10,false,false>(0b010010010010010010010010010010));
-  REQUIRE(uvec3{0x000,0x000,0x3ff} == demorton<64,4096*2,4096*2,10,false,false>(0b100100100100100100100100100100));
-  REQUIRE(uvec3{0x3ff,0x3ff,0x000} == demorton<64,4096*2,4096*2,10,false,false>(0b011011011011011011011011011011));
-  REQUIRE(uvec3{0x000,0x3ff,0x3ff} == demorton<64,4096*2,4096*2,10,false,false>(0b110110110110110110110110110110));
-  REQUIRE(uvec3{0x3ff,0x000,0x3ff} == demorton<64,4096*2,4096*2,10,false,false>(0b101101101101101101101101101101));
-
-
   REQUIRE(morton<64, 512, 512, 6            >({0x000,0x000,0x000}) ==                                0);
   REQUIRE(morton<64, 512, 512, 6            >({0x03f,0x03f,0x03f}) ==                          0x3ffff);
   REQUIRE(morton<64, 512, 512, 6            >({0x03f,0x000,0x000}) ==             0b001001001001001001);
@@ -430,75 +428,71 @@ TEST_CASE("morton")
 
   // morton
   // z>y>x
-  REQUIRE(morton<64,  16,4096,10,false,false>({0x000,0x000,0x3ff}) == 0b100100100100100100100100100100);
-  REQUIRE(morton<64,  16,4096,10, true,false>({0x000,0x000,0x3ff}) ==         0b1001010101010101010100);
-  REQUIRE(morton<64,  16,4096,10, true,true >({0x000,0x000,0x3ff}) ==           0b11010101010101010100);
-  REQUIRE(morton<64,  16,4096,10, true,true >({0x001,0x1ff,0x3ff}) ==           0b11111111111111111111);
-  REQUIRE(morton<64,  16,4096,10, true,true >({0x001,0x000,0x000}) ==                              0b1);
-  REQUIRE(morton<64,  16,4096,10, true,true >({0x000,0x1ff,0x000}) ==             0b101010101010101010);
+  REQUIRE(morton<64,  16,4096,10>({0x000,0x000,0x3ff}) ==           0b11010101010101010100);
+  REQUIRE(morton<64,  16,4096,10>({0x001,0x1ff,0x3ff}) ==           0b11111111111111111111);
+  REQUIRE(morton<64,  16,4096,10>({0x001,0x000,0x000}) ==                              0b1);
+  REQUIRE(morton<64,  16,4096,10>({0x000,0x1ff,0x000}) ==             0b101010101010101010);
   // z>>y>x
-  REQUIRE(morton<64,  16, 256,10, true,true >({0x001,0x000,0x000}) ==                              0b1);
-  REQUIRE(morton<64,  16, 256,10, true,true >({0x000,0x01f,0x000}) ==                     0b1010101010);
-  REQUIRE(morton<64,  16, 256,10, true,true >({0x000,0x000,0x3ff}) ==               0b1111110101010100);
+  REQUIRE(morton<64,  16, 256,10>({0x001,0x000,0x000}) ==                              0b1);
+  REQUIRE(morton<64,  16, 256,10>({0x000,0x01f,0x000}) ==                     0b1010101010);
+  REQUIRE(morton<64,  16, 256,10>({0x000,0x000,0x3ff}) ==               0b1111110101010100);
 
   // z=y>x
-  REQUIRE(morton<64,  16,4096, 9, true,true >({0x000,0x1ff,0x1ff}) ==            0b1111111111111111110);
-  REQUIRE(morton<64,  16,4096, 9, true,true >({0x000,0x000,0x1ff}) ==            0b1010101010101010100);
-  REQUIRE(morton<64,  16,4096, 9, true,true >({0x000,0x1ff,0x000}) ==            0b0101010101010101010);
-  REQUIRE(morton<64,  16,4096, 9, true,true >({0x001,0x000,0x000}) ==                              0b1);
+  REQUIRE(morton<64,  16,4096, 9>({0x000,0x1ff,0x1ff}) ==            0b1111111111111111110);
+  REQUIRE(morton<64,  16,4096, 9>({0x000,0x000,0x1ff}) ==            0b1010101010101010100);
+  REQUIRE(morton<64,  16,4096, 9>({0x000,0x1ff,0x000}) ==            0b0101010101010101010);
+  REQUIRE(morton<64,  16,4096, 9>({0x001,0x000,0x000}) ==                              0b1);
 
   // z>x>y
-  REQUIRE(morton<64,4096,  16,10,false,false>({0x000,0x000,0x3ff}) == 0b100100100100100100100100100100);
-  REQUIRE(morton<64,4096,  16,10, true,false>({0x000,0x000,0x3ff}) ==        0b10010010101010101010100);
-  REQUIRE(morton<64,4096,  16,10, true,true >({0x000,0x000,0x3ff}) ==           0b11010101010101010100);
-  REQUIRE(morton<64,4096,  16,10, true,true >({0x1ff,0x001,0x3ff}) ==           0b11111111111111111111);
-  REQUIRE(morton<64,4096,  16,10, true,true >({0x1ff,0x000,0x000}) ==           0b00101010101010101001);
-  REQUIRE(morton<64,4096,  16,10, true,true >({0x000,0x001,0x000}) ==                             0b10);
+  REQUIRE(morton<64,4096,  16,10>({0x000,0x000,0x3ff}) ==           0b11010101010101010100);
+  REQUIRE(morton<64,4096,  16,10>({0x1ff,0x001,0x3ff}) ==           0b11111111111111111111);
+  REQUIRE(morton<64,4096,  16,10>({0x1ff,0x000,0x000}) ==           0b00101010101010101001);
+  REQUIRE(morton<64,4096,  16,10>({0x000,0x001,0x000}) ==                             0b10);
 
   // z>>x>y
-  REQUIRE(morton<64, 256,  16,10, true,true >({0x01f,0x000,0x000}) ==                     0b1010101001);
-  REQUIRE(morton<64, 256,  16,10, true,true >({0x000,0x001,0x000}) ==                             0b10);
-  REQUIRE(morton<64, 256,  16,10, true,true >({0x000,0x000,0x3ff}) ==               0b1111110101010100);
+  REQUIRE(morton<64, 256,  16,10>({0x01f,0x000,0x000}) ==                     0b1010101001);
+  REQUIRE(morton<64, 256,  16,10>({0x000,0x001,0x000}) ==                             0b10);
+  REQUIRE(morton<64, 256,  16,10>({0x000,0x000,0x3ff}) ==               0b1111110101010100);
 
   // z=x>y
-  REQUIRE(morton<64,4096,  16, 9, true,true >({0x1ff,0x000,0x1ff}) ==            0b1111111111111111101);
-  REQUIRE(morton<64,4096,  16, 9, true,true >({0x1ff,0x000,0x000}) ==             0b101010101010101001);
-  REQUIRE(morton<64,4096,  16, 9, true,true >({0x000,0x000,0x1ff}) ==            0b1010101010101010100);
-  REQUIRE(morton<64,4096,  16, 9, true,true >({0x001,0x000,0x000}) ==                              0b1);
+  REQUIRE(morton<64,4096,  16, 9>({0x1ff,0x000,0x1ff}) ==            0b1111111111111111101);//<<<<<<<<
+  REQUIRE(morton<64,4096,  16, 9>({0x1ff,0x000,0x000}) ==             0b101010101010101001);
+  REQUIRE(morton<64,4096,  16, 9>({0x000,0x000,0x1ff}) ==            0b1010101010101010100);
+  REQUIRE(morton<64,4096,  16, 9>({0x001,0x000,0x000}) ==                              0b1);
 
   //demorton
   // z>y>x
-  REQUIRE(uvec3{0x000,0x000,0x3ff} == demorton<64,  16,4096,10, true,true >(          0b11010101010101010100));
-  REQUIRE(uvec3{0x001,0x1ff,0x3ff} == demorton<64,  16,4096,10, true,true >(          0b11111111111111111111));
-  REQUIRE(uvec3{0x001,0x000,0x000} == demorton<64,  16,4096,10, true,true >(                             0b1));
-  REQUIRE(uvec3{0x000,0x1ff,0x000} == demorton<64,  16,4096,10, true,true >(            0b101010101010101010));
-  // z>>y>x                                                           
-  REQUIRE(uvec3{0x001,0x000,0x000} == demorton<64,  16, 256,10, true,true >(                             0b1));
-  REQUIRE(uvec3{0x000,0x01f,0x000} == demorton<64,  16, 256,10, true,true >(                    0b1010101010));
-  REQUIRE(uvec3{0x000,0x000,0x3ff} == demorton<64,  16, 256,10, true,true >(              0b1111110101010100));
-                                                                                                          
-  // z=y>x                                                            
-  REQUIRE(uvec3{0x000,0x1ff,0x1ff} == demorton<64,  16,4096, 9, true,true >(           0b1111111111111111110));
-  REQUIRE(uvec3{0x000,0x000,0x1ff} == demorton<64,  16,4096, 9, true,true >(           0b1010101010101010100));
-  REQUIRE(uvec3{0x000,0x1ff,0x000} == demorton<64,  16,4096, 9, true,true >(           0b0101010101010101010));
-  REQUIRE(uvec3{0x001,0x000,0x000} == demorton<64,  16,4096, 9, true,true >(                             0b1));
-                                                                                                          
-  // z>x>y                                                            
-  REQUIRE(uvec3{0x000,0x000,0x3ff} == demorton<64,4096,  16,10, true,true >(          0b11010101010101010100));
-  REQUIRE(uvec3{0x1ff,0x001,0x3ff} == demorton<64,4096,  16,10, true,true >(          0b11111111111111111111));
-  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,  16,10, true,true >(          0b00101010101010101001));
-  REQUIRE(uvec3{0x000,0x001,0x000} == demorton<64,4096,  16,10, true,true >(                            0b10));
-                                                                                                         
-  // z>>x>y                                                           
-  REQUIRE(uvec3{0x01f,0x000,0x000} == demorton<64, 256,  16,10, true,true >(                    0b1010101001));
-  REQUIRE(uvec3{0x000,0x001,0x000} == demorton<64, 256,  16,10, true,true >(                            0b10));
-  REQUIRE(uvec3{0x000,0x000,0x3ff} == demorton<64, 256,  16,10, true,true >(              0b1111110101010100));
-                                                                                                            
-  // z=x>y                                                              
-  REQUIRE(uvec3{0x1ff,0x000,0x1ff} == demorton<64,4096,  16, 9, true,true >(           0b1111111111111111101));
-  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,  16, 9, true,true >(            0b101010101010101001));
-  REQUIRE(uvec3{0x000,0x000,0x1ff} == demorton<64,4096,  16, 9, true,true >(           0b1010101010101010100));
-  REQUIRE(uvec3{0x001,0x000,0x000} == demorton<64,4096,  16, 9, true,true >(                             0b1));
+  REQUIRE(uvec3{0x000,0x000,0x3ff} == demorton<64,  16,4096,10>(          0b11010101010101010100));
+  REQUIRE(uvec3{0x001,0x1ff,0x3ff} == demorton<64,  16,4096,10>(          0b11111111111111111111));
+  REQUIRE(uvec3{0x001,0x000,0x000} == demorton<64,  16,4096,10>(                             0b1));
+  REQUIRE(uvec3{0x000,0x1ff,0x000} == demorton<64,  16,4096,10>(            0b101010101010101010));
+  // z>>y>x                                                   
+  REQUIRE(uvec3{0x001,0x000,0x000} == demorton<64,  16, 256,10>(                             0b1));
+  REQUIRE(uvec3{0x000,0x01f,0x000} == demorton<64,  16, 256,10>(                    0b1010101010));
+  REQUIRE(uvec3{0x000,0x000,0x3ff} == demorton<64,  16, 256,10>(              0b1111110101010100));
+                                                                                              
+  // z=y>x                                                    
+  REQUIRE(uvec3{0x000,0x1ff,0x1ff} == demorton<64,  16,4096, 9>(           0b1111111111111111110));
+  REQUIRE(uvec3{0x000,0x000,0x1ff} == demorton<64,  16,4096, 9>(           0b1010101010101010100));
+  REQUIRE(uvec3{0x000,0x1ff,0x000} == demorton<64,  16,4096, 9>(           0b0101010101010101010));
+  REQUIRE(uvec3{0x001,0x000,0x000} == demorton<64,  16,4096, 9>(                             0b1));
+                                                                                              
+  // z>x>y                                                    
+  REQUIRE(uvec3{0x000,0x000,0x3ff} == demorton<64,4096,  16,10>(          0b11010101010101010100));
+  REQUIRE(uvec3{0x1ff,0x001,0x3ff} == demorton<64,4096,  16,10>(          0b11111111111111111111));
+  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,  16,10>(          0b00101010101010101001));
+  REQUIRE(uvec3{0x000,0x001,0x000} == demorton<64,4096,  16,10>(                            0b10));
+                                                                                             
+  // z>>x>y                                                   
+  REQUIRE(uvec3{0x01f,0x000,0x000} == demorton<64, 256,  16,10>(                    0b1010101001));
+  REQUIRE(uvec3{0x000,0x001,0x000} == demorton<64, 256,  16,10>(                            0b10));
+  REQUIRE(uvec3{0x000,0x000,0x3ff} == demorton<64, 256,  16,10>(              0b1111110101010100));
+                                                                                                
+  // z=x>y                                                    
+  REQUIRE(uvec3{0x1ff,0x000,0x1ff} == demorton<64,4096,  16, 9>(           0b1111111111111111101));
+  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,  16, 9>(            0b101010101010101001));
+  REQUIRE(uvec3{0x000,0x000,0x1ff} == demorton<64,4096,  16, 9>(           0b1010101010101010100));
+  REQUIRE(uvec3{0x001,0x000,0x000} == demorton<64,4096,  16, 9>(                             0b1));
 
 
 
@@ -574,65 +568,65 @@ TEST_CASE("morton")
 
   //morton
   //x>y>z
-  REQUIRE(morton<64,4096,2048, 1, true,true >({0x1ff,0x000,0x000}) ==             0b101010101010101001);
-  REQUIRE(morton<64,4096,2048, 1, true,true >({0x000,0x0ff,0x000}) ==              0b10101010101010010);
-  REQUIRE(morton<64,4096,2048, 1, true,true >({0x000,0x000,0x001}) ==                            0b100);
+  REQUIRE(morton<64,4096,2048, 1>({0x1ff,0x000,0x000}) ==             0b101010101010101001);
+  REQUIRE(morton<64,4096,2048, 1>({0x000,0x0ff,0x000}) ==              0b10101010101010010);
+  REQUIRE(morton<64,4096,2048, 1>({0x000,0x000,0x001}) ==                            0b100);
 
   //x>>y>z
-  REQUIRE(morton<64,4096, 256, 1, true,true >({0x1ff,0x000,0x000}) ==                0b111101010101001);
-  REQUIRE(morton<64,4096, 256, 1, true,true >({0x000,0x01f,0x000}) ==                    0b10101010010);
-  REQUIRE(morton<64,4096, 256, 1, true,true >({0x000,0x000,0x001}) ==                            0b100);
+  REQUIRE(morton<64,4096, 256, 1>({0x1ff,0x000,0x000}) ==                0b111101010101001);
+  REQUIRE(morton<64,4096, 256, 1>({0x000,0x01f,0x000}) ==                    0b10101010010);
+  REQUIRE(morton<64,4096, 256, 1>({0x000,0x000,0x001}) ==                            0b100);
 
   //x=y>z
-  REQUIRE(morton<64,4096,4096, 1, true,true >({0x1ff,0x000,0x000}) ==             0b101010101010101001);
-  REQUIRE(morton<64,4096,4096, 1, true,true >({0x000,0x1ff,0x000}) ==            0b1010101010101010010);
-  REQUIRE(morton<64,4096,4096, 1, true,true >({0x000,0x000,0x001}) ==                            0b100);
+  REQUIRE(morton<64,4096,4096, 1>({0x1ff,0x000,0x000}) ==             0b101010101010101001);
+  REQUIRE(morton<64,4096,4096, 1>({0x000,0x1ff,0x000}) ==            0b1010101010101010010);
+  REQUIRE(morton<64,4096,4096, 1>({0x000,0x000,0x001}) ==                            0b100);
 
   //x>z>y
-  REQUIRE(morton<64,4096,  16, 8, true,true >({0x1ff,0x000,0x000}) ==             0b101010101010101001);
-  REQUIRE(morton<64,4096,  16, 8, true,true >({0x000,0x001,0x000}) ==                             0b10);
-  REQUIRE(morton<64,4096,  16, 8, true,true >({0x000,0x000,0x0ff}) ==              0b10101010101010100);
+  REQUIRE(morton<64,4096,  16, 8>({0x1ff,0x000,0x000}) ==             0b101010101010101001);
+  REQUIRE(morton<64,4096,  16, 8>({0x000,0x001,0x000}) ==                             0b10);
+  REQUIRE(morton<64,4096,  16, 8>({0x000,0x000,0x0ff}) ==              0b10101010101010100);
 
   //x>>z>y
-  REQUIRE(morton<64,4096,  16, 4, true,true >({0x1ff,0x000,0x000}) ==                 0b11111010101001);
-  REQUIRE(morton<64,4096,  16, 4, true,true >({0x000,0x001,0x000}) ==                             0b10);
-  REQUIRE(morton<64,4096,  16, 4, true,true >({0x000,0x000,0x00f}) ==                      0b101010100);
+  REQUIRE(morton<64,4096,  16, 4>({0x1ff,0x000,0x000}) ==                 0b11111010101001);
+  REQUIRE(morton<64,4096,  16, 4>({0x000,0x001,0x000}) ==                             0b10);
+  REQUIRE(morton<64,4096,  16, 4>({0x000,0x000,0x00f}) ==                      0b101010100);
 
   //x=z>y
-  REQUIRE(morton<64,4096,  16, 9, true,true >({0x1ff,0x000,0x000}) ==             0b101010101010101001);
-  REQUIRE(morton<64,4096,  16, 9, true,true >({0x000,0x001,0x000}) ==                             0b10);
-  REQUIRE(morton<64,4096,  16, 9, true,true >({0x000,0x000,0x1ff}) ==            0b1010101010101010100);
+  REQUIRE(morton<64,4096,  16, 9>({0x1ff,0x000,0x000}) ==             0b101010101010101001);
+  REQUIRE(morton<64,4096,  16, 9>({0x000,0x001,0x000}) ==                             0b10);
+  REQUIRE(morton<64,4096,  16, 9>({0x000,0x000,0x1ff}) ==            0b1010101010101010100);
 
   //demorton
   //x>y>z
-  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,2048, 1, true,true >(            0b101010101010101001));
-  REQUIRE(uvec3{0x000,0x0ff,0x000} == demorton<64,4096,2048, 1, true,true >(             0b10101010101010010));
-  REQUIRE(uvec3{0x000,0x000,0x001} == demorton<64,4096,2048, 1, true,true >(                           0b100));
+  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,2048, 1>(            0b101010101010101001));
+  REQUIRE(uvec3{0x000,0x0ff,0x000} == demorton<64,4096,2048, 1>(             0b10101010101010010));
+  REQUIRE(uvec3{0x000,0x000,0x001} == demorton<64,4096,2048, 1>(                           0b100));
                                               
   //x>>y>z
-  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096, 256, 1, true,true >(               0b111101010101001));
-  REQUIRE(uvec3{0x000,0x01f,0x000} == demorton<64,4096, 256, 1, true,true >(                   0b10101010010));
-  REQUIRE(uvec3{0x000,0x000,0x001} == demorton<64,4096, 256, 1, true,true >(                           0b100));
+  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096, 256, 1>(               0b111101010101001));
+  REQUIRE(uvec3{0x000,0x01f,0x000} == demorton<64,4096, 256, 1>(                   0b10101010010));
+  REQUIRE(uvec3{0x000,0x000,0x001} == demorton<64,4096, 256, 1>(                           0b100));
                                               
   //x=y>z                                     
-  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,4096, 1, true,true >(            0b101010101010101001));
-  REQUIRE(uvec3{0x000,0x1ff,0x000} == demorton<64,4096,4096, 1, true,true >(           0b1010101010101010010));
-  REQUIRE(uvec3{0x000,0x000,0x001} == demorton<64,4096,4096, 1, true,true >(                           0b100));
+  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,4096, 1>(            0b101010101010101001));
+  REQUIRE(uvec3{0x000,0x1ff,0x000} == demorton<64,4096,4096, 1>(           0b1010101010101010010));
+  REQUIRE(uvec3{0x000,0x000,0x001} == demorton<64,4096,4096, 1>(                           0b100));
                                               
   //x>z>y                                     
-  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,  16, 8, true,true >(            0b101010101010101001));
-  REQUIRE(uvec3{0x000,0x001,0x000} == demorton<64,4096,  16, 8, true,true >(                            0b10));
-  REQUIRE(uvec3{0x000,0x000,0x0ff} == demorton<64,4096,  16, 8, true,true >(             0b10101010101010100));
+  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,  16, 8>(            0b101010101010101001));
+  REQUIRE(uvec3{0x000,0x001,0x000} == demorton<64,4096,  16, 8>(                            0b10));
+  REQUIRE(uvec3{0x000,0x000,0x0ff} == demorton<64,4096,  16, 8>(             0b10101010101010100));
                                               
   //x>>z>y
-  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,  16, 4, true,true >(                0b11111010101001));
-  REQUIRE(uvec3{0x000,0x001,0x000} == demorton<64,4096,  16, 4, true,true >(                            0b10));
-  REQUIRE(uvec3{0x000,0x000,0x00f} == demorton<64,4096,  16, 4, true,true >(                     0b101010100));
+  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,  16, 4>(                0b11111010101001));
+  REQUIRE(uvec3{0x000,0x001,0x000} == demorton<64,4096,  16, 4>(                            0b10));
+  REQUIRE(uvec3{0x000,0x000,0x00f} == demorton<64,4096,  16, 4>(                     0b101010100));
                                               
   //x=z>y                                     
-  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,  16, 9, true,true >(            0b101010101010101001));
-  REQUIRE(uvec3{0x000,0x001,0x000} == demorton<64,4096,  16, 9, true,true >(                            0b10));
-  REQUIRE(uvec3{0x000,0x000,0x1ff} == demorton<64,4096,  16, 9, true,true >(           0b1010101010101010100));
+  REQUIRE(uvec3{0x1ff,0x000,0x000} == demorton<64,4096,  16, 9>(            0b101010101010101001));
+  REQUIRE(uvec3{0x000,0x001,0x000} == demorton<64,4096,  16, 9>(                            0b10));
+  REQUIRE(uvec3{0x000,0x000,0x1ff} == demorton<64,4096,  16, 9>(           0b1010101010101010100));
 
 
   for(uint32_t y=0;y<64;++y){
