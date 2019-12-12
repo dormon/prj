@@ -63,7 +63,7 @@ struct uvec3{
 
 
 
-template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z=9u>
+template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u>
 uint morton2(uvec3 v){
   const uint warpBits      = uint(ceil(log2(float(WARP))));
   const uint warpBitsX     = 3u;
@@ -74,7 +74,7 @@ uint morton2(uvec3 v){
   const uint clustersY     = uint(WINDOW_Y/warpY) + uint(WINDOW_Y%warpY != 0u);
   const uint xBits         = uint(ceil(log2(float(clustersX))));
   const uint yBits         = uint(ceil(log2(float(clustersY))));
-  const uint zBits         = MIN_Z>0?MIN_Z:max(max(xBits,yBits),MIN_Z);
+  const uint zBits         = MIN_Z_BITS>0?MIN_Z_BITS:max(max(xBits,yBits),MIN_Z_BITS);
   uint res = 0;
   uint counters[3] = {0,0,0};
   const uint limits[3] = {xBits,yBits,zBits};
@@ -90,7 +90,7 @@ uint morton2(uvec3 v){
   return res;
 }
 
-template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z=9u>
+template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u>
 uvec3 demorton2(uint v){
   //std::cerr << std::bitset<32>(v) << std::endl;
   const uint warpBits      = uint(ceil(log2(float(WARP))));
@@ -102,7 +102,7 @@ uvec3 demorton2(uint v){
   const uint clustersY     = uint(WINDOW_Y/warpY) + uint(WINDOW_Y%warpY != 0u);
   const uint xBits         = uint(ceil(log2(float(clustersX))));
   const uint yBits         = uint(ceil(log2(float(clustersY))));
-  const uint zBits         = MIN_Z>0?MIN_Z:max(max(xBits,yBits),MIN_Z);
+  const uint zBits         = MIN_Z_BITS>0?MIN_Z_BITS:max(max(xBits,yBits),MIN_Z_BITS);
   uvec3 res;
   uint counters[3] = {0,0,0};
   const uint limits[3] = {xBits,yBits,zBits};
@@ -119,20 +119,13 @@ uvec3 demorton2(uint v){
 }
 
 
-template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z=9u,bool BIT2 = true,bool BIT1 = true,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
+template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u,bool BIT2 = true,bool BIT1 = true,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
 uint morton(uvec3 v){
-  //const uint warpBits      = uint(ceil(log2(float(WARP))));
-  //const uint warpBitsX     = uint(warpBits/2u) + uint(warpBits%2 != 0u);
-  //const uint warpBitsY     = uint(warpBits-warpBitsX);
-  //const uint warpX         = uint(1u<<warpBitsX);
-  //const uint warpY         = uint(1u<<warpBitsY);
-  //const uint clustersX     = uint(WINDOW_X/warpX) + uint(WINDOW_X%warpX != 0u);
-  //const uint clustersY     = uint(WINDOW_Y/warpY) + uint(WINDOW_Y%warpY != 0u);
   const uint clustersX     = uint(WINDOW_X/TILE_X) + uint(WINDOW_X%TILE_X != 0u);
   const uint clustersY     = uint(WINDOW_Y/TILE_Y) + uint(WINDOW_Y%TILE_Y != 0u);
   const uint xBits         = uint(ceil(log2(float(clustersX))));
   const uint yBits         = uint(ceil(log2(float(clustersY))));
-  const uint zBits         = MIN_Z>0?MIN_Z:max(max(xBits,yBits),MIN_Z);
+  const uint zBits         = MIN_Z_BITS>0?MIN_Z_BITS:max(max(xBits,yBits),MIN_Z_BITS);
   const uint shortest      = min(min(xBits,yBits),zBits);
   const uint middle        = max(max(min(xBits,yBits),min(xBits,zBits)),min(yBits,zBits));
   const uint longest       = max(max(xBits,yBits),zBits);
@@ -267,7 +260,7 @@ uint morton(uvec3 v){
 }
 
 
-template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z=9u,bool BIT2 = true,bool BIT1 = true,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
+template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u,bool BIT2 = true,bool BIT1 = true,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
 uvec3 demorton(uint res){
   
   //const uint warpBits      = uint(ceil(log2(float(WARP))));
@@ -281,7 +274,7 @@ uvec3 demorton(uint res){
   const uint clustersY     = uint(WINDOW_Y/TILE_Y) + uint(WINDOW_Y%TILE_Y != 0u);
   const uint xBits         = uint(ceil(log2(float(clustersX))));
   const uint yBits         = uint(ceil(log2(float(clustersY))));
-  const uint zBits         = MIN_Z>0?MIN_Z:max(max(xBits,yBits),MIN_Z);
+  const uint zBits         = MIN_Z_BITS>0?MIN_Z_BITS:max(max(xBits,yBits),MIN_Z_BITS);
   const uint shortest      = min(min(xBits,yBits),zBits);
   const uint middle        = max(max(min(xBits,yBits),min(xBits,zBits)),min(yBits,zBits));
   const uint longest       = max(max(xBits,yBits),zBits);
