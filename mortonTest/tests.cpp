@@ -100,7 +100,7 @@ uvec3 demorton2(uint v){
   const uint xBits         = uint(ceil(log2(float(clustersX))));
   const uint yBits         = uint(ceil(log2(float(clustersY))));
   const uint zBits         = MIN_Z_BITS>0?MIN_Z_BITS:max(max(xBits,yBits),MIN_Z_BITS);
-  uvec3 res;
+  uvec3 res = uvec3(0);
   uint counters[3] = {0,0,0};
   const uint limits[3] = {xBits,yBits,zBits};
   const uint allBits = xBits + yBits + zBits;
