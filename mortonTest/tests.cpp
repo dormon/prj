@@ -18,6 +18,7 @@ struct uvec3{
       data[1] = b;
       data[2] = c;
     }
+    uvec3(uint32_t a){data[0]=a;data[1]=a;data[2]=a;}
     uvec3(){data[0]=0;data[1]=0;data[2]=0;}
     bool operator == (uvec3 const&v)const{
       if(data[0] != v.data[0])return false;
@@ -63,15 +64,10 @@ struct uvec3{
 
 
 
-template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u>
+template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
 uint morton2(uvec3 v){
-  const uint warpBits      = uint(ceil(log2(float(WARP))));
-  const uint warpBitsX     = 3u;
-  const uint warpBitsY     = 3u;
-  const uint warpX         = uint(1u<<warpBitsX);
-  const uint warpY         = uint(1u<<warpBitsY);
-  const uint clustersX     = uint(WINDOW_X/warpX) + uint(WINDOW_X%warpX != 0u);
-  const uint clustersY     = uint(WINDOW_Y/warpY) + uint(WINDOW_Y%warpY != 0u);
+  const uint clustersX     = uint(WINDOW_X/TILE_X) + uint(WINDOW_X%TILE_X != 0u);
+  const uint clustersY     = uint(WINDOW_Y/TILE_Y) + uint(WINDOW_Y%TILE_Y != 0u);
   const uint xBits         = uint(ceil(log2(float(clustersX))));
   const uint yBits         = uint(ceil(log2(float(clustersY))));
   const uint zBits         = MIN_Z_BITS>0?MIN_Z_BITS:max(max(xBits,yBits),MIN_Z_BITS);
@@ -90,16 +86,11 @@ uint morton2(uvec3 v){
   return res;
 }
 
-template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u>
+template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
 uvec3 demorton2(uint v){
   //std::cerr << std::bitset<32>(v) << std::endl;
-  const uint warpBits      = uint(ceil(log2(float(WARP))));
-  const uint warpBitsX     = 3u;
-  const uint warpBitsY     = 3u;
-  const uint warpX         = uint(1u<<warpBitsX);
-  const uint warpY         = uint(1u<<warpBitsY);
-  const uint clustersX     = uint(WINDOW_X/warpX) + uint(WINDOW_X%warpX != 0u);
-  const uint clustersY     = uint(WINDOW_Y/warpY) + uint(WINDOW_Y%warpY != 0u);
+  const uint clustersX     = uint(WINDOW_X/TILE_X) + uint(WINDOW_X%TILE_X != 0u);
+  const uint clustersY     = uint(WINDOW_Y/TILE_Y) + uint(WINDOW_Y%TILE_Y != 0u);
   const uint xBits         = uint(ceil(log2(float(clustersX))));
   const uint yBits         = uint(ceil(log2(float(clustersY))));
   const uint zBits         = MIN_Z_BITS>0?MIN_Z_BITS:max(max(xBits,yBits),MIN_Z_BITS);
@@ -263,13 +254,6 @@ uint morton(uvec3 v){
 template<uint32_t WARP=64u,uint32_t WINDOW_X=512u,uint32_t WINDOW_Y=512u,uint32_t MIN_Z_BITS=9u,bool BIT2 = true,bool BIT1 = true,uint32_t TILE_X=8u,uint32_t TILE_Y=8u>
 uvec3 demorton(uint res){
   
-  //const uint warpBits      = uint(ceil(log2(float(WARP))));
-  //const uint warpBitsX     = uint(warpBits/2u) + uint(warpBits%2 != 0u);
-  //const uint warpBitsY     = uint(warpBits-warpBitsX);
-  //const uint warpX         = uint(1u<<warpBitsX);
-  //const uint warpY         = uint(1u<<warpBitsY);
-  //const uint clustersX     = uint(WINDOW_X/warpX) + uint(WINDOW_X%warpX != 0u);
-  //const uint clustersY     = uint(WINDOW_Y/warpY) + uint(WINDOW_Y%warpY != 0u);
   const uint clustersX     = uint(WINDOW_X/TILE_X) + uint(WINDOW_X%TILE_X != 0u);
   const uint clustersY     = uint(WINDOW_Y/TILE_Y) + uint(WINDOW_Y%TILE_Y != 0u);
   const uint xBits         = uint(ceil(log2(float(clustersX))));
