@@ -134,7 +134,6 @@ uint morton(uvec3 v){
   const uint bits2Length   = uint(middle-shortest);
   const uint bits1Length   = uint(longest-middle);
   const uint shortestAxis  = uint(uint(shortest == yBits) + uint(shortest == zBits)*2u);
-  //const uint longestAxis   = clamp(uint(uint(longest  == yBits) + uint(longest  == zBits)*2u),0u,2u);
   const uint longestAxis   = uint(uint(longest  == yBits) + uint(longest  == zBits)*2u);
   const uint shortestZ     = uint(shortestAxis == 2u);
   const uint shortestY     = uint(shortestAxis == 1u);
@@ -143,8 +142,6 @@ uint morton(uvec3 v){
   const uint longestZ      = uint(longestAxis == 2u) * isLongest;
   const uint longestX      = uint(longestAxis == 0u) * isLongest;
   const uint bits2Shifts   = uint(uint(bits2Length - uint(shortestZ | (shortestY & longestZ))) * isMiddle);
-
-
 
   const uint bits2OffsetB   = bits3Length*3u + shortestAxis;
   const uint bits2Offset00  = bits2OffsetB + 2* 0;
@@ -182,6 +179,12 @@ uint morton(uvec3 v){
   const uint bits2HMask08 = (~bits2LMask08)<<1u;
   const uint bits2HMask09 = (~bits2LMask09)<<1u;
   const uint bits2HMask10 = (~bits2LMask10)<<1u;
+
+  const uint bits1Count    = uint(bits1Length - uint(shortestY & longestX) + uint(shortestY & longestZ)) * isLongest;
+  const uint bits1used     = longest - bits1Count;
+  const uint bits1DstMask  = uint((1u<<(bits3Length*3u + bits2Length*2u + uint(shortestY & longestX) - uint(longestZ & shortestY))) -1u);
+  const uint bits1SrcShift = bits3Length*3u + bits2Length*2u - uint(shortestY & longestZ) + uint(shortestY & longestX)  - bits1used;
+  const uint bits1SrcMask  = ~((1u<<bits1used)-1u);
 
   uint res = 0;
   uint vv;
@@ -225,11 +228,6 @@ uint morton(uvec3 v){
   std::cerr << "2b           : " << std::bitset<32>(res) << std::endl;
   // */
 
-  const uint bits1Count    = uint(bits1Length - uint(shortestY & longestX) + uint(shortestY & longestZ)) * isLongest;
-  const uint bits1used     = longest - bits1Count;
-  const uint bits1DstMask  = uint((1u<<(bits3Length*3u + bits2Length*2u + uint(shortestY & longestX) - uint(longestZ & shortestY))) -1u);
-  const uint bits1SrcShift = bits3Length*3u + bits2Length*2u - uint(shortestY & longestZ) + uint(shortestY & longestX)  - bits1used;
-  const uint bits1SrcMask  = ~((1u<<bits1used)-1u);
   /*
   std::cerr << "bits1DstMask : " << std::bitset<32>(bits1DstMask)  << std::endl;
   std::cerr << "bits1SrcMask : " << std::bitset<32>(bits1SrcMask)  << std::endl;
