@@ -68,6 +68,14 @@ enum class ClipPlane: uint32_t{
   NEAR   = static_cast<uint32_t>(ClipPlaneParts::z) | static_cast<uint32_t>(ClipPlaneParts::positive),
 };
 
+uint32_t axis(ClipPlane const&cp){
+  return static_cast<uint32_t>(cp)&3;
+}
+
+float sign(ClipPlane const&cp){
+  return -1.f+2.f*(static_cast<uint32_t>(cp)>>2);
+}
+
 //void clipLine(float&tmin,float&tmax,glm::vec4 const&a,glm::vec4 const&b,ClipPlane p){
 //  int axis;
 //  float s;
@@ -192,25 +200,30 @@ class Element{
 
 class Circle: public Element{
   public:
-    Circle(glm::vec3 const&c,float r,float w,glm::vec3 const&sC,glm::vec3 const&fC):Element(CIRCLE),center(c),radius(r),width(w),sColor(sC),fColor(fC){}
-    glm::vec3 center;
-    float     radius;
-    float     width;
-    glm::vec3 sColor;
-    glm::vec3 fColor;
+    Circle():Element(CIRCLE){}
+    Circle(glm::vec3 const&c,float r,float w,glm::vec3 const&sC,glm::vec3 const&fC):Circle(glm::vec4(c,1.f),r,w,sC,fC){}
+    Circle(glm::vec4 const&c,float r,float w,glm::vec3 const&sC,glm::vec3 const&fC):Element(CIRCLE),center(c),radius(r),width(w),sColor(sC),fColor(fC){}
+    glm::vec4 center = glm::vec4(0.f,0.f,0.f,1.f);
+    float     radius = 1.f                       ;
+    float     width  = 1.f                       ;
+    glm::vec3 sColor = glm::vec3(0.f)            ;
+    glm::vec3 fColor = glm::vec3(0.f)            ;
 };
 
 class Line: public Element{
   public:
-    Line(glm::vec3 const&a,glm::vec3 const&b,float w,glm::vec3 const&c):Element(LINE),a(a),b(b),width(w),color(c){}
-    glm::vec3 a;
-    glm::vec3 b;
-    float     width;
-    glm::vec3 color;
+    Line():Element(LINE){}
+    Line(glm::vec3 const&a,glm::vec3 const&b,float w,glm::vec3 const&c):Line(glm::vec4(a,1.f),glm::vec4(b,1.f),w,c){}
+    Line(glm::vec4 const&a,glm::vec4 const&b,float w,glm::vec3 const&c):Element(LINE),a(a),b(b),width(w),color(c){}
+    glm::vec4 a     = glm::vec4(0.f,0.f,0.f,1.f);
+    glm::vec4 b     = glm::vec4(0.f,0.f,0.f,1.f);
+    float     width = 1.f                       ;
+    glm::vec3 color = glm::vec3(0.f)            ;
 };
 
 class Triangle: public Element{
   public:
+    Triangle():Element(TRIANGLE){}
     Triangle(
         glm::vec3 const&a,
         glm::vec3 const&b,
@@ -218,13 +231,21 @@ class Triangle: public Element{
         glm::vec4 const&ac = glm::vec4(1,0,0,1),
         glm::vec4 const&bc = glm::vec4(0,1,0,1),
         glm::vec4 const&cc = glm::vec4(0,0,1,1)
+        ):Triangle(glm::vec4(a,1.f),glm::vec4(b,1.f),glm::vec4(c,1.f),ac,bc,cc){}
+    Triangle(
+        glm::vec4 const&a,
+        glm::vec4 const&b,
+        glm::vec4 const&c,
+        glm::vec4 const&ac = glm::vec4(1,0,0,1),
+        glm::vec4 const&bc = glm::vec4(0,1,0,1),
+        glm::vec4 const&cc = glm::vec4(0,0,1,1)
         ):Element(TRIANGLE),a(a),b(b),c(c),ac(ac),bc(bc),cc(cc){}
-    glm::vec3 a;
-    glm::vec3 b;
-    glm::vec3 c;
-    glm::vec4 ac;
-    glm::vec4 bc;
-    glm::vec4 cc;
+    glm::vec4 a  = glm::vec4(0.f,0.f,0.f,1.f);
+    glm::vec4 b  = glm::vec4(0.f,0.f,0.f,1.f);
+    glm::vec4 c  = glm::vec4(0.f,0.f,0.f,1.f);
+    glm::vec4 ac = glm::vec4(0.f,0.f,0.f,1.f);
+    glm::vec4 bc = glm::vec4(0.f,0.f,0.f,1.f);
+    glm::vec4 cc = glm::vec4(0.f,0.f,0.f,1.f);
 };
 
 Circle const&Element::toCircle()const{
@@ -241,6 +262,118 @@ Triangle const&Element::toTriangle()const{
 
 bool operator<(Circle const&a,Circle const&b){
   return a.center.z < b.center.z;
+}
+
+void project(std::vector<Element>&out,std::vector<Element>const&in,glm::mat4 const&m){
+  for(auto const&e:in){
+    if(e.type == Element::CIRCLE){
+      auto c = e.toCircle();
+      c.center = m * c.center;
+      out.push_back(c);
+    }
+    if(e.type == Element::LINE){
+      auto c = e.toLine();
+      c.a = m * c.a;
+      c.b = m * c.b;
+      out.push_back(c);
+    }
+    if(e.type == Element::TRIANGLE){
+      auto c = e.toTriangle();
+      c.a = m * c.a;
+      c.b = m * c.b;
+      c.c = m * c.c;
+      out.push_back(c);
+    }
+  }
+}
+
+using Range = std::tuple<float,float>;
+
+Range clipLine(glm::vec4 const&a,glm::vec4 const&b,ClipPlane const&cp){
+  //X(t) = A + t*(B-A)
+  //-X(t)w < +X(t)i
+  //-X(t)w < -X(t)i
+  //
+  //-X(t)w-X(t)i < 0
+  //-X(t)w+X(t)i < 0
+  //
+  //-X(t)w+s*X(t)i < 0
+  //
+  //-Aw-t*(Bw-Aw) + s*(Ai+t*(Bi-Ai)) < 0
+  //t*(-Bw+Aw+sBi-sAi) < Aw-sAi
+  //t*M < N
+  //M > 0 -> t < N/M
+  //M < 0 -> t > N/M
+  //M = 0 N > 0 -> any t
+  //M = 0 N <= 0 -> non t
+  int i = axis(cp);
+  float s = sign(cp);
+  float M = -b.w+a.w+s*b[i]-s*a[i];
+  float N = a.w - s*a[i];
+  if(M>0)return Range(0  ,glm::min(1.f,N/M));
+  if(M>0)return Range(glm::max(0.f,N/M),1.f);
+  if(M==0 && N > 0)return Range(0,1);
+  return Range(1,0);
+}
+
+float interpolate(float a,float b,float l0,float l1,float h0,float h1){
+  return (a*l0/h0+b*l1/h1) / (l0/h0 + l1/h1);
+}
+
+
+bool clip(Line&out,Line const&line,ClipPlane const&cp){
+  auto range = clipLine(line.a,line.b,cp);
+  auto const&t0 = std::get<0>(range);
+  auto const&t1 = std::get<1>(range);
+  if(t0 >= t1)return false;
+  auto a = line.a + t0*(line.b-line.a);
+  auto b = line.a + t1*(line.b-line.a);
+    
+  out = Line{a,b,line.width,line.color};
+  return true;
+}
+
+bool clip(Line&out,Line line){
+  if(!clip(line,out,ClipPlane::NEAR  ))return false;line=out;
+  if(!clip(line,out,ClipPlane::FAR   ))return false;line=out;
+  if(!clip(line,out,ClipPlane::LEFT  ))return false;line=out;
+  if(!clip(line,out,ClipPlane::RIGHT ))return false;line=out;
+  if(!clip(line,out,ClipPlane::BOTTOM))return false;line=out;
+  if(!clip(line,out,ClipPlane::TOP   ))return false;line=out;
+  return true;
+}
+
+
+bool valid(Range const&r){
+  return std::get<0>(r) <= std::get<1>(r);
+}
+
+bool isVisible(glm::vec4 const&a){
+  if(a.x < -a.w)return false;
+  if(a.y < -a.w)return false;
+  if(a.z < -a.w)return false;
+  if(a.x > +a.w)return false;
+  if(a.y > +a.w)return false;
+  if(a.z > +a.w)return false;
+  return true;
+}
+
+
+void clip(std::vector<Element>&out,std::vector<Element>const&in){
+  for(auto const&e:in){
+    if(e.type == Element::CIRCLE){
+      auto c = e.toCircle();
+      if(!isVisible(c.center))return;
+      out.push_back(c);
+    }
+    if(e.type == Element::LINE){
+      auto c = e.toLine();
+      if(!clip(c,c))return;
+      out.push_back(c);
+    }
+    if(e.type == Element::TRIANGLE){
+    }
+  }
 }
 
 enum CompareResult{
@@ -526,7 +659,7 @@ void project(VectorScene&out,VectorScene const&in,Camera const&camera){
   for(auto const&e:in.elements){
     if(e->type == Element::CIRCLE){
       auto cir = e->toCircle();
-      auto center = mvp * glm::vec4(cir.center,1);
+      auto center = mvp * cir.center;
       if(!isPointVisible(center))continue;
       auto newCen = glm::vec3(center)/center.w;
       auto newRad = mvp * glm::vec4(cir.radius,0,cir.center.z,1);
@@ -536,8 +669,8 @@ void project(VectorScene&out,VectorScene const&in,Camera const&camera){
     }
     if(e->type == Element::LINE){
       auto line = e->toLine();
-      auto A = mvp * glm::vec4(line.a,1);
-      auto B = mvp * glm::vec4(line.b,1);
+      auto A = mvp * line.a;
+      auto B = mvp * line.b;
       glm::vec3 aa,bb;
       if(!line2NDC(aa,bb,A,B))continue;
       auto newWid = mvp * glm::vec4(line.width,0,(line.a.z+line.b.z)/2,1);
@@ -547,9 +680,9 @@ void project(VectorScene&out,VectorScene const&in,Camera const&camera){
     }
     if(e->type == Element::TRIANGLE){
       auto triangle = e->toTriangle();
-      auto A = mvp * glm::vec4(triangle.a,1);
-      auto B = mvp * glm::vec4(triangle.b,1);
-      auto C = mvp * glm::vec4(triangle.c,1);
+      auto A = mvp * triangle.a;
+      auto B = mvp * triangle.b;
+      auto C = mvp * triangle.c;
       //TODO do clipping
       glm::vec3 aa = glm::vec3(A) / A.w;
       glm::vec3 bb = glm::vec3(B) / B.w;
@@ -753,14 +886,14 @@ void saveModelsAsEdges(std::string const&name,aiScene const*const ascene){
     auto v = edges.vertices.data();
     glm::vec3 aa,bb;
     int mult = 0;
-    auto a = glm::vec3(
+    auto a = glm::vec4(
         v[adj->getEdge(e,0)+0],
         v[adj->getEdge(e,0)+1],
-        v[adj->getEdge(e,0)+2]);
-    auto b = glm::vec3(
+        v[adj->getEdge(e,0)+2],1);
+    auto b = glm::vec4(
         v[adj->getEdge(e,1)+0],
         v[adj->getEdge(e,1)+1],
-        v[adj->getEdge(e,1)+2]);
+        v[adj->getEdge(e,1)+2],1);
     aSpace.addLine(Line(a,b,10,glm::vec3(0,0,0)));
   }
 
@@ -806,7 +939,7 @@ void saveModelsAsSilhouettes(std::string const&name,aiScene const*const ascene){
 
 
       if(mult != 0)
-        aSpace.addLine(Line(a,b,10,glm::vec3(1,0,0)));
+        aSpace.addLine(Line(glm::vec4(a,1),glm::vec4(b,1),10,glm::vec3(1,0,0)));
   }
   saveTo(name,aSpace);
 }
@@ -839,7 +972,7 @@ void saveModel(std::string const&name,aiScene const*const ascene){
 
       float df = glm::abs(glm::dot(n,l));
       auto cc = glm::vec4(df*clr,opacity);
-      aSpace.addTriangle(Triangle(a,b,c,cc));
+      aSpace.addTriangle(Triangle(glm::vec4(a,1),glm::vec4(b,1),glm::vec4(c,1),cc));
     }
   }
 
@@ -918,7 +1051,7 @@ void saveModelsAsPot(std::string const&name,aiScene const*const ascene){
 
 
     if(inCollision)
-        aSpace.addLine(Line(a,b,8,glm::vec3(0,0,0)));
+        aSpace.addLine(Line(glm::vec4(a,1),glm::vec4(b,1),8,glm::vec3(0,0,0)));
   }
   saveTo(name,aSpace);
 }
