@@ -19,6 +19,10 @@ class Video{
     void readFrame(){
       video >> frame;
     }
+    void onlyRead(){
+      video >> frame;
+      moveToPrevFrame();
+    }
     void moveToNextFrame(){
       auto id = getFrameId();
       if(id+1 == nofFrames)return;

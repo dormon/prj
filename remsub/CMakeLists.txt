@@ -11,6 +11,12 @@ find_package(VarsGLMDecorator CONFIG REQUIRED)
 
 project(remsub)
 
-add_executable(${PROJECT_NAME} main.cpp Barrier.cpp Barrier.h fileWatcher.hpp fileWatcher.cpp video.hpp)
+add_executable(${PROJECT_NAME} 
+  main.cpp 
+  Barrier.cpp 
+  Barrier.h 
+  FunctionPrologue.h
+  video.hpp
+  )
 target_include_directories(${PROJECT_NAME} PUBLIC ${OpenCV_INCLUDE_DIRS} ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(${PROJECT_NAME} PUBLIC ${OpenCV_LIBS} glm Simple3DApp::Simple3DApp geGL::geGL ArgumentViewer::ArgumentViewer VarsGLMDecorator::VarsGLMDecorator imguiVars::imguiVars)
