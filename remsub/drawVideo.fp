@@ -17,12 +17,14 @@ in flat int help0Inside;
 const float scaleBase = 10000;
 const float tranBase  = 10000;
 const float colorDistanceBase = 1000;
+const float contrastBase = 1000;
 
 uniform uint  drawMode    = 0;
 uniform uint  threshold   = 230;
 uniform vec2  help0offset = vec2(-12,15);
 uniform vec2  help0scale  = vec2(10060,9900);
 uniform float colorDistance = float(64);
+uniform float contrast      = float(contrastBase);
 
 bool isSub(vec2 pixel){
   uvec3 color = texture(tex,pixel).rgb;
@@ -41,15 +43,16 @@ void main(){
 
   vec3 bColor = vec3(color)      / vec3(255);
   vec3 hColor = vec3(help0Color) / vec3(255);
+  hColor = pow(hColor,vec3(contrast/contrastBase));
 
 
-  if(drawMode == 0)fColor = vec3(color) / vec3(255);
+  if(drawMode == 0)fColor = bColor;
   if(drawMode == 10){
     color = filterNonWhite(thresholdRGB(color,threshold));
     fColor = vec3(color) / vec3(255);
   }
   if(drawMode == 1){
-    fColor = vec3(help0Color) / vec3(255);
+    fColor = hColor;
   }
   if(drawMode == 2){
     fColor = vec3(length(bColor-hColor));

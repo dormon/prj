@@ -12,9 +12,131 @@
 #include <fileWatcher.hpp>
 #include <video.hpp>
 #include <FunctionPrologue.h>
+#include <json.hpp>
+using namespace nlohmann;
 
 
 #define ___ std::cerr << __FILE__ << "/" << __LINE__ << std::endl
+
+std::string loadTxtFile(std::string const&fileName){
+  auto file = std::ifstream(fileName);
+  if(!file.is_open())throw std::runtime_error("loadTxtFile - cannot open "+fileName);
+  std::string str((std::istreambuf_iterator<char>(file)),
+                 std::istreambuf_iterator<char>());
+  return str;
+}
+
+void saveTxtFile(std::string const&fileName,std::string const&txt){
+  auto file = std::ofstream(fileName);
+  if(!file.is_open())throw std::runtime_error("saveTxtFile - cannot open "+fileName);
+  file.write(txt.data(),txt.size());
+  file.close();
+}
+
+namespace keyframe{
+
+class Data{
+  public:
+    enum Type{
+      INT  ,
+      FLOAT,
+    }type;
+    union Value{
+      int   i32;
+      float f32;
+      Value(float v):f32(v){}
+      Value(int   v):i32(v){}
+    }value;
+    void set(int   v){value = v;}
+    void set(float v){value = v;}
+    Data(float v):type(FLOAT),value(v){}
+    Data(int   v):type(INT  ),value(v){}
+    template<typename T>T get()const;
+    template<typename T>T&get();
+};
+template<>int   Data::get<int  >()const{return value.i32;}
+template<>float Data::get<float>()const{return value.f32;}
+template<>int  &Data::get<int  >()     {return value.i32;}
+template<>float&Data::get<float>()     {return value.f32;}
+
+class Keyframe{
+  public:
+    std::map<std::string,Data>data;
+    Keyframe(std::string const&n,int   v){set(n,v);}
+    Keyframe(std::string const&n,float v){set(n,v);}
+
+    template<typename T>
+    void set(std::string const&n,T const&v){
+      auto w = data.emplace(n,v);
+      if(!std::get<1>(w)){
+        std::get<0>(w)->second.set(v);
+      }
+    }
+    template<typename T>
+    T get(std::string const&n,T v)const{
+      auto it = data.find(n);
+      if(it == std::end(data))return v;
+      return it->second.get<T>();
+    }
+    template<typename T>
+    T&get(std::string const&n){
+      return data.at(n).get<T>();
+    }
+    void erase(std::string const&n){
+      data.erase(n);
+    }
+};
+
+class Keyframes{
+  public:
+    std::map<int,Keyframe>keyframes;
+    template<typename T>
+    T get(int f,std::string const&n,T v)const{
+      if(keyframes.empty())return v;
+      return getKeyframe(f).get<T>(n,v);
+    }
+    template<typename T>
+    T&get(int f,std::string const&n){
+      return getKeyframe(f).get<T>(n);
+    }
+    template<typename T>
+    void set(int f,std::string const&n,T v){
+      auto w = keyframes.emplace(std::piecewise_construct,std::forward_as_tuple(f),std::forward_as_tuple(n,v));
+      if(!std::get<1>(w)){
+        std::get<0>(w)->second.set(n,v);
+      }
+    }
+    void erase(int f,std::string const&n){
+      getKeyframe(f).erase(n);
+    }
+
+    Keyframe const&getKeyframe(int f)const{
+      size_t i;
+      auto it  = std::cbegin(keyframes);
+      auto end = std::cend(keyframes);
+      auto prev = it;
+      it++;
+      while(it != end){
+        if(prev->first <= f && f < it->first)break;
+        it++;
+      }
+      return prev->second;
+    }
+    Keyframe &getKeyframe(int f){
+      size_t i;
+      auto it  = std::begin(keyframes);
+      auto end = std::end(keyframes);
+      auto prev = it;
+      it++;
+      while(it != end){
+        if(prev->first <= f && f < it->first)break;
+        it++;
+      }
+      return prev->second;
+    }
+};
+
+}
 
 class VideoManager{
   public:
@@ -27,10 +149,17 @@ class VideoManager{
       int32_t loadedFrame = -10000000;
       std::shared_ptr<Video>video;
       std::shared_ptr<ge::gl::Texture>tex;
-      Stream(std::string const&name){
+      std::string file;
+      keyframe::Keyframes keys;
+      Stream(std::string const&name):file(name){
         video = std::make_shared<Video>(name);
         tex = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGB8UI,1,video->width,video->height);
         nofFrames = video->nofFrames;
+        end = video->nofFrames;
+        keys.set<int>(0,"offset",0);
+      }
+      int getOffset(int f)const{
+        return keys.get<int>(f,"offset",0);
       }
     };
     int32_t frame;
@@ -38,14 +167,17 @@ class VideoManager{
     void readAndUploadIfNecessary(){
       for(auto&s:streams){
         if(!s.video)return;
-        if(frame+s.offset >= s.nofFrames  )continue;
-        if(frame+s.offset == s.loadedFrame)continue;
-        if(frame+s.offset != s.loadedFrame+1){
-          s.video->moveToFrame(frame+s.offset);
+        auto frameToRead = frame+s.getOffset(frame);//s.offset;
+        if(frameToRead >= s.nofFrames  )continue;
+        if(frameToRead == s.loadedFrame)continue;
+        if(frameToRead >= s.end        )continue;
+        if(frameToRead <  s.start      )continue;
+        if(frameToRead != s.loadedFrame+1){
+          s.video->moveToFrame(frameToRead);
         }
 
         s.video->readFrame();
-        s.loadedFrame = frame+s.offset;
+        s.loadedFrame = frameToRead;
         s.frame = s.loadedFrame+1;
         s.tex->setData2D(s.video->frame.data,GL_BGR_INTEGER);
       }
@@ -79,13 +211,87 @@ class VideoManager{
         ImGui::InputInt(name.c_str(),&s.offset);
       }
     }
+
+    int selectedStream = 1;
+    void addOffsetGUI(){
+      int f       = frame;
+
+      ImGui::Columns(3,"col",false);
+      ImGui::InputInt("stream",&selectedStream);
+      if(selectedStream >= streams.size())selectedStream = streams.size()-1;
+      ImGui::NextColumn();
+      auto&offset = streams.at(selectedStream).keys.get<int>(frame,"offset");
+      ImGui::InputInt("offset",&offset);
+      ImGui::NextColumn();
+      if(ImGui::Button("add")){
+        streams.at(selectedStream).keys.set(frame,"offset",offset);
+      }
+      ImGui::Columns(1);
+    }
+    void showOffsetsGUI(){
+      auto&st = streams.at(selectedStream);
+      int counter = 0;
+      std::vector<std::tuple<int,int>>toInsert;
+      std::vector<int>toErase;
+      for(auto&key:st.keys.keyframes){
+        auto it = key.second.data.find("offset");
+        if(it == std::end(key.second.data))continue;
+        auto&o = it->second.value.i32;
+        int f = key.first;
+
+
+        std::stringstream ss;
+        ss << "o" << counter;
+
+        if(ImGui::TreeNode(ss.str().c_str())){
+
+          ImGui::InputInt("frame",&f);
+          if(f != key.first){
+            toErase.push_back(key.first);
+            toInsert.push_back(std::tuple<int,int>(f,o));
+          }
+          
+          ImGui::InputInt("offset",&o);
+
+          ImGui::TreePop();
+        }
+
+
+      }
+      for(auto const&t:toErase)
+        st.keys.erase(t,"offset");
+      for(auto const&oo:toInsert)
+        st.keys.set(std::get<0>(oo),"offset",std::get<1>(oo));
+    }
     void setFrame(){
       ImGui::InputInt("goto",&frame);
     }
 };
 
 
+class Project{
+  public:
+    void load(std::string const&file){
+      auto j = json::parse(loadTxtFile(file));
+      auto const&js = j.at("streams");
+      auto nVideos = js.size();
+      for(size_t i=0;i<nVideos;++i){
+        videoManager.addVideo(js.at(i).at("file"));
+      }
+    }
+    void save(std::string const&file){
+      json j;
+      for(auto const&s:videoManager.streams){
+        j["streams"][0]["file"] = s.file;
+      }
 
+
+      std::stringstream ss;
+      ss << j;
+      saveTxtFile(file,ss.str());
+    }
+    VideoManager        videoManager;
+};
 
 
 using DVars = VarsGLMDecorator<vars::Vars>;
@@ -104,14 +310,6 @@ class EmptyProject: public simple3DApp::Application{
   virtual void                mouseWheel(SDL_Event const& event);
 };
 
-std::string loadTxtFile(std::string const&f){
-
-  std::ifstream t(f);
-  std::string str((std::istreambuf_iterator<char>(t)),
-                 std::istreambuf_iterator<char>());
-  return str;
-}
-
 void loadFragment(vars::Vars&vars){
   FUNCTION_CALLER();
   *vars.reCreate<std::string>("fragmentSource") = loadTxtFile(vars.getString("fragmentSourceFile"));
@@ -126,24 +324,22 @@ void saveFragment(vars::Vars&vars){
   f.close();
 }
 
+
+
 void EmptyProject::init(){
   window->setSize(1920,1080);
   *vars.add<std::shared_ptr<sdl2cpp::Window>>("window") = window;
   window->setEventCallback(SDL_MOUSEWHEEL,[&](SDL_Event const&e){mouseWheel(e);return true;});
 
   auto args = std::make_shared<argumentViewer::ArgumentViewer>(argc,argv);
-  auto videoName  = args->gets("--video","","video to parse");
-  auto help0Name  = args->gets("--help0","","help video 0");
-  auto startFrame = args->getu32("--start",0,"starting frame");
-  auto nFrames    = args->getu32("--nFrames",100,"number of frames to process");
+  auto projName  = args->gets("--proj","","project file");
   auto printHelp  = args->isPresent("--help");
   if(printHelp||!args->validate()){
     std::cerr <<args->toStr() << std::endl;
   }
 
-  auto videoManager = vars.add<VideoManager>("videoManager");
-  videoManager->addVideo(videoName);
-  videoManager->addVideo(help0Name);
+  auto proj = vars.add<Project>("project");
+  proj->load(projName);
 
   vars.add<ge::gl::VertexArray>("emptyVao");
   vars.addUVec2("windowSize",window->getWidth(),window->getHeight());
@@ -272,9 +468,12 @@ void editProgram(vars::Vars&vars){
   ImGui::InputTextMultiline("##source", text, IM_ARRAYSIZE(text), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 32), flags);
   src = text;
 
-  auto videoManager = vars.get<VideoManager>("videoManager");
-  videoManager->setFrame();
-  videoManager->setOffset();
+
+  auto proj = vars.get<Project>("project");
+  proj->videoManager.setFrame();
+  //proj->videoManager.setOffset();
+  proj->videoManager.addOffsetGUI();
+  proj->videoManager.showOffsetsGUI();
 
   ImGui::Columns(3,"col",false);
   if(ImGui::Button("comp")){
@@ -312,14 +511,15 @@ void EmptyProject::draw(){
   auto vao = vars.get<ge::gl::VertexArray>("emptyVao");
   auto prg = vars.get<ge::gl::Program>("program");
 
-  auto videoManager = vars.get<VideoManager>("videoManager");
-  videoManager->readAndUploadIfNecessary();
+
+  auto proj = vars.get<Project>("project");
+  proj->videoManager.readAndUploadIfNecessary();
   if(vars.addOrGetBool("playVideo",true)){
-    videoManager->nextFrame();
+    proj->videoManager.nextFrame();
   }
 
-  vars.addOrGetInt32("frameId") = videoManager->frame;
-  vars.addOrGetString("time") = getTimeFormat(videoManager->frame,videoManager->streams.at(0).video->fps);
+  vars.addOrGetInt32("frameId") = proj->videoManager.frame;
+  vars.addOrGetString("time") = getTimeFormat(proj->videoManager.frame,proj->videoManager.streams.at(0).video->fps);
 
   prg->set2uiv("windowSize",(uint32_t*)&(vars.getUVec2("windowSize")));
  
@@ -336,7 +536,7 @@ void EmptyProject::draw(){
   }
 
   vao->bind();
-  videoManager->bind();
+  proj->videoManager.bind();
 
   prg->use();
 
@@ -366,7 +566,7 @@ void EmptyProject::key(SDL_Event const& event, bool DOWN) {
 }
 
 void EmptyProject::mouseWheel(SDL_Event const& event){
-  auto&zoom = vars.getFloat("program.zoom");
+  auto&zoom = vars.getFloat("uniforms.zoom");
   auto zoomInc = 0.1f*event.wheel.y;
   int x,y;
   SDL_GetMouseState(&x,&y);
