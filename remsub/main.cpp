@@ -405,6 +405,8 @@ void EmptyProject::init(){
   vars.addString("computeSourceFile","../drawVideo.fp");
   loadFragment(vars);
 
+  vars.addFloat("view.zoom",1.f);
+  vars.add<glm::vec2>("view.offset",glm::vec2(0.f));
   //vars.addBool("drawVideoFileWatcher");
   //auto watcher = vars.add<fileWatcher::FileWatcher>("fileWatcher");
   //watcher->watch("../drawVideo.fp",[&](){std::cerr << "jojo" << std::endl;vars.updateTicks("drawVideoFileWatcher");});
@@ -621,6 +623,8 @@ void drawFinalFrame(DVars&vars){
 
   prg->use();
   prg->set2uiv("windowSize",(uint32_t*)&(vars.getUVec2("windowSize")));
+  prg->set1f("zoom",vars.getFloat("view.zoom"));
+  prg->set2fv("offset",(float*)vars.get<glm::vec2>("view.offset"));
 
   ge::gl::glDrawArrays(GL_TRIANGLE_STRIP,0,4);
 
@@ -668,7 +672,7 @@ void EmptyProject::key(SDL_Event const& event, bool DOWN) {
 }
 
 void EmptyProject::mouseWheel(SDL_Event const& event){
-  auto&zoom = vars.getFloat("uniforms.zoom");
+  auto&zoom = vars.getFloat("view.zoom");
   auto zoomInc = 0.1f*event.wheel.y;
   int x,y;
   SDL_GetMouseState(&x,&y);
@@ -676,7 +680,7 @@ void EmptyProject::mouseWheel(SDL_Event const& event){
   float my = 2.f*(1.f - (float)y / (float)window->getHeight()) - 1.f;
 
   glm::vec2 mouse = glm::vec2(mx,my);
-  auto&offset = vars.getVec2("uniforms.offset");
+  auto&offset = vars.getVec2("view.offset");
   //T+S*B + offset-mouse
   //(m-o)/z = (m-o+d)/(z+i);
   //(m-o)*(z+i) = (m-o+d)*z
@@ -693,7 +697,7 @@ void EmptyProject::mouseWheel(SDL_Event const& event){
 
 void EmptyProject::mouseMove(SDL_Event const& e) {
   if(e.motion.state & SDL_BUTTON_MMASK){
-    auto&offset = vars.getVec2("uniforms.offset");
+    auto&offset = vars.getVec2("view.offset");
     offset.x += 2.f * (float)e.motion.xrel / (float)window->getWidth();
     offset.y -= 2.f * (float)e.motion.yrel / (float)window->getHeight();
   }

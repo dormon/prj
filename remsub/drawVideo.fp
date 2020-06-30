@@ -6,7 +6,7 @@ layout(local_size_x=16,local_size_y=16)in;
 layout(        binding=0)uniform usampler2D tex       [10];
 layout(rgba32f,binding=0)uniform image2D    finalFrame    ;
 
-layout(std430,binding=0)buffer AuxBuffer{
+layout(std430,binding=0)volatile buffer AuxBuffer{
   uint  jobCounter;
 };
 
