@@ -1,7 +1,7 @@
 #version 450
 
-layout(binding=0)uniform usampler2D tex;
-layout(binding=1)uniform usampler2D help0;
+layout(binding=0)uniform usampler2D tex[10];
+
 out vec3 fColor;
 
 uvec3 thresholdRGB(uvec3 c,uint t){
@@ -27,19 +27,19 @@ uniform float colorDistance = float(64);
 uniform float contrast      = float(contrastBase);
 
 bool isSub(vec2 pixel){
-  uvec3 color = texture(tex,pixel).rgb;
+  uvec3 color = texture(tex[0],pixel).rgb;
   return color.x > threshold && color.y > threshold && color.z > threshold;
 }
 
 void main(){
 
-  ivec2 size = textureSize(tex,0).xy;
+  ivec2 size = textureSize(tex[0],0).xy;
   vec2 coord = vec2(vCoord.x,1-vCoord.y);
 
   vec2 help0offsetf = vec2(help0offset) / vec2(tranBase);
 
-  uvec3 color      = texture(tex,coord).rgb;
-  uvec3 help0Color = texture(help0,coord*help0scale/vec2(scaleBase)+help0offsetf).rgb;
+  uvec3 color      = texture(tex[0],coord).rgb;
+  uvec3 help0Color = texture(tex[1],coord*help0scale/vec2(scaleBase)+help0offsetf).rgb;
 
   vec3 bColor = vec3(color)      / vec3(255);
   vec3 hColor = vec3(help0Color) / vec3(255);
