@@ -57,10 +57,12 @@ const float tranBase  = 10000;
 const float colorDistanceBase = 1000;
 const float contrastBase = 1000;
 
-uniform uint  drawMode    = 2;
+uniform int activeClip = 1;
+
+uniform uint  drawMode    = 0;
 uniform uint  threshold   = 230;
-uniform vec2  help0offset = vec2(-12,15);
-uniform vec2  help0scale  = vec2(10060,9900);
+uniform vec2  help0offset = vec2(-4,46);
+uniform vec2  help0scale  = vec2(10052,9856);
 uniform float colorDistance = float(64);
 uniform float contrast      = float(contrastBase);
 
@@ -73,7 +75,7 @@ void compute(uint job){
   ivec2 outCoord = getThreadCoord(job);
   
   ivec2 size = imageSize(finalFrame);
-  vec2 coord = vec2(outCoord) / vec2(size);
+  vec2 coord = vec2(outCoord) / vec2(size-1);
 
   coord = vec2(coord.x,1-coord.y);
 
@@ -86,6 +88,10 @@ void compute(uint job){
   vec3 hColor = vec3(help0Color) / vec3(255);
   hColor = pow(hColor,vec3(contrast/contrastBase));
 
+  if(activeClip < 0){
+    writeColor(outCoord,bColor);
+    return;
+  }
 
   if(drawMode == 0)writeColor(outCoord,bColor);
   if(drawMode == 10){

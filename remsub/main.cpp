@@ -161,6 +161,8 @@ class VideoManager{
       Stream(std::string const&name):file(name){
         video = std::make_shared<Video>(name);
         tex = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGB8UI,1,video->width,video->height);
+        tex->texParameteri(GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+        tex->texParameteri(GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
         nofFrames = video->nofFrames;
         end = video->nofFrames;
         keys.set<int>(0,"offset",0);
@@ -172,17 +174,22 @@ class VideoManager{
     std::shared_ptr<ge::gl::Texture>finalFrame;
     int32_t frame;
     std::vector<Stream>streams;
+    int activeClip = 0;
     void readAndUploadIfNecessary(){
+      activeClip = -1;
+      int clipCounter = 0;
       for(auto&s:streams){
         if(!s.video)return;
         auto frameToRead = frame+s.getOffset(frame);//s.offset;
+        if(frame       >= s.end        )continue;
+        if(frame       <  s.start      )continue;
+        if(clipCounter > 0)activeClip = clipCounter;
         if(frameToRead >= s.nofFrames  )continue;
         if(frameToRead == s.loadedFrame)continue;
-        if(frameToRead >= s.end        )continue;
-        if(frameToRead <  s.start      )continue;
         if(frameToRead != s.loadedFrame+1){
           s.video->moveToFrame(frameToRead);
         }
+        clipCounter++;
 
         s.video->readFrame();
         s.loadedFrame = frameToRead;
@@ -211,6 +218,8 @@ class VideoManager{
       if(streams.size() != 1)return;
       auto const&v = streams.at(0).video;
       finalFrame = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGBA32F,1,v->width,v->height);
+      finalFrame->texParameteri(GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+      finalFrame->texParameteri(GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
     }
     void addVideo(std::string const&n){
       streams.emplace_back(n);
@@ -266,6 +275,8 @@ class VideoManager{
           }
           
           ImGui::InputInt("offset",&o);
+          if(ImGui::Button("delete"))
+            toErase.push_back(key.first);
 
           ImGui::TreePop();
         }
@@ -276,6 +287,18 @@ class VideoManager{
         st.keys.erase(t,"offset");
       for(auto const&oo:toInsert)
         st.keys.set(std::get<0>(oo),"offset",std::get<1>(oo));
+    }
+    void clipStartEndGUI(){
+      size_t counter = 0;
+      for(auto&s:streams){
+        std::stringstream ss;
+        ss << "startEnd " << counter++;
+        if(ImGui::TreeNode(ss.str().c_str())){
+          ImGui::InputInt("start",&s.start);
+          ImGui::InputInt("end"  ,&s.end  );
+          ImGui::TreePop();
+        }
+      }
     }
     void setFrame(){
       ImGui::InputInt("goto",&frame);
@@ -307,9 +330,16 @@ class Project{
           loadKey(s,j.at("keys").at(i));
       };
 
+      auto const loadStartEnd = [&](int&start,int&end,json const&j){
+        if(j.count("start"))start = j["start"].get<int>();
+        if(j.count("end"  ))end   = j["end"  ].get<int>();
+      };
+
       for(size_t i=0;i<nVideos;++i){
         videoManager.addVideo(js.at(i).at("file"));
-        loadKeys(videoManager.streams.back().keys,js.at(i));
+        auto&last = videoManager.streams.back();
+        loadKeys(last.keys,js.at(i));
+        loadStartEnd(last.start,last.end,js.at(i));
       }
     }
     void save(std::string const&file){
@@ -337,9 +367,15 @@ class Project{
         }
       };
 
+      auto const saveStartEnd = [&](json&j,int start,int end){
+        j["start"] = start;
+        j["end"  ] = end  ;
+      };
+
       for(auto const&s:videoManager.streams){
         j["streams"][counter]["file"] = s.file;
-        saveKeys(j["streams"][counter],s.keys);
+        saveKeys    (j["streams"][counter],s.keys);
+        saveStartEnd(j["streams"][counter],s.start,s.end);
         counter++;
       }
 
@@ -428,6 +464,7 @@ void createProgram(vars::Vars&vars){
       "program",
       std::make_shared<ge::gl::Shader>(GL_COMPUTE_SHADER,mpSrc)
       );
+  prg->setNonexistingUniformWarning(false);
   auto info = prg->getInfo();
   vars.erase("uniforms");
   for(auto const&u:info->uniforms){
@@ -548,6 +585,7 @@ void editProgram(vars::Vars&vars){
   //proj->videoManager.setOffset();
   proj->videoManager.addOffsetGUI();
   proj->videoManager.showOffsetsGUI();
+  proj->videoManager.clipStartEndGUI();
 
   ImGui::Columns(3,"col",false);
   if(ImGui::Button("comp")){
@@ -599,6 +637,7 @@ void computeFrame(DVars&vars){
   auto proj = vars.get<Project>("project");
   proj->videoManager.bind();
   proj->videoManager.finalFrame->bindImage(0);
+  prg->set1i("activeClip",proj->videoManager.activeClip);
 
   auto auxBuffer = vars.get<ge::gl::Buffer>("auxBuffer");
   auxBuffer->clear(GL_R32UI,GL_RED_INTEGER,GL_UNSIGNED_INT);
