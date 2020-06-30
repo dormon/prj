@@ -1,8 +1,48 @@
 #version 450
 
-layout(binding=0)uniform usampler2D tex[10];
+layout(local_size_x=16,local_size_y=16)in;
 
-out vec3 fColor;
+
+layout(        binding=0)uniform usampler2D tex       [10];
+layout(rgba32f,binding=0)uniform image2D    finalFrame    ;
+
+layout(std430,binding=0)buffer AuxBuffer{
+  uint  jobCounter;
+};
+
+uniform ivec2 tileSize = ivec2(16,16);
+
+int divRoundUp(in int x,in int y){
+  return (x/y) + int((x%y)!=0);
+}
+
+ivec2 divRoundUp(in ivec2 x,in ivec2 y){
+  return ivec2(divRoundUp(x.x,y.x),divRoundUp(x.y,y.y));
+}
+
+ivec2 getGridSize(){
+  ivec2 frameSize = imageSize(finalFrame);
+  return divRoundUp(frameSize,tileSize);
+}
+
+uint getNofJobs(){
+  ivec2 count = getGridSize();
+  return uint(count.x*count.y);
+}
+
+ivec2 getJobCoord(in uint job){
+  ivec2 count = getGridSize();
+  return ivec2((job%count.x)*tileSize.x,(job/count.x)*tileSize.y);
+}
+
+ivec2 getThreadCoord(in uint job){
+  ivec2 jobCoord = getJobCoord(job);
+  return jobCoord + ivec2(gl_LocalInvocationID.xy) - (ivec2(gl_WorkGroupSize.xy) - tileSize)/2;
+}
+
+void writeColor(ivec2 coord,in vec3 color){
+  imageStore(finalFrame,coord,vec4(color,1));
+}
 
 uvec3 thresholdRGB(uvec3 c,uint t){
   return uvec3(c.x>t,c.y>t,c.z>t)*255;
@@ -11,8 +51,6 @@ uvec3 filterNonWhite(uvec3 c){
   return uvec3(all(equal(c,uvec3(255))))*255;
 }
 
-in vec2 vCoord;
-in flat int help0Inside;
 
 const float scaleBase = 10000;
 const float tranBase  = 10000;
@@ -26,15 +64,18 @@ uniform vec2  help0scale  = vec2(10060,9900);
 uniform float colorDistance = float(64);
 uniform float contrast      = float(contrastBase);
 
-bool isSub(vec2 pixel){
-  uvec3 color = texture(tex[0],pixel).rgb;
-  return color.x > threshold && color.y > threshold && color.z > threshold;
-}
+//bool isSub(vec2 pixel){
+//  uvec3 color = texture(tex[0],pixel).rgb;
+//  return color.x > threshold && color.y > threshold && color.z > threshold;
+//}
 
-void main(){
+void compute(uint job){
+  ivec2 outCoord = getThreadCoord(job);
+  
+  ivec2 size = imageSize(finalFrame);
+  vec2 coord = vec2(outCoord) / vec2(size);
 
-  ivec2 size = textureSize(tex[0],0).xy;
-  vec2 coord = vec2(vCoord.x,1-vCoord.y);
+  coord = vec2(coord.x,1-coord.y);
 
   vec2 help0offsetf = vec2(help0offset) / vec2(tranBase);
 
@@ -46,16 +87,16 @@ void main(){
   hColor = pow(hColor,vec3(contrast/contrastBase));
 
 
-  if(drawMode == 0)fColor = bColor;
+  if(drawMode == 0)writeColor(outCoord,bColor);
   if(drawMode == 10){
     color = filterNonWhite(thresholdRGB(color,threshold));
-    fColor = vec3(color) / vec3(255);
+    writeColor(outCoord,vec3(color) / vec3(255));
   }
   if(drawMode == 1){
-    fColor = hColor;
+    writeColor(outCoord,hColor);
   }
   if(drawMode == 2){
-    fColor = vec3(length(bColor-hColor));
+    writeColor(outCoord,vec3(length(bColor-hColor)));
   }
   bool shouldReplace = false;
   shouldReplace = coord.y > 0.7 && coord.y < 0.95 && coord.x > 0.1 && coord.x < 0.9;
@@ -64,13 +105,26 @@ void main(){
   shouldReplace = shouldReplace && (length(bColor-hColor)>colorDistance/colorDistanceBase);
   if(drawMode == 3){
     if(shouldReplace){
-      fColor = vec3(1,0,0);
+      writeColor(outCoord,vec3(1,0,0));
     }
   }
   if(drawMode == 4){
-    if(shouldReplace)fColor = hColor;
-    else fColor = bColor;
+    if(shouldReplace)writeColor(outCoord,hColor);
+    else writeColor(outCoord,bColor);
   }
   
-  
+}
+
+shared uint sharedJob;
+void main(){
+  for(uint i=0;i<10000;++i){//safety measure
+    if(gl_LocalInvocationIndex == 0){
+      sharedJob = atomicAdd(jobCounter,1);
+    }
+    barrier();
+    uint job = sharedJob;
+    if(job >= getNofJobs())return;
+    compute(job);
+
+  }
 }

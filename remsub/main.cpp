@@ -169,6 +169,7 @@ class VideoManager{
         return keys.get<int>(f,"offset",0);
       }
     };
+    std::shared_ptr<ge::gl::Texture>finalFrame;
     int32_t frame;
     std::vector<Stream>streams;
     void readAndUploadIfNecessary(){
@@ -206,8 +207,14 @@ class VideoManager{
     void gotoFrame(int32_t f){
       frame = f;
     }
+    void createFinalFrame(){
+      if(streams.size() != 1)return;
+      auto const&v = streams.at(0).video;
+      finalFrame = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGBA32F,1,v->width,v->height);
+    }
     void addVideo(std::string const&n){
       streams.emplace_back(n);
+      createFinalFrame();
     }
     void setOffset(){
       for(size_t i=0;i<streams.size();++i){
@@ -360,14 +367,14 @@ class EmptyProject: public simple3DApp::Application{
 
 void loadFragment(vars::Vars&vars){
   FUNCTION_CALLER();
-  *vars.reCreate<std::string>("fragmentSource") = loadTxtFile(vars.getString("fragmentSourceFile"));
+  *vars.reCreate<std::string>("computeSource") = loadTxtFile(vars.getString("computeSourceFile"));
 }
 
 void saveFragment(vars::Vars&vars){
   FUNCTION_CALLER();
-  auto fn = vars.getString("fragmentSourceFile");
+  auto fn = vars.getString("computeSourceFile");
   auto f = std::ofstream(fn);
-  auto data = vars.getString("fragmentSource");
+  auto data = vars.getString("computeSource");
   f.write(data.data(),data.size());
   f.close();
 }
@@ -395,7 +402,7 @@ void EmptyProject::init(){
 
   vars.addBool("compile");
 
-  vars.addString("fragmentSourceFile","../drawVideo.fp");
+  vars.addString("computeSourceFile","../drawVideo.fp");
   loadFragment(vars);
 
   //vars.addBool("drawVideoFileWatcher");
@@ -410,41 +417,14 @@ void EmptyProject::init(){
 //}
 
 void createProgram(vars::Vars&vars){
-  FUNCTION_PROLOGUE("remsub","fragmentSource");
+  FUNCTION_PROLOGUE("remsub","computeSource");
 
   std::cerr << "createProgram" << std::endl;
-  std::string const vsSrc = R".(
-  #version 450
 
-  layout(binding=0)uniform usampler2D tex;
-  uniform uvec2 windowSize = uvec2(512);
-  uniform float zoom       = 1.f;
-  uniform vec2 offset      = vec2(0);
-
-  uniform int insideHelp0 = 1;
-
-  out vec2 vCoord;
-  flat out int vHelp0Inside;
-
-
-
-  void main(){
-    ivec2 frameSize = textureSize(tex,0).xy;
-    vHelp0Inside = insideHelp0;
-
-    vec2 scale = zoom*vec2(frameSize) / vec2(windowSize);
-
-    vCoord = vec2(gl_VertexID&1,gl_VertexID>>1);
-    gl_Position = vec4((-1+2*vCoord)*scale+offset,0,1);
-  }
-
-  ).";
-
-  auto fsSrc = vars.getString("fragmentSource");
+  auto mpSrc = vars.getString("computeSource");
   auto prg = vars.reCreate<ge::gl::Program>(
       "program",
-      std::make_shared<ge::gl::Shader>(GL_VERTEX_SHADER  ,vsSrc),
-      std::make_shared<ge::gl::Shader>(GL_FRAGMENT_SHADER,fsSrc)
+      std::make_shared<ge::gl::Shader>(GL_COMPUTE_SHADER,mpSrc)
       );
   auto info = prg->getInfo();
   vars.erase("uniforms");
@@ -487,6 +467,50 @@ void createProgram(vars::Vars&vars){
   }
 }
 
+void createDrawProgram(vars::Vars&vars){
+  FUNCTION_PROLOGUE("remsub");
+  std::string const vsSrc = R".(
+  #version 450
+
+  layout(binding=0)uniform sampler2D finalFrame;
+
+  uniform uvec2 windowSize = uvec2(512);
+  uniform float zoom       = 1.f;
+  uniform vec2 offset      = vec2(0);
+
+  out vec2 vCoord;
+
+  void main(){
+    ivec2 frameSize = textureSize(finalFrame,0).xy;
+
+    vec2 scale = zoom*vec2(frameSize) / vec2(windowSize);
+
+    vCoord = vec2(gl_VertexID&1,gl_VertexID>>1);
+    gl_Position = vec4((-1+2*vCoord)*scale+offset,0,1);
+  }
+
+  ).";
+
+  auto fsSrc = R".(
+  #version 450
+
+  layout(binding=0)uniform sampler2D finalFrame;
+
+  in vec2 vCoord;
+  out vec3 fColor;
+
+  void main(){
+    fColor = texture(finalFrame,vCoord).xyz;
+  }
+
+  ).";
+  auto prg = vars.reCreate<ge::gl::Program>(
+      "drawProgram",
+      std::make_shared<ge::gl::Shader>(GL_VERTEX_SHADER  ,vsSrc),
+      std::make_shared<ge::gl::Shader>(GL_FRAGMENT_SHADER,fsSrc)
+      );
+}
+
 std::string getTimeFormat(size_t frameId,size_t fps){
   auto frame    = (frameId                ) % fps;
   auto second   = (frameId / fps          ) % 60;
@@ -508,7 +532,7 @@ std::string getTimeFormat(size_t frameId,size_t fps){
 void editProgram(vars::Vars&vars){
   FUNCTION_CALLER();
 
-  auto&src = vars.getString("fragmentSource");
+  auto&src = vars.getString("computeSource");
   static char text[1024*100];
   std::strcpy(text,src.data());
 
@@ -525,7 +549,7 @@ void editProgram(vars::Vars&vars){
 
   ImGui::Columns(3,"col",false);
   if(ImGui::Button("comp")){
-    vars.updateTicks("fragmentSource");
+    vars.updateTicks("computeSource");
   }
   ImGui::NextColumn();
   if(ImGui::Button("save")){
@@ -549,18 +573,64 @@ void editProgram(vars::Vars&vars){
   }
 }
 
+void createAuxBuffer(DVars&vars){
+  FUNCTION_PROLOGUE("remsub");
+  vars.reCreate<ge::gl::Buffer>("auxBuffer",sizeof(uint32_t)*1000);
+}
 
-void EmptyProject::draw(){
+void computeFrame(DVars&vars){
   FUNCTION_CALLER();
 
-  //watchFiles(vars);
   createProgram(vars);
+  createAuxBuffer(vars);
+  auto prg = vars.get<ge::gl::Program>("program");
+  std::vector<std::string>uniformNames;
+  vars.getDir(uniformNames,"uniforms");
+  for(auto const&n:uniformNames){
+    auto vName = "uniforms."+n;
+    auto const&type = vars.getType(vName);
+    if(type == typeid(uint32_t))prg->set1ui(n,vars.getUint32(vName));
+    if(type == typeid( int32_t))prg->set1i (n,vars.getInt32 (vName));
+    if(type == typeid(float   ))prg->set1f (n,vars.getFloat (vName));
+    if(type == typeid(glm::vec2))prg->set2fv(n,(float*)&vars.getVec2(vName));
+  }
+  auto proj = vars.get<Project>("project");
+  proj->videoManager.bind();
+  proj->videoManager.finalFrame->bindImage(0);
 
+  auto auxBuffer = vars.get<ge::gl::Buffer>("auxBuffer");
+  auxBuffer->clear(GL_R32UI,GL_RED_INTEGER,GL_UNSIGNED_INT);
+  prg->bindBuffer("AuxBuffer",auxBuffer);
+  prg->use();
+
+  ge::gl::glDispatchCompute(vars.addOrGetInt32("wg",256),1,1);
+}
+
+void drawFinalFrame(DVars&vars){
+  FUNCTION_CALLER();
+  createDrawProgram(vars);
   ge::gl::glClearColor(0.1f,0.1f,0.1f,1.f);
   ge::gl::glClear(GL_COLOR_BUFFER_BIT);
 
   auto vao = vars.get<ge::gl::VertexArray>("emptyVao");
-  auto prg = vars.get<ge::gl::Program>("program");
+  auto prg = vars.get<ge::gl::Program>("drawProgram");
+
+  vao->bind();
+  auto proj = vars.get<Project>("project");
+  proj->videoManager.finalFrame->bind(0);
+
+  prg->use();
+  prg->set2uiv("windowSize",(uint32_t*)&(vars.getUVec2("windowSize")));
+
+  ge::gl::glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+
+  vao->unbind();
+}
+
+void EmptyProject::draw(){
+  FUNCTION_CALLER();
+
+
 
 
   auto proj = vars.get<Project>("project");
@@ -572,28 +642,9 @@ void EmptyProject::draw(){
   vars.addOrGetInt32("frameId") = proj->videoManager.frame;
   vars.addOrGetString("time") = getTimeFormat(proj->videoManager.frame,proj->videoManager.streams.at(0).video->fps);
 
-  prg->set2uiv("windowSize",(uint32_t*)&(vars.getUVec2("windowSize")));
- 
-
-  std::vector<std::string>uniformNames;
-  vars.getDir(uniformNames,"uniforms");
-  for(auto const&n:uniformNames){
-    auto vName = "uniforms."+n;
-    auto const&type = vars.getType(vName);
-    if(type == typeid(uint32_t))prg->set1ui(n,vars.getUint32(vName));
-    if(type == typeid( int32_t))prg->set1i (n,vars.getInt32 (vName));
-    if(type == typeid(float   ))prg->set1f (n,vars.getFloat (vName));
-    if(type == typeid(glm::vec2))prg->set2fv(n,(float*)&vars.getVec2(vName));
-  }
-
-  vao->bind();
-  proj->videoManager.bind();
-
-  prg->use();
-
-  ge::gl::glDrawArrays(GL_TRIANGLE_STRIP,0,4);
-
-  vao->unbind();
+  computeFrame(vars);
+  ge::gl::glMemoryBarrier(GL_ALL_BARRIER_BITS);
+  drawFinalFrame(vars);
 
   editProgram(vars);
 
