@@ -19,7 +19,7 @@ const float tranBase  = 10000;
 const float colorDistanceBase = 1000;
 const float contrastBase = 1000;
 
-uniform uint  drawMode    = 0;
+uniform uint  drawMode    = 2;
 uniform uint  threshold   = 230;
 uniform vec2  help0offset = vec2(-12,15);
 uniform vec2  help0scale  = vec2(10060,9900);

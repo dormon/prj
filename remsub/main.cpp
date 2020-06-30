@@ -80,7 +80,9 @@ class Keyframe{
     }
     template<typename T>
     T&get(std::string const&n){
-      return data.at(n).get<T>();
+      auto it = data.find(n);
+      if(it == std::end(data))throw std::runtime_error("Keyframe::get("+n+") - no such value");
+      return it->second.get<T>();
     }
     void erase(std::string const&n){
       data.erase(n);
@@ -107,7 +109,10 @@ class Keyframes{
       }
     }
     void erase(int f,std::string const&n){
-      getKeyframe(f).erase(n);
+      auto key = getKeyframe(f);
+      key.erase(n);
+      if(key.data.empty())
+        keyframes.erase(f);
     }
 
     Keyframe const&getKeyframe(int f)const{
@@ -118,6 +123,7 @@ class Keyframes{
       it++;
       while(it != end){
         if(prev->first <= f && f < it->first)break;
+        prev = it;
         it++;
       }
       return prev->second;
@@ -130,6 +136,7 @@ class Keyframes{
       it++;
       while(it != end){
         if(prev->first <= f && f < it->first)break;
+        prev = it;
         it++;
       }
       return prev->second;
@@ -255,7 +262,7 @@ class VideoManager{
 
           ImGui::TreePop();
         }
-
+        counter++;
 
       }
       for(auto const&t:toErase)
@@ -275,20 +282,61 @@ class Project{
       auto j = json::parse(loadTxtFile(file));
       auto const&js = j.at("streams");
       auto nVideos = js.size();
+
+      auto const loadKeyData = [&](keyframe::Keyframes&s,int frame,json const&j){
+        for(auto const&it:j.items()){
+          if(it.value().is_number_integer())s.set<int  >(frame,it.key(),it.value().get<int  >());
+          if(it.value().is_number_float  ())s.set<float>(frame,it.key(),it.value().get<float>());
+        }
+      };
+      auto const loadKey = [&](keyframe::Keyframes&s,json const&j){
+        int frame = j.at("frame");
+        loadKeyData(s,frame,j.at("data"));
+      };
+
+      auto const loadKeys = [&](keyframe::Keyframes&s,json const&j){
+        if(j.count("keys")==0)return;
+        for(size_t i=0;i<j.at("keys").size();++i)
+          loadKey(s,j.at("keys").at(i));
+      };
+
       for(size_t i=0;i<nVideos;++i){
         videoManager.addVideo(js.at(i).at("file"));
+        loadKeys(videoManager.streams.back().keys,js.at(i));
       }
     }
     void save(std::string const&file){
       json j;
+      size_t counter=0;
+      auto const saveKeyData = [&](json&j,keyframe::Keyframe const&key){
+        for(auto const&d:key.data){
+          if(d.second.type == keyframe::Data::FLOAT)
+            j[d.first] = d.second.value.f32;
+          if(d.second.type == keyframe::Data::INT)
+            j[d.first] = d.second.value.i32;
+        }
+      };
+
+      auto const saveKey = [&](json&j,keyframe::Keyframe const&key,int frame){
+        j["frame"] = frame;
+        saveKeyData(j["data"],key);
+      };
+
+      auto const saveKeys = [&](json&j,keyframe::Keyframes const&keys){
+        size_t keyCounter = 0;
+        for(auto const&k:keys.keyframes){
+          saveKey(j["keys"][keyCounter],k.second,k.first);
+          keyCounter++;
+        }
+      };
+
       for(auto const&s:videoManager.streams){
-        j["streams"][0]["file"] = s.file;
+        j["streams"][counter]["file"] = s.file;
+        saveKeys(j["streams"][counter],s.keys);
+        counter++;
       }
 
-
-      std::stringstream ss;
-      ss << j;
-      saveTxtFile(file,ss.str());
+      saveTxtFile(file,j.dump(2));
     }
     VideoManager        videoManager;
 };
@@ -491,6 +539,9 @@ void editProgram(vars::Vars&vars){
   if(ImGui::BeginMainMenuBar()){
     if(ImGui::BeginMenu("file")){
       if(ImGui::MenuItem("open")){
+      }
+      if(ImGui::MenuItem("save")){
+        vars.get<Project>("project")->save("../proj.json");
       }
       ImGui::EndMenu();
     }
