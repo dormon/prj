@@ -60,6 +60,7 @@ const float colorDistanceBase = 1000;
 uniform uint activeClip = 1u;
 
 uniform uint  drawMode            = 0;
+uniform bool  drawDiff            = false;
 uniform uint  threshold           = 230;
 uniform vec2  help0offset         = vec2(-4,46);
 uniform vec2  help0scale          = vec2(10052,9856);
@@ -96,32 +97,43 @@ void compute(uint job){
 
   vec3 bColor = vec3(color)      / vec3(255);
 
+
   vec3 hColor;
   if((activeClip & (1<<1)) != 0)
     hColor = readStream(1,coord);
   if((activeClip & (1<<2)) != 0)
     hColor = readStream(2,coord);
 
+
+  //draw english stream
+  if(drawMode == 0){
+    writeColor(outCoord,bColor);
+    return;
+  }
+
+  //draw kurdis stream
+  if(drawMode > 0 && drawMode < 4){
+    vec3 hc = readStream(drawMode,coord);
+    if(drawDiff){
+      writeColor(outCoord,vec3(length(bColor-hc)));
+    }else{
+      writeColor(outCoord,hc);
+    }
+    return;
+  }
+
+
+
   if(activeClip == 1u){
     writeColor(outCoord,bColor);
     return;
   }
 
-  if(drawMode == 8){
-    writeColor(outCoord,readStream(2,coord));
-    return;
-  }
 
-  if(drawMode == 0)writeColor(outCoord,bColor);
+
   if(drawMode == 10){
     color = filterNonWhite(thresholdRGB(color,threshold));
     writeColor(outCoord,vec3(color) / vec3(255));
-  }
-  if(drawMode == 1){
-    writeColor(outCoord,hColor);
-  }
-  if(drawMode == 2){
-    writeColor(outCoord,vec3(length(bColor-hColor)));
   }
 
   bool shouldReplace = false;
@@ -129,12 +141,12 @@ void compute(uint job){
   //shouldReplace = shouldReplace && (color.x > threshold) && (color.y > threshold) && (color.z > threshold);
   //shouldReplace = shouldReplace && isSub(coord);
   shouldReplace = shouldReplace && (length(bColor-hColor)>colorDistance/colorDistanceBase);
-  if(drawMode == 3){
+  if(drawMode == 4){
     if(shouldReplace){
       writeColor(outCoord,vec3(1,0,0));
     }
   }
-  if(drawMode == 4){
+  if(drawMode == 5){
     if(shouldReplace)writeColor(outCoord,hColor);
     else writeColor(outCoord,bColor);
   }

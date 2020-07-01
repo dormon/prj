@@ -228,23 +228,26 @@ class VideoManager{
     void readAndUploadIfNecessary(){
       activeClip = 0;
       int clipCounter = 0;
-      for(auto&s:streams){
+      for(size_t clipCounter=0;clipCounter<streams.size();++clipCounter){
+        auto&s=streams.at(clipCounter);
         if(!s.video)return;
-        auto frameToRead = frame+s.getOffset(frame);//s.offset;
-        if(frame       >= s.end        )continue;
-        if(frame       <  s.start      )continue;
+
+        auto frameInClip = frame-s.getOffset(frame);
+
+        if(frame   >= s.end        )continue;
+        if(frame   <  s.start      )continue;
 
         activeClip |= 1<<clipCounter;
-        clipCounter++;
 
-        if(frameToRead >= s.nofFrames  )continue;
-        if(frameToRead == s.loadedFrame)continue;
-        if(frameToRead != s.loadedFrame+1){
-          s.video->moveToFrame(frameToRead);
+        if(frameInClip <  0            )continue;
+        if(frameInClip >= s.nofFrames  )continue;
+        if(frameInClip == s.loadedFrame)continue;
+        if(frameInClip != s.loadedFrame+1){
+          s.video->moveToFrame(frameInClip);
         }
 
         s.video->readFrame();
-        s.loadedFrame = frameToRead;
+        s.loadedFrame = frameInClip;
         s.frame = s.loadedFrame+1;
         s.tex->setData2D(s.video->frame.data,GL_BGR_INTEGER);
       }
@@ -332,8 +335,13 @@ class VideoManager{
       size_t streamCounter=0;
       for(auto&st:streams){
         std::stringstream ss;
-        ss << "stream" << streamCounter++;
+        ss << st.file;
         if(ImGui::TreeNode(ss.str().c_str())){
+          if(activeClip&(1<<streamCounter))
+            ImGui::Text("active");
+          else
+            ImGui::Text("inactive");
+
           ImGui::InputInt("start",&st.start);
           ImGui::InputInt("end"  ,&st.end  );
 
@@ -346,6 +354,7 @@ class VideoManager{
 
           ImGui::TreePop();
         }
+        streamCounter++;
       }
     }
     void setFrame(){
@@ -539,6 +548,12 @@ void createProgram(vars::Vars&vars){
           ge::gl::glGetUniformfv(prg->getId(),prg->getUniformLocation(name),&v);
           vars.addFloat ("uniforms."+name,v);break;
         }
+      case GL_BOOL:
+        {
+          bool v;
+          ge::gl::glGetUniformiv(prg->getId(),prg->getUniformLocation(name),(int*)&v);
+          vars.addBool ("uniforms."+name,v);break;
+        }
       case GL_FLOAT_VEC2:
         {
           glm::vec2 v;
@@ -674,6 +689,7 @@ void computeFrame(DVars&vars){
   for(auto const&n:uniformNames){
     auto vName = "uniforms."+n;
     auto const&type = vars.getType(vName);
+    if(type == typeid(bool    ))prg->set1i (n,vars.getBool  (vName));
     if(type == typeid(uint32_t))prg->set1ui(n,vars.getUint32(vName));
     if(type == typeid( int32_t))prg->set1i (n,vars.getInt32 (vName));
     if(type == typeid(float   ))prg->set1f (n,vars.getFloat (vName));
