@@ -51,6 +51,20 @@
         }
       ],
       "start": 1358
+    },
+    {
+      "end": 67914,
+      "file": "/media/paposud/hodzunw/02.mp4",
+      "keys": [
+        {
+          "data": {
+            "contrast": 1.0,
+            "offset": 0
+          },
+          "frame": 0
+        }
+      ],
+      "start": 0
     }
   ]
 }

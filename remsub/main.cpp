@@ -79,9 +79,9 @@ class Keyframe{
       return it->second.get<T>();
     }
     template<typename T>
-    T&get(std::string const&n){
+    T&get(std::string const&n,T&v){
       auto it = data.find(n);
-      if(it == std::end(data))throw std::runtime_error("Keyframe::get("+n+") - no such value");
+      if(it == std::end(data))return v;//throw std::runtime_error("Keyframe::get("+n+") - no such value");
       return it->second.get<T>();
     }
     bool has(std::string const&n)const{
@@ -144,12 +144,14 @@ class Keyframes{
 
     template<typename T>
     void set(int f,std::string const&n,T v){
+      std::cerr << "set("<<f<<","<<n<<","<<v<<")"<<std::endl;
       auto w = keyframes.emplace(std::piecewise_construct,std::forward_as_tuple(f),std::forward_as_tuple(n,v));
       if(!std::get<1>(w)){
         std::get<0>(w)->second.set(n,v);
       }
     }
     void erase(int f,std::string const&n){
+      std::cerr <<"erase("<<f<<","<<n<<")"<<std::endl;
       auto it = getKeyframe(f,n);
       if(it == std::end(keyframes))return;
       auto key = it->second;
@@ -182,8 +184,8 @@ class VideoManager{
         tex->texParameteri(GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
         nofFrames = video->nofFrames;
         end = video->nofFrames;
-        keys.set<int>(0,"offset",0);
-        keys.set<float>(0,"contrast",1);
+        //keys.set<int>(0,"offset",0);
+        //keys.set<float>(0,"contrast",1);
       }
       int getOffset(int f)const{
         return keys.get<int>(f,"offset",0);
@@ -202,9 +204,6 @@ class VideoManager{
       for(auto const&s:streams)
         c.push_back(s.getContrast(frame));
       prg->set1fv("contrast",c.data(),c.size());
-    }
-    float getActiveClipContrast(){
-      return streams.at(1).getContrast(frame);
     }
 
     void readAndUploadIfNecessary(){
@@ -259,44 +258,42 @@ class VideoManager{
       streams.emplace_back(n);
       createFinalFrame();
     }
-    void setOffset(){
-      for(size_t i=0;i<streams.size();++i){
-        auto&s = streams.at(i);
-        std::stringstream ss;
-        ss << "stream"<<i<<" offset";
-        auto name = ss.str();
-        ImGui::InputInt(name.c_str(),&s.offset);
-      }
+
+    void setKeyValueGUI(std::string const&var,int&value){
+      ImGui::InputInt(var.c_str(),&value);
+    }
+    void setKeyValueGUI(std::string const&var,float&value){
+      ImGui::DragFloat(var.c_str(),&value,0.001f,0.001f,10,"%.5f");
     }
 
-    int selectedStream = 1;
-    void showContrastGUI(){
-      if(ImGui::Button("add contrast key point")){
-        streams.at(selectedStream).keys.set(frame,"contrast",1.f);
+    template<typename ValueType>
+    void showVarGUI(Stream&st,std::string const&var){
+      if(ImGui::Button("add")){
+        st.keys.set(frame,var.c_str(),0);
       }
-      auto&st = streams.at(selectedStream);
       int counter = 0;
-      std::vector<std::tuple<int,float>>toInsert;
+
+      std::vector<std::tuple<int,ValueType>>toInsert;
       std::vector<int>toErase;
       for(auto&key:st.keys.keyframes){
-        auto it = key.second.data.find("contrast");
-        if(it == std::end(key.second.data))continue;
-        auto&v = it->second.value.f32;
+        if(!key.second.has(var))continue;
+        ValueType defValue = 0;
+        auto&value = key.second.get(var,defValue);
         int f = key.first;
 
 
         std::stringstream ss;
-        ss << "c" << counter;
+        ss << var << counter;
 
         if(ImGui::TreeNode(ss.str().c_str())){
 
           ImGui::InputInt("frame",&f);
           if(f != key.first){
             toErase.push_back(key.first);
-            toInsert.push_back(std::tuple<int,float>(f,v));
+            toInsert.push_back(std::tuple<int,int>(f,value));
           }
-          
-          ImGui::DragFloat("contrast",&v,0.001f,0.001f,10,"%.5f");
+     
+          setKeyValueGUI(var,value);
           if(ImGui::Button("delete"))
             toErase.push_back(key.first);
 
@@ -306,58 +303,22 @@ class VideoManager{
 
       }
       for(auto const&t:toErase)
-        st.keys.erase(t,"contrast");
+        st.keys.erase(t,var.c_str());
       for(auto const&oo:toInsert)
-        st.keys.set(std::get<0>(oo),"contrast",std::get<1>(oo));
+        st.keys.set(std::get<0>(oo),var,std::get<1>(oo));
     }
-    void showOffsetsGUI(){
-      if(ImGui::Button("add offset key point")){
-        streams.at(selectedStream).keys.set(frame,"offset",0);
-      }
-      auto&st = streams.at(selectedStream);
-      int counter = 0;
-      std::vector<std::tuple<int,int>>toInsert;
-      std::vector<int>toErase;
-      for(auto&key:st.keys.keyframes){
-        auto it = key.second.data.find("offset");
-        if(it == std::end(key.second.data))continue;
-        auto&o = it->second.value.i32;
-        int f = key.first;
-
-
+    void showGUI(){
+      size_t streamCounter=0;
+      for(auto&st:streams){
         std::stringstream ss;
-        ss << "offset" << counter;
-
+        ss << "stream" << streamCounter++;
         if(ImGui::TreeNode(ss.str().c_str())){
+          ImGui::InputInt("start",&st.start);
+          ImGui::InputInt("end"  ,&st.end  );
 
-          ImGui::InputInt("frame",&f);
-          if(f != key.first){
-            toErase.push_back(key.first);
-            toInsert.push_back(std::tuple<int,int>(f,o));
-          }
-          
-          ImGui::InputInt("offset",&o);
-          if(ImGui::Button("delete"))
-            toErase.push_back(key.first);
+          showVarGUI<int  >(st,"offset"  );
+          showVarGUI<float>(st,"contrast");
 
-          ImGui::TreePop();
-        }
-        counter++;
-
-      }
-      for(auto const&t:toErase)
-        st.keys.erase(t,"offset");
-      for(auto const&oo:toInsert)
-        st.keys.set(std::get<0>(oo),"offset",std::get<1>(oo));
-    }
-    void clipStartEndGUI(){
-      size_t counter = 0;
-      for(auto&s:streams){
-        std::stringstream ss;
-        ss << "startEnd " << counter++;
-        if(ImGui::TreeNode(ss.str().c_str())){
-          ImGui::InputInt("start",&s.start);
-          ImGui::InputInt("end"  ,&s.end  );
           ImGui::TreePop();
         }
       }
@@ -644,10 +605,7 @@ void editProgram(vars::Vars&vars){
 
   auto proj = vars.get<Project>("project");
   proj->videoManager.setFrame();
-  //proj->videoManager.setOffset();
-  proj->videoManager.showOffsetsGUI();
-  proj->videoManager.showContrastGUI();
-  proj->videoManager.clipStartEndGUI();
+  proj->videoManager.showGUI();
 
   ImGui::Columns(3,"col",false);
   if(ImGui::Button("comp")){

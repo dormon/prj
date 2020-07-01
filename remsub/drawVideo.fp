@@ -75,6 +75,14 @@ void applyContract(inout vec3 color,float c){
   color = clamp((color-.5f)*c,-.5f,.5f)+.5;
 }
 
+vec3 readStream(uint id,vec2 coord){
+  vec2 help0offsetf = vec2(help0offset) / vec2(tranBase);
+  uvec3 help0Color = texture(tex[id],coord*help0scale/vec2(scaleBase)+help0offsetf).rgb;
+  vec3 hColor = vec3(help0Color) / vec3(255);
+  applyContract(hColor,contrast[id]);
+  return hColor;
+}
+
 void compute(uint job){
   ivec2 outCoord = getThreadCoord(job);
   
@@ -83,18 +91,24 @@ void compute(uint job){
 
   coord = vec2(coord.x,1-coord.y);
 
-  vec2 help0offsetf = vec2(help0offset) / vec2(tranBase);
 
   uvec3 color      = texture(tex[0],coord).rgb;
-  uvec3 help0Color = texture(tex[1],coord*help0scale/vec2(scaleBase)+help0offsetf).rgb;
 
   vec3 bColor = vec3(color)      / vec3(255);
-  vec3 hColor = vec3(help0Color) / vec3(255);
 
-  applyContract(hColor,contrast[1]);
+  vec3 hColor;
+  if((activeClip & (1<<1)) != 0)
+    hColor = readStream(1,coord);
+  if((activeClip & (1<<2)) != 0)
+    hColor = readStream(2,coord);
 
   if(activeClip == 1u){
     writeColor(outCoord,bColor);
+    return;
+  }
+
+  if(drawMode == 8){
+    writeColor(outCoord,readStream(2,coord));
     return;
   }
 
@@ -109,6 +123,7 @@ void compute(uint job){
   if(drawMode == 2){
     writeColor(outCoord,vec3(length(bColor-hColor)));
   }
+
   bool shouldReplace = false;
   shouldReplace = coord.y > 0.5 && coord.y < 0.95 && coord.x > 0.1 && coord.x < 0.9;
   //shouldReplace = shouldReplace && (color.x > threshold) && (color.y > threshold) && (color.z > threshold);
