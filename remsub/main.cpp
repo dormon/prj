@@ -53,6 +53,10 @@ class Data{
     Data(int   v):type(INT  ),value(v){}
     template<typename T>T get()const;
     template<typename T>T&get();
+    void print()const{
+      if(type == INT  )std::cout << value.i32;
+      if(type == FLOAT)std::cout << value.f32;
+    }
 };
 template<>int   Data::get<int  >()const{return value.i32;}
 template<>float Data::get<float>()const{return value.f32;}
@@ -90,12 +94,26 @@ class Keyframe{
     void erase(std::string const&n){
       data.erase(n);
     }
+    void print(int indent)const{
+      for(auto const&d:data){
+        for(int i=0;i<indent;++i)std::cout << " ";
+        std::cout << d.first << ": ";
+        d.second.print();
+        std::cout <<  std::endl;
+      }
+    }
 };
 
 class Keyframes{
   public:
     std::map<int,Keyframe>keyframes;
 
+    void print()const{
+      for(auto const&key:keyframes){
+        std::cout << "frame " << key.first << ": " << std::endl;
+        key.second.print(2);
+      }
+    }
     template<typename T>
     static void moveToNext(T&it,T const&end,std::string const&n){
       it++;
@@ -103,6 +121,7 @@ class Keyframes{
     }
     template<typename T>
     static T find(T&it,T const& end,int f,std::string const&n){
+      if(it == end)return end;
       auto prev = it;
       moveToNext(it,end,n);
       while(it != end){
@@ -154,7 +173,7 @@ class Keyframes{
       std::cerr <<"erase("<<f<<","<<n<<")"<<std::endl;
       auto it = getKeyframe(f,n);
       if(it == std::end(keyframes))return;
-      auto key = it->second;
+      auto&key = it->second;
       key.erase(n);
       if(key.data.empty())
         keyframes.erase(f);
@@ -268,7 +287,9 @@ class VideoManager{
 
     template<typename ValueType>
     void showVarGUI(Stream&st,std::string const&var){
-      if(ImGui::Button("add")){
+      std::stringstream addName;
+      addName << "add " << var; 
+      if(ImGui::Button(addName.str().c_str())){
         st.keys.set(frame,var.c_str(),0);
       }
       int counter = 0;
@@ -315,6 +336,10 @@ class VideoManager{
         if(ImGui::TreeNode(ss.str().c_str())){
           ImGui::InputInt("start",&st.start);
           ImGui::InputInt("end"  ,&st.end  );
+
+          if(ImGui::Button("print keys")){
+            st.keys.print();
+          }
 
           showVarGUI<int  >(st,"offset"  );
           showVarGUI<float>(st,"contrast");
