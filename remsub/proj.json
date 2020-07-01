@@ -6,6 +6,7 @@
       "keys": [
         {
           "data": {
+            "contrast": 1.0,
             "offset": 0
           },
           "frame": 0
@@ -19,9 +20,34 @@
       "keys": [
         {
           "data": {
-            "offset": 920
+            "contrast": 1.0,
+            "offset": 918
           },
           "frame": 0
+        },
+        {
+          "data": {
+            "contrast": 1.1390000581741333
+          },
+          "frame": 1681
+        },
+        {
+          "data": {
+            "contrast": 1.0
+          },
+          "frame": 2126
+        },
+        {
+          "data": {
+            "offset": 919
+          },
+          "frame": 7469
+        },
+        {
+          "data": {
+            "offset": 920
+          },
+          "frame": 8015
         }
       ],
       "start": 1358

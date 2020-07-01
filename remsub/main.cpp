@@ -84,6 +84,9 @@ class Keyframe{
       if(it == std::end(data))throw std::runtime_error("Keyframe::get("+n+") - no such value");
       return it->second.get<T>();
     }
+    bool has(std::string const&n)const{
+      return data.count(n) != 0;
+    }
     void erase(std::string const&n){
       data.erase(n);
     }
@@ -92,15 +95,53 @@ class Keyframe{
 class Keyframes{
   public:
     std::map<int,Keyframe>keyframes;
+
+    template<typename T>
+    static void moveToNext(T&it,T const&end,std::string const&n){
+      it++;
+      while(it!=end&&!it->second.has(n))it++;
+    }
+    template<typename T>
+    static T find(T&it,T const& end,int f,std::string const&n){
+      auto prev = it;
+      moveToNext(it,end,n);
+      while(it != end){
+        if(prev->first <= f && f < it->first && prev->second.has(n))
+          return prev;
+        prev = it;
+        moveToNext(it,end,n);
+      }
+      if(prev->first <= f && prev->second.has(n))
+        return prev;
+      return end;
+    }
+    
+    auto getKeyframe(int f,std::string const&n){
+      auto       it   = std::begin(keyframes);
+      auto const end  = std::end  (keyframes);
+      return find(it,end,f,n);
+    }
+    auto const getKeyframe(int f,std::string const&n)const{
+      auto       it   = std::cbegin(keyframes);
+      auto const end  = std::cend  (keyframes);
+      return find(it,end,f,n);
+    }
+
+
     template<typename T>
     T get(int f,std::string const&n,T v)const{
-      if(keyframes.empty())return v;
-      return getKeyframe(f).get<T>(n,v);
+      auto const it = getKeyframe(f,n);
+      if(it == std::end(keyframes))return v;
+      return it->second.get<T>(n,v);
     }
+
     template<typename T>
-    T&get(int f,std::string const&n){
-      return getKeyframe(f).get<T>(n);
+    T&get(int f,std::string const&n,T&v){
+      auto it = getKeyframe(f,n);
+      if(it == std::end(keyframes))return v;
+      return it->second.get<T>(n);
     }
+
     template<typename T>
     void set(int f,std::string const&n,T v){
       auto w = keyframes.emplace(std::piecewise_construct,std::forward_as_tuple(f),std::forward_as_tuple(n,v));
@@ -109,38 +150,14 @@ class Keyframes{
       }
     }
     void erase(int f,std::string const&n){
-      auto key = getKeyframe(f);
+      auto it = getKeyframe(f,n);
+      if(it == std::end(keyframes))return;
+      auto key = it->second;
       key.erase(n);
       if(key.data.empty())
         keyframes.erase(f);
     }
 
-    Keyframe const&getKeyframe(int f)const{
-      size_t i;
-      auto it  = std::cbegin(keyframes);
-      auto end = std::cend(keyframes);
-      auto prev = it;
-      it++;
-      while(it != end){
-        if(prev->first <= f && f < it->first)break;
-        prev = it;
-        it++;
-      }
-      return prev->second;
-    }
-    Keyframe &getKeyframe(int f){
-      size_t i;
-      auto it  = std::begin(keyframes);
-      auto end = std::end(keyframes);
-      auto prev = it;
-      it++;
-      while(it != end){
-        if(prev->first <= f && f < it->first)break;
-        prev = it;
-        it++;
-      }
-      return prev->second;
-    }
 };
 
 }
@@ -166,30 +183,47 @@ class VideoManager{
         nofFrames = video->nofFrames;
         end = video->nofFrames;
         keys.set<int>(0,"offset",0);
+        keys.set<float>(0,"contrast",1);
       }
       int getOffset(int f)const{
         return keys.get<int>(f,"offset",0);
+      }
+      float getContrast(int f)const{
+        return keys.get<float>(f,"contrast",1);
       }
     };
     std::shared_ptr<ge::gl::Texture>finalFrame;
     int32_t frame;
     std::vector<Stream>streams;
-    int activeClip = 0;
+    uint32_t activeClip = 0;
+
+    void setContrast(ge::gl::Program*prg){
+      std::vector<float>c;
+      for(auto const&s:streams)
+        c.push_back(s.getContrast(frame));
+      prg->set1fv("contrast",c.data(),c.size());
+    }
+    float getActiveClipContrast(){
+      return streams.at(1).getContrast(frame);
+    }
+
     void readAndUploadIfNecessary(){
-      activeClip = -1;
+      activeClip = 0;
       int clipCounter = 0;
       for(auto&s:streams){
         if(!s.video)return;
         auto frameToRead = frame+s.getOffset(frame);//s.offset;
         if(frame       >= s.end        )continue;
         if(frame       <  s.start      )continue;
-        if(clipCounter > 0)activeClip = clipCounter;
+
+        activeClip |= 1<<clipCounter;
+        clipCounter++;
+
         if(frameToRead >= s.nofFrames  )continue;
         if(frameToRead == s.loadedFrame)continue;
         if(frameToRead != s.loadedFrame+1){
           s.video->moveToFrame(frameToRead);
         }
-        clipCounter++;
 
         s.video->readFrame();
         s.loadedFrame = frameToRead;
@@ -236,22 +270,50 @@ class VideoManager{
     }
 
     int selectedStream = 1;
-    void addOffsetGUI(){
-      int f       = frame;
-
-      ImGui::Columns(3,"col",false);
-      ImGui::InputInt("stream",&selectedStream);
-      if(selectedStream >= streams.size())selectedStream = streams.size()-1;
-      ImGui::NextColumn();
-      auto&offset = streams.at(selectedStream).keys.get<int>(frame,"offset");
-      ImGui::InputInt("offset",&offset);
-      ImGui::NextColumn();
-      if(ImGui::Button("add")){
-        streams.at(selectedStream).keys.set(frame,"offset",offset);
+    void showContrastGUI(){
+      if(ImGui::Button("add contrast key point")){
+        streams.at(selectedStream).keys.set(frame,"contrast",1.f);
       }
-      ImGui::Columns(1);
+      auto&st = streams.at(selectedStream);
+      int counter = 0;
+      std::vector<std::tuple<int,float>>toInsert;
+      std::vector<int>toErase;
+      for(auto&key:st.keys.keyframes){
+        auto it = key.second.data.find("contrast");
+        if(it == std::end(key.second.data))continue;
+        auto&v = it->second.value.f32;
+        int f = key.first;
+
+
+        std::stringstream ss;
+        ss << "c" << counter;
+
+        if(ImGui::TreeNode(ss.str().c_str())){
+
+          ImGui::InputInt("frame",&f);
+          if(f != key.first){
+            toErase.push_back(key.first);
+            toInsert.push_back(std::tuple<int,float>(f,v));
+          }
+          
+          ImGui::DragFloat("contrast",&v,0.001f,0.001f,10,"%.5f");
+          if(ImGui::Button("delete"))
+            toErase.push_back(key.first);
+
+          ImGui::TreePop();
+        }
+        counter++;
+
+      }
+      for(auto const&t:toErase)
+        st.keys.erase(t,"contrast");
+      for(auto const&oo:toInsert)
+        st.keys.set(std::get<0>(oo),"contrast",std::get<1>(oo));
     }
     void showOffsetsGUI(){
+      if(ImGui::Button("add offset key point")){
+        streams.at(selectedStream).keys.set(frame,"offset",0);
+      }
       auto&st = streams.at(selectedStream);
       int counter = 0;
       std::vector<std::tuple<int,int>>toInsert;
@@ -264,7 +326,7 @@ class VideoManager{
 
 
         std::stringstream ss;
-        ss << "o" << counter;
+        ss << "offset" << counter;
 
         if(ImGui::TreeNode(ss.str().c_str())){
 
@@ -583,8 +645,8 @@ void editProgram(vars::Vars&vars){
   auto proj = vars.get<Project>("project");
   proj->videoManager.setFrame();
   //proj->videoManager.setOffset();
-  proj->videoManager.addOffsetGUI();
   proj->videoManager.showOffsetsGUI();
+  proj->videoManager.showContrastGUI();
   proj->videoManager.clipStartEndGUI();
 
   ImGui::Columns(3,"col",false);
@@ -637,7 +699,8 @@ void computeFrame(DVars&vars){
   auto proj = vars.get<Project>("project");
   proj->videoManager.bind();
   proj->videoManager.finalFrame->bindImage(0);
-  prg->set1i("activeClip",proj->videoManager.activeClip);
+  prg->set1ui("activeClip",proj->videoManager.activeClip);
+  proj->videoManager.setContrast(&*prg);
 
   auto auxBuffer = vars.get<ge::gl::Buffer>("auxBuffer");
   auxBuffer->clear(GL_R32UI,GL_RED_INTEGER,GL_UNSIGNED_INT);

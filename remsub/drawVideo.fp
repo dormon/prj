@@ -2,9 +2,10 @@
 
 layout(local_size_x=16,local_size_y=16)in;
 
+#define MAX_CLIPS 10
 
-layout(        binding=0)uniform usampler2D tex       [10];
-layout(rgba32f,binding=0)uniform image2D    finalFrame    ;
+layout(        binding=0)uniform usampler2D tex       [MAX_CLIPS];
+layout(rgba32f,binding=0)uniform image2D    finalFrame           ;
 
 layout(std430,binding=0)volatile buffer AuxBuffer{
   uint  jobCounter;
@@ -55,21 +56,24 @@ uvec3 filterNonWhite(uvec3 c){
 const float scaleBase = 10000;
 const float tranBase  = 10000;
 const float colorDistanceBase = 1000;
-const float contrastBase = 1000;
 
-uniform int activeClip = 1;
+uniform uint activeClip = 1u;
 
-uniform uint  drawMode    = 0;
-uniform uint  threshold   = 230;
-uniform vec2  help0offset = vec2(-4,46);
-uniform vec2  help0scale  = vec2(10052,9856);
-uniform float colorDistance = float(64);
-uniform float contrast      = float(contrastBase);
+uniform uint  drawMode            = 0;
+uniform uint  threshold           = 230;
+uniform vec2  help0offset         = vec2(-4,46);
+uniform vec2  help0scale          = vec2(10052,9856);
+uniform float colorDistance       = float(64);
+uniform float contrast[MAX_CLIPS] = {1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f};
 
 //bool isSub(vec2 pixel){
 //  uvec3 color = texture(tex[0],pixel).rgb;
 //  return color.x > threshold && color.y > threshold && color.z > threshold;
 //}
+
+void applyContract(inout vec3 color,float c){
+  color = clamp((color-.5f)*c,-.5f,.5f)+.5;
+}
 
 void compute(uint job){
   ivec2 outCoord = getThreadCoord(job);
@@ -86,9 +90,10 @@ void compute(uint job){
 
   vec3 bColor = vec3(color)      / vec3(255);
   vec3 hColor = vec3(help0Color) / vec3(255);
-  hColor = pow(hColor,vec3(contrast/contrastBase));
 
-  if(activeClip < 0){
+  applyContract(hColor,contrast[1]);
+
+  if(activeClip == 1u){
     writeColor(outCoord,bColor);
     return;
   }
@@ -105,7 +110,7 @@ void compute(uint job){
     writeColor(outCoord,vec3(length(bColor-hColor)));
   }
   bool shouldReplace = false;
-  shouldReplace = coord.y > 0.7 && coord.y < 0.95 && coord.x > 0.1 && coord.x < 0.9;
+  shouldReplace = coord.y > 0.5 && coord.y < 0.95 && coord.x > 0.1 && coord.x < 0.9;
   //shouldReplace = shouldReplace && (color.x > threshold) && (color.y > threshold) && (color.z > threshold);
   //shouldReplace = shouldReplace && isSub(coord);
   shouldReplace = shouldReplace && (length(bColor-hColor)>colorDistance/colorDistanceBase);
