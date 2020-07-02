@@ -45,43 +45,52 @@ class Data{
       INT   ,
       FLOAT ,
       DOUBLE,
+      VEC4  ,
     }type;
     union Value{
       int    i32;
       float  f32;
       double f64;
-      Value(float  v):f32(v){}
-      Value(int    v):i32(v){}
-      Value(double v):f64(v){}
+      glm::vec4 vec4;
+      Value(float           v):f32 (v){}
+      Value(int             v):i32 (v){}
+      Value(double          v):f64 (v){}
+      Value(glm::vec4 const&v):vec4(v){}
     }value;
-    void set(int    v){value = v;}
-    void set(float  v){value = v;}
-    void set(double v){value = v;}
-    Data(float  v):type(FLOAT ),value(v){}
-    Data(int    v):type(INT   ),value(v){}
-    Data(double v):type(DOUBLE),value(v){}
+    void set(int             v){value = v;}
+    void set(float           v){value = v;}
+    void set(double          v){value = v;}
+    void set(glm::vec4 const&v){value = v;}
+    Data(float           v):type(FLOAT ),value(v){}
+    Data(int             v):type(INT   ),value(v){}
+    Data(double          v):type(DOUBLE),value(v){}
+    Data(glm::vec4 const&v):type(VEC4  ),value(v){}
     template<typename T>T get()const;
     template<typename T>T&get();
     void print()const{
       if(type == INT   )std::cout << value.i32;
       if(type == FLOAT )std::cout << value.f32;
       if(type == DOUBLE)std::cout << value.f64;
+      if(type == VEC4  )std::cerr << "vec4("<<value.vec4.x<<","<<value.vec4.y<<","<<value.vec4.z<<","<<value.vec4.w<<")";
     }
 };
-template<>int    Data::get<int   >()const{return value.i32;}
-template<>float  Data::get<float >()const{return value.f32;}
-template<>double Data::get<double>()const{return value.f64;}
-template<>int   &Data::get<int   >()     {return value.i32;}
-template<>float &Data::get<float >()     {return value.f32;}
-template<>double&Data::get<double>()     {return value.f64;}
+template<>int       Data::get<int      >()const{return value.i32; }
+template<>float     Data::get<float    >()const{return value.f32; }
+template<>double    Data::get<double   >()const{return value.f64; }
+template<>glm::vec4 Data::get<glm::vec4>()const{return value.vec4;}
+template<>int      &Data::get<int      >()     {return value.i32; }
+template<>float    &Data::get<float    >()     {return value.f32; }
+template<>double   &Data::get<double   >()     {return value.f64; }
+template<>glm::vec4&Data::get<glm::vec4>()     {return value.vec4;}
 
 
 class Keyframe{
   public:
     std::map<std::string,Data>data;
-    Keyframe(std::string const&n,int    v){set(n,v);}
-    Keyframe(std::string const&n,float  v){set(n,v);}
-    Keyframe(std::string const&n,double v){set(n,v);}
+    Keyframe(std::string const&n,int             v){set(n,v);}
+    Keyframe(std::string const&n,float           v){set(n,v);}
+    Keyframe(std::string const&n,double          v){set(n,v);}
+    Keyframe(std::string const&n,glm::vec4 const&v){set(n,v);}
 
     template<typename T>
     void set(std::string const&n,T const&v){
@@ -177,14 +186,14 @@ class Keyframes{
 
     template<typename T>
     void set(int f,std::string const&n,T v){
-      std::cerr << "set("<<f<<","<<n<<","<<v<<")"<<std::endl;
+      //std::cerr << "set("<<f<<","<<n<<","<<v<<")"<<std::endl;
       auto w = keyframes.emplace(std::piecewise_construct,std::forward_as_tuple(f),std::forward_as_tuple(n,v));
       if(!std::get<1>(w)){
         std::get<0>(w)->second.set(n,v);
       }
     }
     void erase(int f,std::string const&n){
-      std::cerr <<"erase("<<f<<","<<n<<")"<<std::endl;
+      //std::cerr <<"erase("<<f<<","<<n<<")"<<std::endl;
       auto it = getKeyframe(f,n);
       if(it == std::end(keyframes))return;
       auto&key = it->second;
@@ -227,6 +236,9 @@ class VideoManager{
       float getContrast(int f)const{
         return keys.get<float>(f,"contrast",1);
       }
+      glm::vec4 getOffsetScale(int f)const{
+        return keys.get<glm::vec4>(f,"offsetScale",glm::vec4(0.f,0.f,1.f,1.f));
+      }
     };
     ~VideoManager(){
       for(auto&t:threads)
@@ -242,6 +254,12 @@ class VideoManager{
       for(auto const&s:streams)
         c.push_back(s.getContrast(frame));
       prg->set1fv("contrast",c.data(),c.size());
+    }
+    void setOffsetScale(ge::gl::Program*prg){
+      std::vector<glm::vec4>c;
+      for(auto const&s:streams)
+        c.push_back(s.getOffsetScale(frame));
+      prg->set4fv("offsetScale",(float*)c.data(),c.size());
     }
 
     int32_t getNofFrames()const{
@@ -357,6 +375,9 @@ class VideoManager{
     void setKeyValueGUI(std::string const&var,float&value,float step,float mmin,float mmax){
       ImGui::DragFloat(var.c_str(),&value,step,mmin,mmax,"%.7f");
     }
+    void setKeyValueGUI(std::string const&var,glm::vec4&value,glm::vec4 const& step,glm::vec4 const& mmin,glm::vec4 const& mmax){
+      ImGui::DragFloat4(var.c_str(),(float*)&value,step.x,mmin.x,mmax.x,"%.7f");
+    }
 
     template<typename ValueType>
     void showVarGUI(Stream&st,std::string const&var,ValueType step,ValueType mmin,ValueType mmax){
@@ -371,7 +392,7 @@ class VideoManager{
       std::vector<int>toErase;
       for(auto&key:st.keys.keyframes){
         if(!key.second.has(var))continue;
-        ValueType defValue = 0;
+        ValueType defValue = ValueType(0);
         auto&value = key.second.get(var,defValue);
         int f = key.first;
 
@@ -384,7 +405,7 @@ class VideoManager{
           ImGui::InputInt("frame",&f);
           if(f != key.first){
             toErase.push_back(key.first);
-            toInsert.push_back(std::tuple<int,int>(f,value));
+            toInsert.push_back(std::tuple<int,ValueType>(f,value));
           }
      
           setKeyValueGUI(var,value,step,mmin,mmax);
@@ -493,8 +514,9 @@ class VideoManager{
             st.keys.print();
           }
 
-          showVarGUI<float>(st,"offset"  ,0.0001f,-1e10,+1e10);
-          showVarGUI<float>(st,"contrast",0.001f,0.001,10.f);
+          showVarGUI<float    >(st,"offset"     ,0.0001f           ,-1e10           ,+1e10           );
+          showVarGUI<float    >(st,"contrast"   ,0.001f            ,0.001           ,10.f            );
+          showVarGUI<glm::vec4>(st,"offsetScale",glm::vec4(0.0001f),glm::vec4(-2.f) ,glm::vec4(2.f)  );
 
           ImGui::TreePop();
         }
@@ -519,6 +541,12 @@ class Project{
         for(auto const&it:j.items()){
           if(it.value().is_number_integer())s.set<int  >(frame,it.key(),it.value().get<int  >());
           if(it.value().is_number_float  ())s.set<float>(frame,it.key(),it.value().get<float>());
+          if(it.value().is_array()&&it.value().size() == 4&&it.value().at(0).is_number_float()){
+            glm::vec4 v;
+            for(int i=0;i<4;++i)
+              v[i] = it.value().at(i).get<float>();
+            s.set<glm::vec4>(frame,it.key(),v);
+          }
         }
       };
       auto const loadKey = [&](keyframe::Keyframes&s,json const&j){
@@ -553,6 +581,12 @@ class Project{
             j[d.first] = d.second.value.f32;
           if(d.second.type == keyframe::Data::INT)
             j[d.first] = d.second.value.i32;
+          if(d.second.type == keyframe::Data::DOUBLE)
+            j[d.first] = d.second.value.f64;
+          if(d.second.type == keyframe::Data::VEC4){
+            for(int i=0;i<4;++i)
+              j[d.first][i] = d.second.value.vec4[i];
+          }
         }
       };
 
@@ -714,6 +748,10 @@ void createProgram(vars::Vars&vars){
   }
 }
 
+
+//uniform vec2  help0offset         = vec2(-4,46);
+//uniform vec2  help0scale          = vec2(10052,9856);
+
 void createDrawProgram(vars::Vars&vars){
   FUNCTION_PROLOGUE("remsub");
   std::string const vsSrc = R".(
@@ -846,6 +884,7 @@ void computeFrame(DVars&vars){
   proj->videoManager.finalFrame->bindImage(0);
   prg->set1ui("activeClip",proj->videoManager.activeClip);
   proj->videoManager.setContrast(&*prg);
+  proj->videoManager.setOffsetScale(&*prg);
 
   auto auxBuffer = vars.get<ge::gl::Buffer>("auxBuffer");
   auxBuffer->clear(GL_R32UI,GL_RED_INTEGER,GL_UNSIGNED_INT);

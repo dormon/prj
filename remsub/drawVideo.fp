@@ -2,10 +2,10 @@
 
 layout(local_size_x=16,local_size_y=16)in;
 
-#define MAX_CLIPS 10
+#define MAX_CLIPS 8
 
-layout(        binding=0)uniform usampler2D tex       [MAX_CLIPS];
-layout(rgba8ui,binding=0)uniform uimage2D   finalFrame           ;
+layout(        binding=0)uniform usampler2D tex       [8];
+layout(rgba8ui,binding=0)uniform uimage2D   finalFrame   ;
 
 layout(std430,binding=0)volatile buffer AuxBuffer{
   uint  jobCounter;
@@ -52,9 +52,10 @@ uvec3 filterNonWhite(uvec3 c){
   return uvec3(all(equal(c,uvec3(255))))*255;
 }
 
+#define COPY2(x) x,x
+#define COPY4(x) COPY2(x),COPY2(x)
+#define COPY8(x) COPY4(x),COPY4(x)
 
-const float scaleBase = 10000;
-const float tranBase  = 10000;
 const float colorDistanceBase = 1000;
 
 uniform uint activeClip = 1u;
@@ -62,10 +63,10 @@ uniform uint activeClip = 1u;
 uniform uint  drawMode            = 5;
 uniform bool  drawDiff            = false;
 uniform uint  threshold           = 230;
-uniform vec2  help0offset         = vec2(-4,46);
-uniform vec2  help0scale          = vec2(10052,9856);
 uniform float colorDistance       = float(64);
-uniform float contrast[MAX_CLIPS] = {1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f,1.f};
+
+uniform vec4  offsetScale[MAX_CLIPS] = {COPY8(vec4(0.f,0.f,1.f,1.f))};
+uniform float contrast[MAX_CLIPS] = {COPY8(1.f)};
 
 //bool isSub(vec2 pixel){
 //  uvec3 color = texture(tex[0],pixel).rgb;
@@ -77,11 +78,12 @@ void applyContract(inout vec3 color,float c){
 }
 
 vec3 readStream(uint id,vec2 coord){
-  vec2 help0offsetf = vec2(help0offset) / vec2(tranBase);
-  uvec3 help0Color = texture(tex[id],coord*help0scale/vec2(scaleBase)+help0offsetf).rgb;
-  vec3 hColor = vec3(help0Color) / vec3(255);
-  applyContract(hColor,contrast[id]);
-  return hColor;
+  vec2 offset = offsetScale[id].xy;
+  vec2 scale  = offsetScale[id].zw;
+  uvec3 uColor = texture(tex[id],coord*scale+offset).rgb;
+  vec3 color = vec3(uColor) / vec3(255);
+  applyContract(color,contrast[id]);
+  return color;
 }
 
 float intensity(in vec3 color){
