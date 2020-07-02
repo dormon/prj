@@ -13,6 +13,10 @@
 #include <video.hpp>
 #include <FunctionPrologue.h>
 #include <json.hpp>
+#include<thread>
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 using namespace nlohmann;
 
 
@@ -38,36 +42,46 @@ namespace keyframe{
 class Data{
   public:
     enum Type{
-      INT  ,
-      FLOAT,
+      INT   ,
+      FLOAT ,
+      DOUBLE,
     }type;
     union Value{
-      int   i32;
-      float f32;
-      Value(float v):f32(v){}
-      Value(int   v):i32(v){}
+      int    i32;
+      float  f32;
+      double f64;
+      Value(float  v):f32(v){}
+      Value(int    v):i32(v){}
+      Value(double v):f64(v){}
     }value;
-    void set(int   v){value = v;}
-    void set(float v){value = v;}
-    Data(float v):type(FLOAT),value(v){}
-    Data(int   v):type(INT  ),value(v){}
+    void set(int    v){value = v;}
+    void set(float  v){value = v;}
+    void set(double v){value = v;}
+    Data(float  v):type(FLOAT ),value(v){}
+    Data(int    v):type(INT   ),value(v){}
+    Data(double v):type(DOUBLE),value(v){}
     template<typename T>T get()const;
     template<typename T>T&get();
     void print()const{
-      if(type == INT  )std::cout << value.i32;
-      if(type == FLOAT)std::cout << value.f32;
+      if(type == INT   )std::cout << value.i32;
+      if(type == FLOAT )std::cout << value.f32;
+      if(type == DOUBLE)std::cout << value.f64;
     }
 };
-template<>int   Data::get<int  >()const{return value.i32;}
-template<>float Data::get<float>()const{return value.f32;}
-template<>int  &Data::get<int  >()     {return value.i32;}
-template<>float&Data::get<float>()     {return value.f32;}
+template<>int    Data::get<int   >()const{return value.i32;}
+template<>float  Data::get<float >()const{return value.f32;}
+template<>double Data::get<double>()const{return value.f64;}
+template<>int   &Data::get<int   >()     {return value.i32;}
+template<>float &Data::get<float >()     {return value.f32;}
+template<>double&Data::get<double>()     {return value.f64;}
+
 
 class Keyframe{
   public:
     std::map<std::string,Data>data;
-    Keyframe(std::string const&n,int   v){set(n,v);}
-    Keyframe(std::string const&n,float v){set(n,v);}
+    Keyframe(std::string const&n,int    v){set(n,v);}
+    Keyframe(std::string const&n,float  v){set(n,v);}
+    Keyframe(std::string const&n,double v){set(n,v);}
 
     template<typename T>
     void set(std::string const&n,T const&v){
@@ -186,11 +200,11 @@ class Keyframes{
 class VideoManager{
   public:
     struct Stream{
-      int32_t offset = 0;
-      int32_t start  = 0;
-      int32_t end    = 0;
-      int32_t frame  = 0;
-      int32_t nofFrames = 0;
+      float   fps         = 25.f     ;
+      float   offset      = 0        ;
+      int32_t start       = 0        ;
+      int32_t end         = 0        ;
+      int32_t nofFrames   = 0        ;
       int32_t loadedFrame = -10000000;
       std::shared_ptr<Video>video;
       std::shared_ptr<ge::gl::Texture>tex;
@@ -203,16 +217,21 @@ class VideoManager{
         tex->texParameteri(GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
         nofFrames = video->nofFrames;
         end = video->nofFrames;
+        fps = video->fps;
         //keys.set<int>(0,"offset",0);
         //keys.set<float>(0,"contrast",1);
       }
-      int getOffset(int f)const{
-        return keys.get<int>(f,"offset",0);
+      float getOffset(int f)const{
+        return keys.get<float>(f,"offset",0);
       }
       float getContrast(int f)const{
         return keys.get<float>(f,"contrast",1);
       }
     };
+    ~VideoManager(){
+      for(auto&t:threads)
+        if(t.joinable())t.join();
+    }
     std::shared_ptr<ge::gl::Texture>finalFrame;
     int32_t frame;
     std::vector<Stream>streams;
@@ -225,6 +244,11 @@ class VideoManager{
       prg->set1fv("contrast",c.data(),c.size());
     }
 
+    int32_t getNofFrames()const{
+      if(streams.empty())return 0;
+      return streams.at(0).nofFrames;
+    }
+
     void readAndUploadIfNecessary(){
       activeClip = 0;
       int clipCounter = 0;
@@ -232,13 +256,17 @@ class VideoManager{
         auto&s=streams.at(clipCounter);
         if(!s.video)return;
 
-        auto frameInClip = frame-s.getOffset(frame);
 
         if(frame   >= s.end        )continue;
         if(frame   <  s.start      )continue;
 
+
         activeClip |= 1<<clipCounter;
 
+        float mainClipTime = frame/getFPS();
+
+        auto timeInClip = mainClipTime-s.getOffset(frame);
+        auto frameInClip = (int)roundf(timeInClip*s.fps);
         if(frameInClip <  0            )continue;
         if(frameInClip >= s.nofFrames  )continue;
         if(frameInClip == s.loadedFrame)continue;
@@ -248,9 +276,14 @@ class VideoManager{
 
         s.video->readFrame();
         s.loadedFrame = frameInClip;
-        s.frame = s.loadedFrame+1;
-        s.tex->setData2D(s.video->frame.data,GL_BGR_INTEGER);
+        if(!s.video->frame.empty())
+          s.tex->setData2D(s.video->frame.data,GL_BGR_INTEGER);
       }
+
+    }
+    float getFPS(){
+      if(streams.empty())return 25.f;
+      return streams.at(0).fps;
     }
     void bind(){
       for(size_t i=0;i<streams.size();++i){
@@ -259,37 +292,74 @@ class VideoManager{
         s.tex->bind(i);
       }
     }
+    void clampFrame(){
+      int32_t n = getNofFrames();
+      if(frame >= n)frame = n-1;
+      if(frame < 0 )frame = 0;
+    }
     void nextFrame(){
       frame++;
+      clampFrame();
     }
     void prevFrame(){
       frame--;
-      if(frame<0)frame=0;
+      clampFrame();
     }
     void gotoFrame(int32_t f){
       frame = f;
+      clampFrame();
     }
+
+    struct CPUFrame{
+      std::vector<uint8_t>data;
+      int frame;
+      CPUFrame(int s=1){
+        data.resize(s);
+      }
+    };
+
+    struct FrameBuffer{
+      std::vector<CPUFrame>frames   ;
+      std::vector<bool>    freeToUse;
+      int w;
+      int h;
+      FrameBuffer(int w=1,int h=1,int n=1):w(w),h(h){
+        freeToUse   = std::vector<bool>(n,true);
+        frames      = std::vector<CPUFrame>(n,w*h*3);
+      }
+    };
+    FrameBuffer frameBuffer;
+    size_t nofThreads = 8;
+    std::vector<std::thread>threads;
+
+
     void createFinalFrame(){
       if(streams.size() != 1)return;
       auto const&v = streams.at(0).video;
-      finalFrame = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGBA32F,1,v->width,v->height);
+      finalFrame = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGBA8UI,1,v->width,v->height);
       finalFrame->texParameteri(GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
       finalFrame->texParameteri(GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+      int h = streams.at(0).video->height;
+      int w = streams.at(0).video->width;
+      frameBuffer = FrameBuffer(w,h,nofThreads);
+      threads.resize(nofThreads);
     }
+
+
     void addVideo(std::string const&n){
       streams.emplace_back(n);
       createFinalFrame();
     }
 
-    void setKeyValueGUI(std::string const&var,int&value){
-      ImGui::InputInt(var.c_str(),&value);
+    void setKeyValueGUI(std::string const&var,int&value,int step,int mmin,int mmax){
+      ImGui::InputInt(var.c_str(),&value,step,mmin,mmax);
     }
-    void setKeyValueGUI(std::string const&var,float&value){
-      ImGui::DragFloat(var.c_str(),&value,0.001f,0.001f,10,"%.5f");
+    void setKeyValueGUI(std::string const&var,float&value,float step,float mmin,float mmax){
+      ImGui::DragFloat(var.c_str(),&value,step,mmin,mmax,"%.7f");
     }
 
     template<typename ValueType>
-    void showVarGUI(Stream&st,std::string const&var){
+    void showVarGUI(Stream&st,std::string const&var,ValueType step,ValueType mmin,ValueType mmax){
       std::stringstream addName;
       addName << "add " << var; 
       if(ImGui::Button(addName.str().c_str())){
@@ -317,7 +387,7 @@ class VideoManager{
             toInsert.push_back(std::tuple<int,int>(f,value));
           }
      
-          setKeyValueGUI(var,value);
+          setKeyValueGUI(var,value,step,mmin,mmax);
           if(ImGui::Button("delete"))
             toErase.push_back(key.first);
 
@@ -331,7 +401,81 @@ class VideoManager{
       for(auto const&oo:toInsert)
         st.keys.set(std::get<0>(oo),var,std::get<1>(oo));
     }
+    std::string outputExtension = "jpg";
+    std::string outputName = "/media/paposud/hodhod/01/01_";
+    void downloadFrame(std::vector<uint8_t>&data){
+      ge::gl::glGetTextureImage(finalFrame->getId(),0,GL_RGB_INTEGER,GL_UNSIGNED_BYTE,data.size(),data.data());
+    }
+    void saveFrame(int frame,int w,int h,std::vector<uint8_t>&data){
+      std::stringstream ss;
+      ss << outputName << std::setfill('0') << std::setw(7) << frame << "."<<outputExtension;
+      if(outputExtension == "jpg"){
+        stbi_write_jpg(ss.str().c_str(),w,h,3,data.data(),100);
+      }
+      if(outputExtension == "png"){
+        stbi_write_png(ss.str().c_str(),w,h,3,data.data(),3);
+      }
+    }
+
+    int getWidth()const{
+      return streams.at(0).video->width;
+    }
+    int getHeight()const{
+      return streams.at(0).video->height;
+    }
+
+
+
+    void saveFrame(){
+      downloadFrame(frameBuffer.frames.at(0).data);
+      saveFrame(frame,getWidth(),getHeight(),frameBuffer.frames.at(0).data);
+    }
+
+    size_t findFreeThread(){
+      size_t i = 0;
+
+      while(true){
+        i = 0;
+        for(i=0;i<nofThreads;++i){
+          if(frameBuffer.freeToUse.at(i)){
+            if(threads.at(i).joinable())
+              threads.at(i).join();
+            frameBuffer.freeToUse.at(i) = false;
+            break;
+          }
+        }
+        if(i<frameBuffer.frames.size())
+          break;
+      }
+      return i;
+    }
+
+    void saveFrameParallel(){
+      auto i = findFreeThread();
+
+      downloadFrame(frameBuffer.frames.at(i).data);
+
+      threads.at(i) = std::thread([i,this](){
+        saveFrame(this->frame,getWidth(),getHeight(),frameBuffer.frames.at(i).data);
+        frameBuffer.freeToUse.at(i) = true;
+      });
+    }
+
+    void guiTextInput(std::string const&name,std::string&txt){
+      size_t const bufSize = 256;
+      char buf[bufSize];
+      strcpy(buf, txt.c_str());
+      ImGui::InputText(name.c_str(),buf,bufSize);
+      txt = std::string(buf);
+    }
+
     void showGUI(){
+      if(ImGui::Button("screen")){
+        saveFrame();
+      }
+      guiTextInput("ext",outputExtension);
+      guiTextInput("outputName",outputName);
+
       size_t streamCounter=0;
       for(auto&st:streams){
         std::stringstream ss;
@@ -349,8 +493,8 @@ class VideoManager{
             st.keys.print();
           }
 
-          showVarGUI<int  >(st,"offset"  );
-          showVarGUI<float>(st,"contrast");
+          showVarGUI<float>(st,"offset"  ,0.0001f,-1e10,+1e10);
+          showVarGUI<float>(st,"contrast",0.001f,0.001,10.f);
 
           ImGui::TreePop();
         }
@@ -359,6 +503,7 @@ class VideoManager{
     }
     void setFrame(){
       ImGui::InputInt("goto",&frame);
+      clampFrame();
     }
 };
 
@@ -574,7 +719,7 @@ void createDrawProgram(vars::Vars&vars){
   std::string const vsSrc = R".(
   #version 450
 
-  layout(binding=0)uniform sampler2D finalFrame;
+  layout(binding=0)uniform usampler2D finalFrame;
 
   uniform uvec2 windowSize = uvec2(512);
   uniform float zoom       = 1.f;
@@ -589,6 +734,7 @@ void createDrawProgram(vars::Vars&vars){
 
     vCoord = vec2(gl_VertexID&1,gl_VertexID>>1);
     gl_Position = vec4((-1+2*vCoord)*scale+offset,0,1);
+    vCoord.y = 1-vCoord.y;
   }
 
   ).";
@@ -596,13 +742,13 @@ void createDrawProgram(vars::Vars&vars){
   auto fsSrc = R".(
   #version 450
 
-  layout(binding=0)uniform sampler2D finalFrame;
+  layout(binding=0)uniform usampler2D finalFrame;
 
   in vec2 vCoord;
   out vec3 fColor;
 
   void main(){
-    fColor = texture(finalFrame,vCoord).xyz;
+    fColor = vec3(texture(finalFrame,vCoord).xyz/vec3(255));
   }
 
   ).";
@@ -639,13 +785,8 @@ void editProgram(vars::Vars&vars){
   std::strcpy(text,src.data());
 
   static ImGuiInputTextFlags flags = ImGuiInputTextFlags_AllowTabInput;
-  ImGui::InputTextMultiline("##source", text, IM_ARRAYSIZE(text), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 32), flags);
+  ImGui::InputTextMultiline("##source", text, IM_ARRAYSIZE(text), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 64), flags);
   src = text;
-
-
-  auto proj = vars.get<Project>("project");
-  proj->videoManager.setFrame();
-  proj->videoManager.showGUI();
 
   ImGui::Columns(3,"col",false);
   if(ImGui::Button("comp")){
@@ -660,6 +801,11 @@ void editProgram(vars::Vars&vars){
     loadFragment(vars);
   }
   ImGui::Columns(1);
+
+  auto proj = vars.get<Project>("project");
+  proj->videoManager.setFrame();
+  proj->videoManager.showGUI();
+
   if(ImGui::BeginMainMenuBar()){
     if(ImGui::BeginMenu("file")){
       if(ImGui::MenuItem("open")){
@@ -750,6 +896,12 @@ void EmptyProject::draw(){
   computeFrame(vars);
   ge::gl::glMemoryBarrier(GL_ALL_BARRIER_BITS);
   drawFinalFrame(vars);
+
+  if(vars.addOrGetBool("saveMode",false)){
+    proj->videoManager.saveFrameParallel();
+    if(proj->videoManager.frame >= proj->videoManager.getNofFrames())
+      exit(0);
+  }
 
   editProgram(vars);
 

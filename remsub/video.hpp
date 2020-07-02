@@ -19,16 +19,13 @@ class Video{
     void readFrame(){
       video >> frame;
     }
-    void onlyRead(){
-      video >> frame;
-      moveToPrevFrame();
-    }
     void moveToNextFrame(){
       auto id = getFrameId();
       if(id+1 == nofFrames)return;
       video.set(cv::CAP_PROP_POS_FRAMES,id+1);
     }
     void moveToFrame(size_t f){
+      std::cerr << "moveToFrame" << std::endl;
       if(f+1 >= nofFrames)f=nofFrames-1;
       video.set(cv::CAP_PROP_POS_FRAMES,f);
     }
@@ -48,7 +45,8 @@ class Video{
       f = frame.clone();
     }
     cv::Mat frame;
-    uint32_t width,height,nofFrames,fps;
+    uint32_t width,height,nofFrames;
+    double   fps;
   protected:
     void ifVideoIsNotOpenThrow(){
       if(video.isOpened())return;

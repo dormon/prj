@@ -21,7 +21,7 @@
         {
           "data": {
             "contrast": 1.0,
-            "offset": -918
+            "offset": -30.63683319091797
           },
           "frame": 0
         },
@@ -39,27 +39,33 @@
         },
         {
           "data": {
-            "offset": -919
+            "offset": -30.671497344970703
           },
           "frame": 7469
         },
         {
           "data": {
-            "offset": -920
+            "offset": -30.68426513671875
           },
           "frame": 8015
+        },
+        {
+          "data": {
+            "contrast": 1065839756
+          },
+          "frame": 54980
         }
       ],
       "start": 1703
     },
     {
-      "end": 107559,
+      "end": 107300,
       "file": "/media/paposud/hodzunw/02.mp4",
       "keys": [
         {
           "data": {
             "contrast": 1.0,
-            "offset": 82265
+            "offset": 2743.9892578125
           },
           "frame": 0
         }

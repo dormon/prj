@@ -5,7 +5,7 @@ layout(local_size_x=16,local_size_y=16)in;
 #define MAX_CLIPS 10
 
 layout(        binding=0)uniform usampler2D tex       [MAX_CLIPS];
-layout(rgba32f,binding=0)uniform image2D    finalFrame           ;
+layout(rgba8ui,binding=0)uniform uimage2D   finalFrame           ;
 
 layout(std430,binding=0)volatile buffer AuxBuffer{
   uint  jobCounter;
@@ -42,7 +42,7 @@ ivec2 getThreadCoord(in uint job){
 }
 
 void writeColor(ivec2 coord,in vec3 color){
-  imageStore(finalFrame,coord,vec4(color,1));
+  imageStore(finalFrame,coord,uvec4(clamp(vec4(color,1),vec4(0),vec4(1))*255));
 }
 
 uvec3 thresholdRGB(uvec3 c,uint t){
@@ -59,7 +59,7 @@ const float colorDistanceBase = 1000;
 
 uniform uint activeClip = 1u;
 
-uniform uint  drawMode            = 0;
+uniform uint  drawMode            = 5;
 uniform bool  drawDiff            = false;
 uniform uint  threshold           = 230;
 uniform vec2  help0offset         = vec2(-4,46);
@@ -84,13 +84,39 @@ vec3 readStream(uint id,vec2 coord){
   return hColor;
 }
 
+float intensity(in vec3 color){
+  return (color.x+color.y+color.z)/3.f;
+}
+
+bool shouldRep(in vec3 base,in vec3 help,in vec2 coord){
+  bool isInBox = coord.y > 0.5 && coord.y < 0.95 && coord.x > 0.1 && coord.x < 0.9;
+  if(!isInBox)return false;
+
+  bool baseBrighter = dot(base-help,vec3(1))>0;
+  
+  bool baseIsTooDark = intensity(base) < 0.2;
+  bool helpIsTooBright = intensity(help) > 0.7;
+
+  float dist = length(base-help);
+
+  bool tooFar = dist > colorDistance/colorDistanceBase;
+
+  if(tooFar){
+    //if(baseIsTooDark && !helpIsTooBright)return true;
+    //return baseBrighter;
+    return true;
+  }
+  return false;
+
+}
+
 void compute(uint job){
   ivec2 outCoord = getThreadCoord(job);
   
   ivec2 size = imageSize(finalFrame);
   vec2 coord = vec2(outCoord) / vec2(size-1);
 
-  coord = vec2(coord.x,1-coord.y);
+  coord = vec2(coord.x,coord.y);
 
 
   uvec3 color      = texture(tex[0],coord).rgb;
@@ -136,15 +162,13 @@ void compute(uint job){
     writeColor(outCoord,vec3(color) / vec3(255));
   }
 
-  bool shouldReplace = false;
-  shouldReplace = coord.y > 0.5 && coord.y < 0.95 && coord.x > 0.1 && coord.x < 0.9;
-  //shouldReplace = shouldReplace && (color.x > threshold) && (color.y > threshold) && (color.z > threshold);
-  //shouldReplace = shouldReplace && isSub(coord);
-  shouldReplace = shouldReplace && (length(bColor-hColor)>colorDistance/colorDistanceBase);
+  bool shouldReplace = shouldRep(bColor,hColor,coord);
   if(drawMode == 4){
     if(shouldReplace){
       writeColor(outCoord,vec3(1,0,0));
-    }
+    }else
+      writeColor(outCoord,vec3(0,0,0));
+    return;
   }
   if(drawMode == 5){
     if(shouldReplace)writeColor(outCoord,hColor);
