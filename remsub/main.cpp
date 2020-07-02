@@ -261,6 +261,11 @@ class VideoManager{
         c.push_back(s.getOffsetScale(frame));
       prg->set4fv("offsetScale",(float*)c.data(),c.size());
     }
+    void setSubBox(ge::gl::Program*prg){
+      if(streams.empty())return;
+      auto c = streams.at(0).keys.get<glm::vec4>(frame,"subBox",glm::vec4(0.f,1.f,0.f,1.f));
+      prg->set4fv("subBox",(float*)&c);
+    }
 
     int32_t getNofFrames()const{
       if(streams.empty())return 0;
@@ -384,7 +389,7 @@ class VideoManager{
       std::stringstream addName;
       addName << "add " << var; 
       if(ImGui::Button(addName.str().c_str())){
-        st.keys.set(frame,var.c_str(),0);
+        st.keys.set<ValueType>(frame,var.c_str(),ValueType(0));
       }
       int counter = 0;
 
@@ -517,6 +522,9 @@ class VideoManager{
           showVarGUI<float    >(st,"offset"     ,0.0001f           ,-1e10           ,+1e10           );
           showVarGUI<float    >(st,"contrast"   ,0.001f            ,0.001           ,10.f            );
           showVarGUI<glm::vec4>(st,"offsetScale",glm::vec4(0.0001f),glm::vec4(-2.f) ,glm::vec4(2.f)  );
+          if(streamCounter == 0)
+            showVarGUI<glm::vec4>(st,"subBox",glm::vec4(0.01f),glm::vec4(0.f) ,glm::vec4(1.f)  );
+
 
           ImGui::TreePop();
         }
@@ -715,6 +723,12 @@ void createProgram(vars::Vars&vars){
           ge::gl::glGetUniformuiv(prg->getId(),prg->getUniformLocation(name),&v);
           vars.addUint32("uniforms."+name,v);break;
         }
+      case GL_INT:
+        {
+          int v;
+          ge::gl::glGetUniformiv(prg->getId(),prg->getUniformLocation(name),(int*)&v);
+          vars.addInt32("uniforms."+name,v);break;
+        }
       case GL_INT_VEC2:
         {
           glm::ivec2 v;
@@ -885,6 +899,7 @@ void computeFrame(DVars&vars){
   prg->set1ui("activeClip",proj->videoManager.activeClip);
   proj->videoManager.setContrast(&*prg);
   proj->videoManager.setOffsetScale(&*prg);
+  proj->videoManager.setSubBox(&*prg);
 
   auto auxBuffer = vars.get<ge::gl::Buffer>("auxBuffer");
   auxBuffer->clear(GL_R32UI,GL_RED_INTEGER,GL_UNSIGNED_INT);
