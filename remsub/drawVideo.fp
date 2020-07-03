@@ -62,10 +62,10 @@ const float colorDistanceBase = 1000;
 
 uniform uint activeClip = 1u;
 
-uniform uint  drawMode            = 4;
+uniform uint  drawMode            = 7;
 uniform bool  drawDiff            = false;
 uniform uint  threshold           = 230;
-uniform float colorDistance       = float(64);
+uniform float colorDistance       = float(557);
 
 uniform vec4  subBox                 = vec4(.1,.9,.5,.95);
 uniform vec4  offsetScale[MAX_CLIPS] = {COPY8(vec4(0.f,0.f,1.f,1.f))};
@@ -89,6 +89,18 @@ vec3 readStream(uint id,vec2 coord){
   return color;
 }
 
+vec3 loadBase(vec2 coord){
+  return readStream(0,coord);
+}
+
+vec3 loadHelp(vec2 coord){
+  if((activeClip & (1<<1)) != 0)
+    return readStream(1,coord);
+  if((activeClip & (1<<2)) != 0)
+    return readStream(2,coord);
+  return vec3(0);
+}
+
 float intensity(in vec3 color){
   return (color.x+color.y+color.z)/3.f;
 }
@@ -102,32 +114,10 @@ uniform float subIntensity = 0.8;
 uniform int dilatation=2;
 
 void loadIsSubToShared(float isSub,uint job){
-
-  //if(gl_LocalInvocationIndex==0){
-  //  for(int i=0;i<WGS;++i){
-  //    isPixelSub[0 ][1+i]=0.f;
-  //    //isPixelSub[17][1+i]=0.f;
-
-  //  }
-  //}
-  //memoryBarrierShared();
-  //barrier();
-
-  //if(gl_LocalInvocationIndex==0){
-  //  for(int i=0;i<FULL_TILE;++i)
-  //    for(int j=0;j<FULL_TILE;++j)
-  //      isPixelSub[i][j] = 0.f;
-  //}
-  //memoryBarrierShared();
-  //barrier();
-
-
   ivec2 loc = ivec2(gl_LocalInvocationID.xy);
-  //load center
   isPixelSub[PADDING+loc.x][PADDING+loc.y] = isSub;
 
 #if PADDING != 0
-  //return;
 
   ivec2 tileCoord = getJobCoord(job);
 
@@ -139,39 +129,31 @@ void loadIsSubToShared(float isSub,uint job){
   }else if(int(gl_LocalInvocationIndex)>=(PADDING*FULL_TILE+2*PADDING*WGS)){
     newlii = int(gl_LocalInvocationIndex)+(PADDING+WGS)*FULL_TILE-PADDING*FULL_TILE-2*PADDING*WGS;
   }else{
-    //int ww = int(gl_LocalInvocationIndex)-PADDING*FULL_TILE;
-    //if(ww <  16)newlii = FULL_TILE*PADDING + ww     *FULL_TILE                ;
-    //if(ww >= 16)newlii = FULL_TILE*PADDING + (ww-16)*FULL_TILE + (PADDING+WGS);
     int ww = int(gl_LocalInvocationIndex)-PADDING*FULL_TILE;
     newlii = FULL_TILE*PADDING + ((ww)/(PADDING*2))*FULL_TILE + int((ww%(PADDING*2))>=PADDING)*(PADDING+WGS) + (ww%PADDING);
   }
 
   if(newlii >= 0){
     ivec2 lll = ivec2(newlii%FULL_TILE,newlii/FULL_TILE);
-    isPixelSub[lll.x][lll.y] = float(intensity(readStream(0,vec2(tileCoord-ivec2(PADDING)+lll)/vec2(imageSize(finalFrame)-1)))>subIntensity);
+    vec2 coord = vec2(tileCoord-ivec2(PADDING)+lll)/vec2(imageSize(finalFrame)-1);
+    vec3 base = loadBase(coord);
+    vec3 help = loadHelp(coord);
+    float dist = length(base-help);
+
+    isPixelSub[lll.x][lll.y] = float(dist > colorDistance/colorDistanceBase);
   }
 #endif
 
-  //if(gl_LocalInvocationIndex==0){
-  //  ivec2 tileCoord = getJobCoord(job);
-  //  for(int i=0;i<FULL_TILE;++i)
-  //    for(int j=0;j<FULL_TILE;++j)
-  //      isPixelSub[i][j] = float(intensity(readStream(0,vec2(tileCoord+ivec2(i,j))/vec2(imageSize(finalFrame)-1)))>subIntensity);
-  //      //isPixelSub[i][j] = float(intensity(readStream(0,tileCoord-ivec2(PADDING)+ivec2(i,j)))>subIntensity);
-  //}
-  memoryBarrierShared();
   barrier();
-  //ivec2 loc = ivec2(gl_LocalInvocationID.xy);
-  ////load center
-  //isPixelSub[PADDING+loc.x][PADDING+loc.y] = isSub;
-  //memoryBarrierShared();
-  //barrier();
 }
 
-float computeIsPixelSub(in vec3 color,uint job){
+float computeIsPixelSub(in vec3 base,in vec3 help,uint job){
   ivec2 loc = ivec2(gl_LocalInvocationID.xy)+ivec2(PADDING);
-  float isSub = float(intensity(color)>subIntensity);
+  float dist = length(base-help);
+  float isSub = float(dist > colorDistance/colorDistanceBase);
   loadIsSubToShared(isSub,job);
+
+  barrier();
 
   for(int i=-dilatation;i<=dilatation;++i){
     if(i==0)continue;
@@ -186,11 +168,11 @@ float computeIsPixelSub(in vec3 color,uint job){
 bool shouldRep(in vec3 base,in vec3 help,in vec2 coord,uint job){
   bool isInBox = coord.y > subBox.z && coord.y < subBox.w && coord.x > subBox.x && coord.x < subBox.y;
 
-  if(!isInBox)return false;
+  bool isSub = computeIsPixelSub(base,help,job)>0;
 
-  bool isSub = computeIsPixelSub(base,job)>0;
-
-  if(isSub)return true;
+  //if(!isInBox)return false;
+  if(isInBox && isSub)return true;
+  else return false;
 
 
   bool baseBrighter = dot(base-help,vec3(1))>0;
@@ -220,17 +202,13 @@ void compute(uint job){
   coord = vec2(coord.x,coord.y);
 
 
-  //uvec3 color      = texture(tex[0],coord).rgb;
-
-  //vec3 bColor = vec3(color)      / vec3(255);
-  vec3 bColor = readStream(0,coord);
-
-
-  vec3 hColor;
-  if((activeClip & (1<<1)) != 0)
-    hColor = readStream(1,coord);
-  if((activeClip & (1<<2)) != 0)
-    hColor = readStream(2,coord);
+  vec3 bColor = loadBase(coord);
+  vec3 hColor = loadHelp(coord);
+  if(drawMode == 7){
+    if(coord.x<0.5)writeColor(outCoord,bColor);
+    else           writeColor(outCoord,hColor);
+    return;
+  }
 
 
   //draw english stream

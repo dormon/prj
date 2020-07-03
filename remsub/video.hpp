@@ -44,6 +44,9 @@ class Video{
       }
       f = frame.clone();
     }
+    float getFrameTime()const{
+      return video.get(cv::CAP_PROP_POS_MSEC);
+    }
     cv::Mat frame;
     uint32_t width,height,nofFrames;
     double   fps;

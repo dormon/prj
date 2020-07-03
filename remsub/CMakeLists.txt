@@ -17,6 +17,7 @@ add_executable(${PROJECT_NAME}
   Barrier.h 
   FunctionPrologue.h
   video.hpp
+  keyframes.hpp
   json.hpp
   stb_image_write.h
   )
