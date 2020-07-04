@@ -142,7 +142,7 @@ class VideoManager{
         //  std::cerr << "frameTime: " << s.video->getFrameTime() << std::endl;
         //}
         if(clipCounter == 0){
-          std::cerr << "main: " << s.video->getFrameTime() << std::endl;
+          std::cerr << "main: " << s.video->getFrameId() << " " << s.video->getFrameTime() << std::endl;
         }
 
         if(frameInClip <  0            )continue;

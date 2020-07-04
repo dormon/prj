@@ -27,11 +27,16 @@ class Video{
     void moveToFrame(size_t f){
       std::cerr << "moveToFrame" << std::endl;
       if(f+1 >= nofFrames)f=nofFrames-1;
+      //video.set(cv::CAP_PROP_POS_FRAMES,0);
+      //readFrame();
       video.set(cv::CAP_PROP_POS_FRAMES,f);
+      //video.set(cv::CAP_PROP_POS_MSEC,(f/fps)*1000);
+      //video.grab();
     }
     void moveToPrevFrame(){
       auto id = getFrameId();
       if(id == 0)return;
+
       video.set(cv::CAP_PROP_POS_FRAMES,id-1);
     }
     size_t getFrameId()const{
