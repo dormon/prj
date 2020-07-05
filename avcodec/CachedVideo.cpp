@@ -1,6 +1,40 @@
 #include "CachedVideo.hpp"
 
-cachedVideo::Video::Video(char const*fileName,int id){
+
+cachedVideo::FrameCache::FrameCache(int64_t n,size_t frameSize){
+  cache.resize(n);
+  for(auto&f:cache)
+    f.resize(frameSize);
+}
+
+bool cachedVideo::FrameCache::has(int64_t f)const{
+  return frameToCache.count(f)>0;
+}
+
+cachedVideo::FrameBytes&cachedVideo::FrameCache::get(int64_t f){
+  auto&res = cache.at(frameToCache.at(f));
+  lru.erase(std::find(std::cbegin(lru),std::cend(lru),f));
+  lru.push_back(f);
+  return res;
+}
+
+cachedVideo::FrameBytes&cachedVideo::FrameCache::reuseLRU(int64_t f){
+  if(lru.size() < cache.size()){
+    frameToCache[f] = lru.size();
+  }else{
+    auto lf = lru.front();
+    lru.pop_front();
+    auto cacheId = frameToCache.at(lf);
+    frameToCache.erase(lf);
+    frameToCache[f] = cacheId;
+  }
+  lru.push_back(f);
+  return cache.at(frameToCache.at(f));
+}
+cachedVideo::FrameCache::FrameCache(){}
+
+
+cachedVideo::Video::Video(char const*fileName,int id,size_t cacheSize){
   int ret;
   ret = avformat_open_input(&ctx, fileName,nullptr,nullptr);
   throwAVError(ret);
@@ -36,7 +70,7 @@ cachedVideo::Video::Video(char const*fileName,int id){
   frame = av_frame_alloc();
   if(frame == nullptr)throw std::runtime_error("cannot allocate frame");
   getVideoInfo();
-  frameCache = FrameCache(10,width*height*3);
+  frameCache = FrameCache(cacheSize,width*height*3);
 
   sws_ctx = sws_getContext(width, height,codec_ctx->pix_fmt,width, height,AV_PIX_FMT_RGB24,0, 0, 0, 0);
   if(!sws_ctx)throw std::runtime_error("cannot create sws_ctx");
@@ -57,7 +91,7 @@ void cachedVideo::Video::throwAVError(int ret){
 }
 
 
-cachedVideo::Video::FrameBytes const&cachedVideo::Video::getFrame(int64_t f){
+cachedVideo::FrameBytes const&cachedVideo::Video::getFrame(int64_t f){
   //std::cerr << "lru: " << std::endl;
   //for(auto const&x:frameCache.lru)std::cerr << x << " ";
   //std::cerr << std::endl;
@@ -159,6 +193,11 @@ void cachedVideo::Video::read(FrameBytes&data){
     av_packet_unref(pkt);
     if(stop)break;
   }
+}
+
+int64_t cachedVideo::Video::getTS(int64_t frame){
+  auto timeBase = (int64_t(codec_ctx->time_base.num) * AV_TIME_BASE) / int64_t(codec_ctx->time_base.den);
+  return int64_t(frame) * timeBase;
 }
 
 void cachedVideo::Video::getVideoInfo(){
