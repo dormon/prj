@@ -2,7 +2,7 @@ BIN      = isShared
 LIB      = -lavdevice -lavformat -lavfilter -lavcodec -lswresample -lswscale -lavutil
 CPPFLAGS = -std=c++1y -Wall -O3
 CPP      = g++
-OBJ      = main.o
+OBJ      = main.o CachedVideo.o
 
 
 
@@ -12,7 +12,7 @@ all: ${BIN}
 ${BIN}: ${OBJ}
 	${CPP} ${OBJ} -o ${BIN} ${LIB}
 
-%.o: %.cpp %.h
+%.o: %.cpp %.h %.hpp CachedVideo.hpp
 	${CPP} -o $@ ${CPPFLAGS} -c $<
 
 run: ${BIN}
