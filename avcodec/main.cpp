@@ -50,50 +50,6 @@ extern "C"{
 
 #define CHECK_ERR(ERR) {if ((ERR)<0) return -1; }
 
-std::string getAVError(int ret){
-  size_t const bufSize = 4096;
-  char buf[bufSize];
-  av_strerror(ret,buf,bufSize);
-  return std::string(buf);
-}
-
-void throwAVError(int ret){
-  if(ret == 0)return;
-  auto err = getAVError(ret);
-  throw std::runtime_error(err);
-}
-
-
-/*
-void AV_seek(AV * av, size_t frame)
-{
-    int frame_delta = frame - av->frame_id;
-    if (frame_delta < 0 || frame_delta > 5)
-        av_seek_frame(av->fmt_ctx, av->video_stream_id,
-                frame, AVSEEK_FLAG_BACKWARD);
-    while (av->frame_id != frame)
-        AV_read_frame(av);
-}
-
-void AV_read_frame(AV * av)
-{
-    AVPacket packet;
-    int frame_done;
-
-    while (av_read_frame(av->fmt_ctx, &packet) >= 0) {
-        if (packet.stream_index == av->video_stream_id) {
-            avcodec_decode_video2(av->codec_ctx, av->frame, &frame_done, &packet);
-            if (frame_done) {
-                ...
-                av->frame_id = packet.dts;
-                av_free_packet(&packet);
-                return;
-            }
-        }
-        av_free_packet(&packet);
-    }
-}
-*/
 
 
 class Video{
@@ -138,6 +94,19 @@ class Video{
 
       sws_ctx = sws_getContext(width, height,codec_ctx->pix_fmt,width, height,AV_PIX_FMT_RGB24,0, 0, 0, 0);
       if(!sws_ctx)throw std::runtime_error("cannot create sws_ctx");
+    }
+
+    std::string getAVError(int ret){
+      size_t const bufSize = 4096;
+      char buf[bufSize];
+      av_strerror(ret,buf,bufSize);
+      return std::string(buf);
+    }
+    
+    void throwAVError(int ret){
+      if(ret == 0)return;
+      auto err = getAVError(ret);
+      throw std::runtime_error(err);
     }
 
     int64_t activeFrame = 0;
@@ -190,8 +159,6 @@ class Video{
       //for(auto const&x:frameCache.frameToCache)std::cerr << x.first << "-" << x.second << " ";
       //std::cerr << std::endl;
 
-
-
       if(frameCache.has(f))return frameCache.get(f);
       auto&res = frameCache.reuseLRU(f);
       loadFrame(res,f);
@@ -203,7 +170,6 @@ class Video{
       seek(f);
       //std::cerr << "we seeked to dts: " << pkt->dts << " ";
       read(data);
-      //std::cerr << " we get dts: " << pkt->dts << std::endl;
     }
 
     int64_t getNofFrames()const{
@@ -258,45 +224,13 @@ class Video{
     void read(FrameBytes&data){
       int ret;
       bool stop = false;
-      //while((ret = av_read_frame(ctx,pkt))!=AVERROR_EOF){
-      //  throwAVError(ret);
-      //  if (pkt->stream_index == streamId ){
-
-      //    ret = avcodec_send_packet(codec_ctx, pkt);
-      //    throwAVError(ret);
-
-      //    while(ret>=0){
-      //      ret = avcodec_receive_frame(codec_ctx, frame);
-      //      if (ret != AVERROR(EAGAIN) && ret != AVERROR_EOF)throwAVError(ret);
-      //    }
-
-
-      //    std::cerr << "linesize[0]: " << frame->linesize[0] << std::endl;
-      //    std::cerr << "linesize[1]: " << frame->linesize[1] << std::endl;
-      //    std::cerr << "linesize[2]: " << frame->linesize[2] << std::endl;
-      //    std::cerr << "linesize[3]: " << frame->linesize[3] << std::endl;
-      //    std::cerr << "channels: " << frame->channels << std::endl;
-      //    std::cerr << "codec_ctx->channels: "<<codec_ctx->channels<<std::endl;
-      //    std::cerr << "frame->data[0]: " << frame->data[0] << std::endl;
-      //    for(int y=0;y<height;++y)
-      //      for(int x=0;x<width;++x){
-      //        data[(y*width+x)*3+0] = 0 ;//frame->data[0][(y*frame->linesize[0]+x)];
-      //        data[(y*width+x)*3+1] = 255;//frame->data[0][(y*frame->linesize[0]+x)];
-      //        data[(y*width+x)*3+2] = 0;//frame->data[0][(y*frame->linesize[0]+x)];
-      //      }
-      //    av_frame_unref(frame);
-      //    stop = true;
-
-      //  }
-      //  av_packet_unref(pkt);
-      //  if(stop)break;
-      //}
 
       while (1) {
         if ((ret = av_read_frame(ctx, pkt)) < 0)
            break;
         if (pkt->stream_index == streamId) {
           ret = avcodec_send_packet(codec_ctx, pkt);
+          //std::cerr << " we get dts: " << pkt->dts << std::endl;
           throwAVError(ret);
           while (ret >= 0) {
             ret = avcodec_receive_frame(codec_ctx, frame);
@@ -305,24 +239,18 @@ class Video{
 
             //frame->pts = frame->best_effort_timestamp;
             
-            //do stuff
-
             int const dstStride[1] = {width*3};
             uint8_t*const dst [1] = {data.data()};
             sws_scale(sws_ctx,frame->data,frame->linesize,0,height,dst,dstStride);
             stop = true;
             av_frame_unref(frame);
           }
+          activeFrame++;
         }
         av_packet_unref(pkt);
         if(stop)break;
       }
-
-
-
     }
-
-
 
     int64_t getTS(int64_t frame){
       auto timeBase = (int64_t(codec_ctx->time_base.num) * AV_TIME_BASE) / int64_t(codec_ctx->time_base.den);
@@ -333,18 +261,21 @@ class Video{
       int64_t dts;
       int64_t closestPrevKeyFrameDTS;
       int64_t time;
+      int64_t pos ;
       bool keyframe;
-      FrameInfo(int64_t dts,int64_t prevKeyDTS,int64_t time,bool key):
+      FrameInfo(int64_t dts,int64_t prevKeyDTS,int64_t time,int64_t pos,bool key):
         dts(dts),
         closestPrevKeyFrameDTS(prevKeyDTS),
         time(time),
+        pos(pos),
         keyframe(key){}
       std::string str()const{
         std::stringstream ss;
         ss << "dts: " << dts;
-        ss << "prev: " << closestPrevKeyFrameDTS;
-        ss << "time: " << time;
-        ss << "key: " << (int)keyframe;
+        ss << " prev: " << closestPrevKeyFrameDTS;
+        ss << " time: " << time;
+        ss << " pos: " << pos;
+        ss << " key: " << (int)keyframe;
         return ss.str();
       }
     };
@@ -371,7 +302,7 @@ class Video{
           lastKeyFrameDTS = dts;
         }
 
-        frameInfo.emplace_back(dts,lastKeyFrameDTS,elapsedTime,isKey);
+        frameInfo.emplace_back(dts,lastKeyFrameDTS,elapsedTime,packet.pos,isKey);
         elapsedTime+=packet.duration;
       }
 
@@ -408,136 +339,28 @@ class Video{
 int main(int argc, char **argv) {
   if(argc<2)return 0;
   auto video = Video(argv[1]);
+  //for(size_t i=0;i<10;++i)
+  //  std::cerr << video.frameInfo.at(i).str() << std::endl;
 
-  //for(size_t i=0;i<100;++i){
-  //  auto const&fi = video.frameInfo.at(i);
-  //  std::cerr << "frame: " << i << " prev: " << fi.closestPrevKeyFrameDTS;
-  //  std::cerr << " dts: " << fi.dts << " time: " << fi.time << " key: " << (int)fi.keyframe << std::endl;
-  //}
-  //return 0;
-  for(int i=0;i<100;++i){
+  size_t frameCounter = 0;
+  for(int i=0;i<500;++i){
     std::stringstream ss;
-    std::cerr << "saving frame: " << i << std::endl;
-    ss << "frame" << std::setfill('0') << std::setw(7) << i << ".jpg";
+    std::cerr << "saving frame: " << frameCounter << std::endl;
+    ss << "frame" << std::setfill('0') << std::setw(7) << frameCounter << ".jpg";
     auto d = video.getFrame(i).data();
     stbi_write_jpg(ss.str().c_str(),video.width,video.height,3,d,100);
+    frameCounter++;
   }
-  //auto n = atoi(argv[2]);
-  //auto s = atoi(argv[3]);
-  //std::cerr << n << " " << s << std::endl;
-  //std::cerr << std::endl;
-  //std::cerr << std::endl;
-  //std::cerr << std::endl;
-  //for(int i=0;i<n;++i)video.read();
-  //video.seek(s);
-  //for(int i=0;i<n;++i)video.read();
-  //for(int i=0;i<500;++i)video.read();
-  ////video.seek(2000);
-  //video.AV_seek(400);
-  //for(int i=0;i<100;++i)video.read();
+  for(int i=0;i<10;++i){
+    std::stringstream ss;
+    std::cerr << "saving frame: " << frameCounter << std::endl;
+    ss << "frame" << std::setfill('0') << std::setw(7) << frameCounter << ".jpg";
+    auto d = video.getFrame(400+i).data();
+    stbi_write_jpg(ss.str().c_str(),video.width,video.height,3,d,100);
+    frameCounter++;
+  }
+
+
   return 0;
 }
 
-#if 0
-int main(int argc, char **argv) {
-    AVFormatContext* ctx_format = nullptr;
-    AVCodecContext* ctx_codec = nullptr;
-    AVCodec* codec = nullptr;
-    AVFrame* frame = av_frame_alloc();
-    int stream_idx;
-    //SwsContext* ctx_sws = nullptr;
-    const char* fin = argv[1];
-    AVStream *vid_stream = nullptr;
-    AVPacket* pkt = av_packet_alloc();
-
-    //av_register_all();
-
-    if (int ret = avformat_open_input(&ctx_format, fin, nullptr, nullptr) != 0) {
-        std::cout << 1 << std::endl;
-        return ret;
-    }
-    if (avformat_find_stream_info(ctx_format, nullptr) < 0) {
-        std::cout << 2 << std::endl;
-        return -1; // Couldn't find stream information
-    }
-    av_dump_format(ctx_format, 0, fin, false);
-
-    for (size_t i = 0; i < ctx_format->nb_streams; i++)
-        if (ctx_format->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
-            stream_idx = i;
-            vid_stream = ctx_format->streams[i];
-            break;
-    }
-    if (vid_stream == nullptr) {
-        std::cout << 4 << std::endl;
-        return -1;
-    }
-
-    codec = avcodec_find_decoder(vid_stream->codecpar->codec_id);
-    if (!codec) {
-        fprintf(stderr, "codec not found\n");
-        exit(1);
-    }
-    ctx_codec = avcodec_alloc_context3(codec);
-
-    if(avcodec_parameters_to_context(ctx_codec, vid_stream->codecpar)<0)
-        std::cout << 512;
-    if (avcodec_open2(ctx_codec, codec, nullptr)<0) {
-        std::cout << 5;
-        return -1;
-    }
-
-    //av_new_packet(pkt, pic_size);
-
-    while(av_read_frame(ctx_format, pkt) >= 0){
-      if (pkt->stream_index == stream_idx) {
-        int ret = avcodec_send_packet(ctx_codec, pkt);
-        if (ret < 0 || ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-          std::cout << "avcodec_send_packet: " << ret << std::endl;
-          break;
-        }
-        while (ret  >= 0) {
-          ret = avcodec_receive_frame(ctx_codec, frame);
-          if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-            //std::cout << "avcodec_receive_frame: " << ret << std::endl;
-            break;
-          }
-          std::cerr << " width   : " << frame->width    ;
-          std::cerr << " height  : " << frame->height   ;
-          std::cerr << " channels: " << frame->channels ;
-          std::cerr << " keyframe: " << frame->key_frame;
-          std::cerr << " channel_layout: " << frame->channel_layout;
-          std::cerr << " best_effort_timestamp: " << frame->best_effort_timestamp;
-          std::cerr << " format : " << frame->format;
-          std::cerr << " frame   : " << ctx_codec->frame_number;
-          std::cerr << " channels: " << ctx_codec->channels;
-          std::cerr << " colorspace: " << frame->colorspace;
-
-          std::stringstream ss;
-          ss << "frame" << ctx_codec->frame_number << ".bgm";
-          auto xsize = frame->width;
-          auto ysize = frame->height;
-          FILE *f;
-          int i;
-          f = fopen(ss.str().c_str(),"w");
-          fprintf(f, "P5\n%d %d\n%d\n", xsize, ysize, 255);
-          for (i = 0; i < ysize; i++)
-              fwrite(frame->data[0] + i * frame->linesize[0], 1, xsize, f);
-          fclose(f);
-
-          
-          std::cerr << std::endl;
-          //std::cout << "frame: " << ctx_codec->frame_number << std::endl;
-        }
-      }
-      av_packet_unref(pkt);
-    }
-
-
-    avformat_close_input(&ctx_format);
-    av_packet_unref(pkt);
-    avcodec_free_context(&ctx_codec);
-    avformat_free_context(ctx_format);
-    return 0;
-}
-#endif
