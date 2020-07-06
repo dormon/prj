@@ -1,7 +1,6 @@
 #include "CachedVideo.hpp"
-#include <iostream>
 
-#define ___ std::cerr << __LINE__ << std::endl
+#include <iostream>
 
 cachedVideo::FrameCache::FrameCache(int64_t n,size_t frameSize){
   cache.resize(n);
@@ -169,78 +168,37 @@ void cachedVideo::Video::seek(int64_t f){
 void cachedVideo::Video::read(FrameBytes&data){
   int ret;
   bool stop = false;
-  int got_picture;
 
+  while (1) {
+    if ((ret = av_read_frame(ctx, pkt)) < 0)
+       break;
+    if (pkt->stream_index == streamId) {
+      ret = avcodec_send_packet(codec_ctx, pkt);
+      //std::cerr << " we get dts: " << pkt->dts << std::endl;
+      //throwAVError(ret);
+      if(ret < 0)std::cerr << __LINE__ << ": " << getAVError(ret) << std::endl;
+      while (ret >= 0) {
+        ret = avcodec_receive_frame(codec_ctx, frame);
+        if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)break;
+        else if(ret < 0){
+          //throwAVError(ret);
+          std::cerr << __LINE__ << ": " << getAVError(ret) << std::endl;
+        }
 
-  do{
-    ret = av_read_frame(ctx,pkt);
-    fprintf(stderr,"########### MAME NECO !!!! ##############: stream: %i  \n",pkt->stream_index);
-    fprintf(stderr,"########### MAME NECO !!!! ##############: dts   : %li\n" ,pkt->dts         );
-    fprintf(stderr,"########### MAME NECO !!!! ##############: pos   : %li\n" ,pkt->pos         );
-    if(ret < 0)std::cerr << "############: " << getAVError(ret) << std::endl;
-    if(pkt->stream_index == streamId)break;
-  }while(true);
-  av_packet_merge_side_data(pkt);
-
-  fprintf(stderr,"avctx->skip_idct %i a a a \n"  ,codec_ctx->skip_idct);     
-  fprintf(stderr,"avctx->skip_frame %i\n",codec_ctx->skip_frame);            
-  fprintf(stderr,"avctx->draw_horiz_band %llu\n",codec_ctx->draw_horiz_band); 
-
-  av_packet_split_side_data(pkt);
-  if (av_packet_get_side_data(pkt, AV_PKT_DATA_PALETTE, NULL)){         
-      fprintf(stderr,"av_packet_get_side_data\n");                       
+        //frame->pts = frame->best_effort_timestamp;
+        
+        int const dstStride[1] = {width*3};
+        uint8_t*const dst [1] = {data.data()};
+        sws_scale(sws_ctx,frame->data,frame->linesize,0,height,dst,dstStride);
+        stop = true;
+        av_frame_unref(frame);
+      }
+      activeFrame++;
+    }
+    av_packet_unref(pkt);
+    if(stop)break;
   }
-  std::cerr << "codec_type: " << codec_ctx->codec_type << std::endl;
-  std::cerr << "codec_name: " << codec_ctx->codec->name << std::endl;
-  std::cerr << "codec_long_name: " << codec_ctx->codec->long_name << std::endl;
-
-
-
-
-  ret = avcodec_decode_video2(codec_ctx,frame,&got_picture,pkt);
-  throwAVError(ret);
-  std::cerr << "ret: " << ret << std::endl;
-  if(got_picture){
-    int const dstStride[1] = {width*3};
-    uint8_t*const dst [1] = {data.data()};
-    sws_scale(sws_ctx,frame->data,frame->linesize,0,height,dst,dstStride);
-    stop = true;
-  }
-  std::cerr << "got_picture: " << got_picture << std::endl;
-  std::cerr << "stream_id: " << pkt->stream_index << std::endl;
-  av_packet_free_side_data(pkt);
 }
-
-//void cachedVideo::Video::read(FrameBytes&data){
-//  int ret;
-//  bool stop = false;
-//
-//  while (1) {
-//    if ((ret = av_read_frame(ctx, pkt)) < 0)
-//       break;
-//    if (pkt->stream_index == streamId) {
-//      ret = avcodec_send_packet(codec_ctx, pkt);
-//      //std::cerr << " we get dts: " << pkt->dts << std::endl;
-//      throwAVError(ret);
-//      while (ret >= 0) {
-//        ret = avcodec_receive_frame(codec_ctx, frame);
-//        if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)break;
-//        else throwAVError(ret);
-//
-//        //frame->pts = frame->best_effort_timestamp;
-//        
-//        int const dstStride[1] = {width*3};
-//        uint8_t*const dst [1] = {data.data()};
-//        sws_scale(sws_ctx,frame->data,frame->linesize,0,height,dst,dstStride);
-//        stop = true;
-//        av_frame_unref(frame);
-//      }
-//      activeFrame++;
-//    }
-//    av_packet_unref(pkt);
-//    if(stop)break;
-//  }
-//}
 
 int64_t cachedVideo::Video::getTS(int64_t frame){
   auto timeBase = (int64_t(codec_ctx->time_base.num) * AV_TIME_BASE) / int64_t(codec_ctx->time_base.den);
@@ -278,9 +236,16 @@ void cachedVideo::Video::getVideoInfo(){
   width     = codec_ctx->width    ;
   height    = codec_ctx->height   ;
 
+  nofFrames = frameInfo.size();
+
+  fps = (float)framerate.num / (float)framerate.den;
+
   av_frame_free(&myFrame);
   av_packet_unref(&packet);
-  ___;
+}
+
+int64_t cachedVideo::Video::getFrameId()const{
+  return activeFrame;
 }
 
 cachedVideo::Video::~Video(){

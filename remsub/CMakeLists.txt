@@ -19,23 +19,27 @@ add_executable(${PROJECT_NAME}
   Barrier.cpp 
   Barrier.h 
   FunctionPrologue.h
-  video.hpp
+  #video.hpp
   keyframes.hpp
   json.hpp
   stb_image_write.h
+  CachedVideo.hpp
+  CachedVideo.cpp
   )
 target_include_directories(${PROJECT_NAME} PUBLIC 
-  ${OpenCV_INCLUDE_DIRS} 
+  #${OpenCV_INCLUDE_DIRS} 
   ${CMAKE_CURRENT_SOURCE_DIR} 
   ${FFMPEG_INCLUDE_DIRS}
+  ${SWSCALE_INCLUDE_DIRS}
   )
 target_link_libraries(${PROJECT_NAME} PUBLIC 
-  ${OpenCV_LIBS} 
+  #${OpenCV_LIBS} 
   glm 
   Simple3DApp::Simple3DApp 
   geGL::geGL 
   ArgumentViewer::ArgumentViewer 
   VarsGLMDecorator::VarsGLMDecorator 
   imguiVars::imguiVars 
-  ${FFMPEG_LIBRARIES} 
+  ${FFMPEG_LIBRARIES}
+  ${SWSCALE_LIBRARIES}
   )

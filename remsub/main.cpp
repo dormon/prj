@@ -10,7 +10,13 @@
 #include <imguiVars/addVarsLimits.h>
 #include <Barrier.h>
 #include <fileWatcher.hpp>
-#include <video.hpp>
+
+#include <iomanip>
+#include <fstream>
+//#include <video.hpp>
+
+#include <CachedVideo.hpp>
+
 #include <FunctionPrologue.h>
 #include <json.hpp>
 #include<thread>
@@ -47,12 +53,12 @@ class VideoManager{
       int32_t end         = 0        ;
       int32_t nofFrames   = 0        ;
       int32_t loadedFrame = -10000000;
-      std::shared_ptr<Video>video;
+      std::shared_ptr<cachedVideo::Video>video;
       std::shared_ptr<ge::gl::Texture>tex;
       std::string file;
       keyframe::Keyframes keys;
       Stream(std::string const&name):file(name){
-        video = std::make_shared<Video>(name);
+        video = std::make_shared<cachedVideo::Video>(name.c_str());
         tex = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGB8UI,1,video->width,video->height);
         tex->texParameteri(GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
         tex->texParameteri(GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
@@ -141,21 +147,22 @@ class VideoManager{
         //if(clipCounter != 0){
         //  std::cerr << "frameTime: " << s.video->getFrameTime() << std::endl;
         //}
-        if(clipCounter == 0){
-          std::cerr << "main: " << s.video->getFrameId() << " " << s.video->getFrameTime() << std::endl;
-        }
+        //if(clipCounter == 0){
+        //  std::cerr << "main: " << s.video->getFrameId() << " " << s.video->getFrameTime() << std::endl;
+        //}
 
         if(frameInClip <  0            )continue;
         if(frameInClip >= s.nofFrames  )continue;
         if(frameInClip == s.video->getFrameId()-1)continue;
-        if(frameInClip != s.video->getFrameId()){
-          s.video->moveToFrame(frameInClip);
-        }
+        //if(frameInClip != s.video->getFrameId()){
+        //  s.video->moveToFrame(frameInClip);
+        //}
 
-        s.video->readFrame();
+        //s.video->readFrame();
         s.loadedFrame = frameInClip;
-        if(!s.video->frame.empty())
-          s.tex->setData2D(s.video->frame.data,GL_BGR_INTEGER);
+        //if(!s.video->frame.empty())
+        //  s.tex->setData2D(s.video->frame.data,GL_BGR_INTEGER);
+        s.tex->setData2D(s.video->getFrame(frameInClip).data(),GL_BGR_INTEGER);
       }
 
     }
@@ -809,7 +816,7 @@ void EmptyProject::draw(){
 
   if(vars.addOrGetBool("saveMode",false)){
     proj->videoManager.saveFrameParallel();
-    if(proj->videoManager.frame >= proj->videoManager.getNofFrames() || proj->videoManager.streams.at(0).video->frame.empty())
+    if(proj->videoManager.frame >= proj->videoManager.getNofFrames())// || proj->videoManager.streams.at(0).video->frame.empty())
       exit(0);
   }
 
