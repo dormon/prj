@@ -13,14 +13,21 @@
 
 #include <iomanip>
 #include <fstream>
-//#include <video.hpp>
 
+#if defined(USE_OPENCV)
+#include <video.hpp>
+#else
 #include <CachedVideo.hpp>
+#endif
 
 #include <FunctionPrologue.h>
 #include <json.hpp>
 #include<thread>
 #include <keyframes.hpp>
+#include <loadTxtFile.hpp>
+#include <saveTxtFile.hpp>
+#include <createDrawProgram.hpp>
+#include <createComputeProgram.hpp>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
@@ -29,20 +36,6 @@ using namespace nlohmann;
 
 #define ___ std::cerr << __FILE__ << "/" << __LINE__ << std::endl
 
-std::string loadTxtFile(std::string const&fileName){
-  auto file = std::ifstream(fileName);
-  if(!file.is_open())throw std::runtime_error("loadTxtFile - cannot open "+fileName);
-  std::string str((std::istreambuf_iterator<char>(file)),
-                 std::istreambuf_iterator<char>());
-  return str;
-}
-
-void saveTxtFile(std::string const&fileName,std::string const&txt){
-  auto file = std::ofstream(fileName);
-  if(!file.is_open())throw std::runtime_error("saveTxtFile - cannot open "+fileName);
-  file.write(txt.data(),txt.size());
-  file.close();
-}
 
 class VideoManager{
   public:
@@ -53,15 +46,25 @@ class VideoManager{
       int32_t end         = 0        ;
       int32_t nofFrames   = 0        ;
       int32_t loadedFrame = -10000000;
+#if defined(USE_OPENCV)
+      std::shared_ptr<Video>video;
+#else
       std::shared_ptr<cachedVideo::Video>video;
+#endif
       std::shared_ptr<ge::gl::Texture>tex;
       std::string file;
       keyframe::Keyframes keys;
       Stream(std::string const&name):file(name){
+#if defined(USE_OPENCV)
+        video = std::make_shared<Video>(name.c_str());
+#else
         video = std::make_shared<cachedVideo::Video>(name.c_str());
+#endif
         tex = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGB8UI,1,video->width,video->height);
         tex->texParameteri(GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
         tex->texParameteri(GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+        tex->texParameteri(GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+        tex->texParameteri(GL_TEXTURE_MAG_FILTER,GL_NEAREST);
         nofFrames = video->nofFrames;
         end = video->nofFrames;
         fps = video->fps;
@@ -160,9 +163,12 @@ class VideoManager{
 
         //s.video->readFrame();
         s.loadedFrame = frameInClip;
-        //if(!s.video->frame.empty())
-        //  s.tex->setData2D(s.video->frame.data,GL_BGR_INTEGER);
+#if defined(USE_OPENCV)
+        if(!s.video->frame.empty())
+          s.tex->setData2D(s.video->frame.data,GL_BGR_INTEGER);
+#else
         s.tex->setData2D(s.video->getFrame(frameInClip).data(),GL_BGR_INTEGER);
+#endif
       }
 
     }
@@ -173,6 +179,9 @@ class VideoManager{
     void bind(){
       for(size_t i=0;i<streams.size();++i){
         auto&s = streams.at(i);
+        std::cerr << "bw: " << s.tex->getWidth(0) << std::endl;
+        std::cerr << "bh: " << s.tex->getHeight(0) << std::endl;
+
         if(!s.tex)continue;
         s.tex->bind(i);
       }
@@ -221,9 +230,12 @@ class VideoManager{
     void createFinalFrame(){
       if(streams.size() != 1)return;
       auto const&v = streams.at(0).video;
+      std::cerr << "finalFrame: " << v->width << " x " << v->height << std::endl;
       finalFrame = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGBA8UI,1,v->width,v->height);
       finalFrame->texParameteri(GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
       finalFrame->texParameteri(GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+      finalFrame->texParameteri(GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+      finalFrame->texParameteri(GL_TEXTURE_MAG_FILTER,GL_NEAREST);
       int h = streams.at(0).video->height;
       int w = streams.at(0).video->width;
       frameBuffer = FrameBuffer(w,h,nofThreads);
@@ -561,118 +573,10 @@ void EmptyProject::init(){
 //  watcher->operator()();
 //}
 
-void createProgram(vars::Vars&vars){
-  FUNCTION_PROLOGUE("remsub","computeSource");
-
-  std::cerr << "createProgram" << std::endl;
-
-  auto mpSrc = vars.getString("computeSource");
-  auto prg = vars.reCreate<ge::gl::Program>(
-      "program",
-      std::make_shared<ge::gl::Shader>(GL_COMPUTE_SHADER,mpSrc)
-      );
-  prg->setNonexistingUniformWarning(false);
-  auto info = prg->getInfo();
-  vars.erase("uniforms");
-  for(auto const&u:info->uniforms){
-    auto const&name = u.first;
-    if(name.find("[")!=std::string::npos)continue;
-    auto const&unif = u.second;
-    auto type = std::get<ge::gl::ProgramInfo::TYPE>(unif);
-    switch(type){
-      case GL_UNSIGNED_INT:
-        {
-          uint32_t v;
-          ge::gl::glGetUniformuiv(prg->getId(),prg->getUniformLocation(name),&v);
-          vars.addUint32("uniforms."+name,v);break;
-        }
-      case GL_INT:
-        {
-          int v;
-          ge::gl::glGetUniformiv(prg->getId(),prg->getUniformLocation(name),(int*)&v);
-          vars.addInt32("uniforms."+name,v);break;
-        }
-      case GL_INT_VEC2:
-        {
-          glm::ivec2 v;
-          ge::gl::glGetUniformiv(prg->getId(),prg->getUniformLocation(name),(int*)&v);
-          vars.add<glm::ivec2>("uniforms."+name,v);break;
-        }
-      case GL_FLOAT       :
-        {
-          float v;
-          ge::gl::glGetUniformfv(prg->getId(),prg->getUniformLocation(name),&v);
-          vars.addFloat ("uniforms."+name,v);break;
-        }
-      case GL_BOOL:
-        {
-          bool v;
-          ge::gl::glGetUniformiv(prg->getId(),prg->getUniformLocation(name),(int*)&v);
-          vars.addBool ("uniforms."+name,v);break;
-        }
-      case GL_FLOAT_VEC2:
-        {
-          glm::vec2 v;
-          ge::gl::glGetUniformfv(prg->getId(),prg->getUniformLocation(name),(float*)&v);
-          vars.add<glm::vec2>("uniforms."+name,v);break;
-        }
-      default:break;
-
-
-    }
-
-
-  }
-}
-
 
 //uniform vec2  help0offset         = vec2(-4,46);
 //uniform vec2  help0scale          = vec2(10052,9856);
 
-void createDrawProgram(vars::Vars&vars){
-  FUNCTION_PROLOGUE("remsub");
-  std::string const vsSrc = R".(
-  #version 450
-
-  layout(binding=0)uniform usampler2D finalFrame;
-
-  uniform uvec2 windowSize = uvec2(512);
-  uniform float zoom       = 1.f;
-  uniform vec2 offset      = vec2(0);
-
-  out vec2 vCoord;
-
-  void main(){
-    ivec2 frameSize = textureSize(finalFrame,0).xy;
-
-    vec2 scale = zoom*vec2(frameSize) / vec2(windowSize);
-
-    vCoord = vec2(gl_VertexID&1,gl_VertexID>>1);
-    gl_Position = vec4((-1+2*vCoord)*scale+offset,0,1);
-    vCoord.y = 1-vCoord.y;
-  }
-
-  ).";
-
-  auto fsSrc = R".(
-  #version 450
-
-  layout(binding=0)uniform usampler2D finalFrame;
-
-  in vec2 vCoord;
-  out vec3 fColor;
-
-  void main(){
-    fColor = vec3(texture(finalFrame,vCoord).xyz/vec3(255));
-  }
-
-  ).";
-  auto prg = vars.reCreate<ge::gl::Program>(
-      "drawProgram",
-      std::make_shared<ge::gl::Shader>(GL_VERTEX_SHADER  ,vsSrc),
-      std::make_shared<ge::gl::Shader>(GL_FRAGMENT_SHADER,fsSrc)
-      );
-}
 
 std::string getTimeFormat(size_t frameId,size_t fps){
   auto frame    = (frameId                ) % fps;
@@ -742,7 +646,7 @@ void createAuxBuffer(DVars&vars){
 void computeFrame(DVars&vars){
   FUNCTION_CALLER();
 
-  createProgram(vars);
+  createComputeProgram(vars);
   createAuxBuffer(vars);
   auto prg = vars.get<ge::gl::Program>("program");
   std::vector<std::string>uniformNames;
@@ -784,6 +688,8 @@ void drawFinalFrame(DVars&vars){
   vao->bind();
   auto proj = vars.get<Project>("project");
   proj->videoManager.finalFrame->bind(0);
+  std::cerr << "drawW: " << proj->videoManager.finalFrame->getWidth(0)<< std::endl;
+  std::cerr << "drawH: " << proj->videoManager.finalFrame->getHeight(0)<< std::endl;
 
   prg->use();
   prg->set2uiv("windowSize",(uint32_t*)&(vars.getUVec2("windowSize")));
@@ -816,7 +722,11 @@ void EmptyProject::draw(){
 
   if(vars.addOrGetBool("saveMode",false)){
     proj->videoManager.saveFrameParallel();
+#if defined(USE_OPENCV)
+    if(proj->videoManager.frame >= proj->videoManager.getNofFrames() || proj->videoManager.streams.at(0).video->frame.empty())
+#else
     if(proj->videoManager.frame >= proj->videoManager.getNofFrames())// || proj->videoManager.streams.at(0).video->frame.empty())
+#endif
       exit(0);
   }
 

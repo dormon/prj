@@ -24,7 +24,7 @@ ivec2 divRoundUp(in ivec2 x,in ivec2 y){
 }
 
 ivec2 getGridSize(){
-  ivec2 frameSize = imageSize(finalFrame);
+  ivec2 frameSize = ivec2(720,480);//imageSize(finalFrame);
   return divRoundUp(frameSize,tileSize);
 }
 
@@ -94,9 +94,9 @@ vec3 loadBase(vec2 coord){
 }
 
 vec3 loadHelp(vec2 coord){
-  if((activeClip & (1<<1)) != 0)
+  if((activeClip & (1u<<1u)) != 0)
     return readStream(1,coord);
-  if((activeClip & (1<<2)) != 0)
+  if((activeClip & (1u<<2u)) != 0)
     return readStream(2,coord);
   return vec3(0);
 }
@@ -135,7 +135,7 @@ void loadIsSubToShared(float isSub,uint job){
 
   if(newlii >= 0){
     ivec2 lll = ivec2(newlii%FULL_TILE,newlii/FULL_TILE);
-    vec2 coord = vec2(tileCoord-ivec2(PADDING)+lll)/vec2(imageSize(finalFrame)-1);
+    vec2 coord = vec2(tileCoord-ivec2(PADDING)+lll)/vec2(/*imageSize(finalFrame)*/ivec2(720,480)-1);
     vec3 base = loadBase(coord);
     vec3 help = loadHelp(coord);
     float dist = length(base-help);
@@ -196,11 +196,11 @@ bool shouldRep(in vec3 base,in vec3 help,in vec2 coord,uint job){
 void compute(uint job){
   ivec2 outCoord = getThreadCoord(job);
   
-  ivec2 size = imageSize(finalFrame);
+  ivec2 size = ivec2(720,480);//imageSize(finalFrame);
   vec2 coord = vec2(outCoord) / vec2(size-1);
 
   coord = vec2(coord.x,coord.y);
-
+writeColor(outCoord,vec3(1));
 
   vec3 bColor = loadBase(coord);
   vec3 hColor = loadHelp(coord);
