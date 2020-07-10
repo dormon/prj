@@ -65,6 +65,12 @@ add_executable(${PROJECT_NAME}
   createDrawProgram.cpp
   createComputeProgram.hpp
   createComputeProgram.cpp
+  drawFinalFrame.hpp
+  drawFinalFrame.cpp
+  Project.hpp
+  Project.cpp
+  VideoManager.hpp
+  VideoManager.cpp
   ${VIDEO_SOURCES}
   )
 target_include_directories(${PROJECT_NAME} PUBLIC 

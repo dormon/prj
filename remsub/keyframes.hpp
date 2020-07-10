@@ -40,14 +40,14 @@ class Data{
       if(type == VEC4  )std::cerr << "vec4("<<value.vec4.x<<","<<value.vec4.y<<","<<value.vec4.z<<","<<value.vec4.w<<")";
     }
 };
-template<>int       Data::get<int      >()const{return value.i32; }
-template<>float     Data::get<float    >()const{return value.f32; }
-template<>double    Data::get<double   >()const{return value.f64; }
-template<>glm::vec4 Data::get<glm::vec4>()const{return value.vec4;}
-template<>int      &Data::get<int      >()     {return value.i32; }
-template<>float    &Data::get<float    >()     {return value.f32; }
-template<>double   &Data::get<double   >()     {return value.f64; }
-template<>glm::vec4&Data::get<glm::vec4>()     {return value.vec4;}
+template<>inline int       Data::get<int      >()const{return value.i32; }
+template<>inline float     Data::get<float    >()const{return value.f32; }
+template<>inline double    Data::get<double   >()const{return value.f64; }
+template<>inline glm::vec4 Data::get<glm::vec4>()const{return value.vec4;}
+template<>inline int      &Data::get<int      >()     {return value.i32; }
+template<>inline float    &Data::get<float    >()     {return value.f32; }
+template<>inline double   &Data::get<double   >()     {return value.f64; }
+template<>inline glm::vec4&Data::get<glm::vec4>()     {return value.vec4;}
 
 
 class Keyframe{
