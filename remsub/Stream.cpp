@@ -35,3 +35,4 @@ float Stream::getContrast(int f)const{
 glm::vec4 Stream::getOffsetScale(int f)const{
   return keys.get<glm::vec4>(f,"offsetScale",glm::vec4(0.f,0.f,1.f,1.f));
 }
+
