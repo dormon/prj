@@ -63,8 +63,8 @@ class VideoManager{
         tex = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGB8UI,1,video->width,video->height);
         tex->texParameteri(GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
         tex->texParameteri(GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-        tex->texParameteri(GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-        tex->texParameteri(GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+        //tex->texParameteri(GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+        //tex->texParameteri(GL_TEXTURE_MAG_FILTER,GL_NEAREST);
         nofFrames = video->nofFrames;
         end = video->nofFrames;
         fps = video->fps;
@@ -157,13 +157,13 @@ class VideoManager{
         if(frameInClip <  0            )continue;
         if(frameInClip >= s.nofFrames  )continue;
         if(frameInClip == s.video->getFrameId()-1)continue;
-        //if(frameInClip != s.video->getFrameId()){
-        //  s.video->moveToFrame(frameInClip);
-        //}
-
-        //s.video->readFrame();
         s.loadedFrame = frameInClip;
 #if defined(USE_OPENCV)
+        if(frameInClip != s.video->getFrameId()){
+          s.video->moveToFrame(frameInClip);
+        }
+
+        s.video->readFrame();
         if(!s.video->frame.empty())
           s.tex->setData2D(s.video->frame.data,GL_BGR_INTEGER);
 #else
@@ -179,8 +179,6 @@ class VideoManager{
     void bind(){
       for(size_t i=0;i<streams.size();++i){
         auto&s = streams.at(i);
-        std::cerr << "bw: " << s.tex->getWidth(0) << std::endl;
-        std::cerr << "bh: " << s.tex->getHeight(0) << std::endl;
 
         if(!s.tex)continue;
         s.tex->bind(i);
@@ -230,12 +228,11 @@ class VideoManager{
     void createFinalFrame(){
       if(streams.size() != 1)return;
       auto const&v = streams.at(0).video;
-      std::cerr << "finalFrame: " << v->width << " x " << v->height << std::endl;
       finalFrame = std::make_shared<ge::gl::Texture>(GL_TEXTURE_2D,GL_RGBA8UI,1,v->width,v->height);
       finalFrame->texParameteri(GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
       finalFrame->texParameteri(GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-      finalFrame->texParameteri(GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-      finalFrame->texParameteri(GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+      //finalFrame->texParameteri(GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+      //finalFrame->texParameteri(GL_TEXTURE_MAG_FILTER,GL_NEAREST);
       int h = streams.at(0).video->height;
       int w = streams.at(0).video->width;
       frameBuffer = FrameBuffer(w,h,nofThreads);
@@ -562,21 +559,7 @@ void EmptyProject::init(){
 
   vars.addFloat("view.zoom",1.f);
   vars.add<glm::vec2>("view.offset",glm::vec2(0.f));
-  //vars.addBool("drawVideoFileWatcher");
-  //auto watcher = vars.add<fileWatcher::FileWatcher>("fileWatcher");
-  //watcher->watch("../drawVideo.fp",[&](){std::cerr << "jojo" << std::endl;vars.updateTicks("drawVideoFileWatcher");});
 }
-
-
-//void watchFiles(vars::Vars&vars){
-//  auto watcher = vars.get<fileWatcher::FileWatcher>("fileWatcher");
-//  watcher->operator()();
-//}
-
-
-//uniform vec2  help0offset         = vec2(-4,46);
-//uniform vec2  help0scale          = vec2(10052,9856);
-
 
 std::string getTimeFormat(size_t frameId,size_t fps){
   auto frame    = (frameId                ) % fps;
@@ -688,8 +671,6 @@ void drawFinalFrame(DVars&vars){
   vao->bind();
   auto proj = vars.get<Project>("project");
   proj->videoManager.finalFrame->bind(0);
-  std::cerr << "drawW: " << proj->videoManager.finalFrame->getWidth(0)<< std::endl;
-  std::cerr << "drawH: " << proj->videoManager.finalFrame->getHeight(0)<< std::endl;
 
   prg->use();
   prg->set2uiv("windowSize",(uint32_t*)&(vars.getUVec2("windowSize")));
