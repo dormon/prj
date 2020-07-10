@@ -71,6 +71,8 @@ add_executable(${PROJECT_NAME}
   Project.cpp
   VideoManager.hpp
   VideoManager.cpp
+  Stream.hpp
+  Stream.cpp
   ${VIDEO_SOURCES}
   )
 target_include_directories(${PROJECT_NAME} PUBLIC 
