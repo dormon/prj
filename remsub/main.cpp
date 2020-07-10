@@ -16,7 +16,6 @@
 
 
 #include <FunctionPrologue.h>
-#include <json.hpp>
 #include<thread>
 #include <keyframes.hpp>
 #include <loadTxtFile.hpp>
@@ -27,7 +26,6 @@
 #include <Project.hpp>
 #include <VideoManager.hpp>
 
-using namespace nlohmann;
 
 
 #define ___ std::cerr << __FILE__ << "/" << __LINE__ << std::endl
