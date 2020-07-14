@@ -29,7 +29,9 @@ class Video{
       if(f+1 >= nofFrames)f=nofFrames-1;
       //video.set(cv::CAP_PROP_POS_FRAMES,0);
       //readFrame();
+      std::cerr << "we go to: " << f << std::endl;
       video.set(cv::CAP_PROP_POS_FRAMES,f);
+      std::cerr << "we get: " << video.get(cv::CAP_PROP_POS_FRAMES) << std::endl;
       //video.set(cv::CAP_PROP_POS_MSEC,(f/fps)*1000);
       //video.grab();
     }
