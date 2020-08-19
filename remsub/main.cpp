@@ -11,20 +11,20 @@
 #include <Barrier.h>
 #include <fileWatcher.hpp>
 
-#include <iomanip>
-#include <fstream>
-
-
 #include <FunctionPrologue.h>
 #include<thread>
 #include <keyframes.hpp>
 #include <loadTxtFile.hpp>
 #include <saveTxtFile.hpp>
 #include <createDrawProgram.hpp>
-#include <createComputeProgram.hpp>
 #include <drawFinalFrame.hpp>
 #include <Project.hpp>
 #include <VideoManager.hpp>
+#include <getTimeFormat.hpp>
+
+#include <computeFrame.hpp>
+#include <editProgram.hpp>
+#include <loadFragment.hpp>
 
 
 
@@ -50,19 +50,6 @@ class EmptyProject: public simple3DApp::Application{
   virtual void                mouseWheel(SDL_Event const& event);
 };
 
-void loadFragment(vars::Vars&vars){
-  FUNCTION_CALLER();
-  *vars.reCreate<std::string>("computeSource") = loadTxtFile(vars.getString("computeSourceFile"));
-}
-
-void saveFragment(vars::Vars&vars){
-  FUNCTION_CALLER();
-  auto fn = vars.getString("computeSourceFile");
-  auto f = std::ofstream(fn);
-  auto data = vars.getString("computeSource");
-  f.write(data.data(),data.size());
-  f.close();
-}
 
 
 
@@ -80,7 +67,8 @@ void EmptyProject::init(){
 
   auto proj = vars.add<Project>("project");
   vars.addString("projectName",projectName);
-  proj->load(projectName);
+  if(projectName != "")
+    proj->load(projectName);
 
   vars.add<ge::gl::VertexArray>("emptyVao");
   vars.addUVec2("windowSize",window->getWidth(),window->getHeight());
@@ -95,109 +83,15 @@ void EmptyProject::init(){
   vars.add<glm::vec2>("view.offset",glm::vec2(0.f));
 }
 
-std::string getTimeFormat(size_t frameId,size_t fps){
-  auto frame    = (frameId                ) % fps;
-  auto second   = (frameId / fps          ) % 60;
-  auto minute   = (frameId / fps / 60     ) % 60;
-  auto hour     = (frameId / fps / 60 / 60);
-  auto mili = (uint32_t)((float)frame / (float)fps * 1000);
-
-  std::stringstream ss;
-
-  ss << std::setfill('0') << std::setw(2) << hour   << ":";
-  ss << std::setfill('0') << std::setw(2) << minute << ":";
-  ss << std::setfill('0') << std::setw(2) << second << ":";
-  ss << std::setfill('0') << std::setw(3) << mili;
-  
-  return ss.str();
-}
 
 
-void editProgram(vars::Vars&vars){
-  FUNCTION_CALLER();
-
-  auto&src = vars.getString("computeSource");
-  static char text[1024*100];
-  std::strcpy(text,src.data());
-
-  static ImGuiInputTextFlags flags = ImGuiInputTextFlags_AllowTabInput;
-  ImGui::InputTextMultiline("##source", text, IM_ARRAYSIZE(text), ImVec2(-FLT_MIN, ImGui::GetTextLineHeight() * 40), flags);
-  src = text;
-
-  ImGui::Columns(3,"col",false);
-  if(ImGui::Button("comp")){
-    vars.updateTicks("computeSource");
-  }
-  ImGui::NextColumn();
-  if(ImGui::Button("save")){
-    saveFragment(vars);
-  }
-  ImGui::NextColumn();
-  if(ImGui::Button("load")){
-    loadFragment(vars);
-  }
-  ImGui::Columns(1);
-
-  auto proj = vars.get<Project>("project");
-  proj->videoManager.setFrame();
-  proj->videoManager.showGUI();
-
-  if(ImGui::BeginMainMenuBar()){
-    if(ImGui::BeginMenu("file")){
-      if(ImGui::MenuItem("open")){
-      }
-      if(ImGui::MenuItem("save")){
-        vars.get<Project>("project")->save(vars.getString("projectName"));
-      }
-      ImGui::EndMenu();
-    }
-    ImGui::EndMainMenuBar();
-  }
-}
-
-void createAuxBuffer(DVars&vars){
-  FUNCTION_PROLOGUE("remsub");
-  vars.reCreate<ge::gl::Buffer>("auxBuffer",sizeof(uint32_t)*1000);
-}
-
-void computeFrame(DVars&vars){
-  FUNCTION_CALLER();
-
-  createComputeProgram(vars);
-  createAuxBuffer(vars);
-  auto prg = vars.get<ge::gl::Program>("program");
-  std::vector<std::string>uniformNames;
-  vars.getDir(uniformNames,"uniforms");
-  for(auto const&n:uniformNames){
-    auto vName = "uniforms."+n;
-    auto const&type = vars.getType(vName);
-    if(type == typeid(bool    ))prg->set1i (n,vars.getBool  (vName));
-    if(type == typeid(uint32_t))prg->set1ui(n,vars.getUint32(vName));
-    if(type == typeid( int32_t))prg->set1i (n,vars.getInt32 (vName));
-    if(type == typeid(float   ))prg->set1f (n,vars.getFloat (vName));
-    if(type == typeid(glm::vec2))prg->set2fv(n,(float*)&vars.getVec2(vName));
-  }
-  auto proj = vars.get<Project>("project");
-  proj->videoManager.bind();
-  proj->videoManager.finalFrame->bindImage(0);
-  prg->set1ui("activeClip",proj->videoManager.activeClip);
-  proj->videoManager.setContrast(&*prg);
-  proj->videoManager.setOffsetScale(&*prg);
-  proj->videoManager.setSubBox(&*prg);
-
-  auto auxBuffer = vars.get<ge::gl::Buffer>("auxBuffer");
-  auxBuffer->clear(GL_R32UI,GL_RED_INTEGER,GL_UNSIGNED_INT);
-  prg->bindBuffer("AuxBuffer",auxBuffer);
-  prg->use();
-
-  ge::gl::glDispatchCompute(vars.addOrGetInt32("wg",256),1,1);
-}
 
 
 void EmptyProject::draw(){
   FUNCTION_CALLER();
 
 
+  ___;
 
 
   auto proj = vars.get<Project>("project");
@@ -205,13 +99,18 @@ void EmptyProject::draw(){
   if(vars.addOrGetBool("playVideo",true)){
     proj->videoManager.nextFrame();
   }
+  ___;
 
   vars.addOrGetInt32("frameId") = proj->videoManager.frame;
-  vars.addOrGetString("time") = getTimeFormat(proj->videoManager.frame,proj->videoManager.streams.at(0).video->fps);
+  ___;
+  vars.addOrGetString("time") = getTimeFormat(proj->videoManager.frame,proj->videoManager.getFPS());
+  ___;
 
   computeFrame(vars);
+  ___;
   ge::gl::glMemoryBarrier(GL_ALL_BARRIER_BITS);
   drawFinalFrame(vars);
+  ___;
 
   if(vars.addOrGetBool("saveMode",false)){
     proj->videoManager.saveFrameParallel();
@@ -222,10 +121,13 @@ void EmptyProject::draw(){
 #endif
       exit(0);
   }
+  ___;
 
   editProgram(vars);
+  ___;
 
   drawImguiVars(vars);
+  ___;
 
   swap();
 }

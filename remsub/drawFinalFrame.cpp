@@ -19,7 +19,8 @@ void drawFinalFrame(DVars&vars){
 
   vao->bind();
   auto proj = vars.get<Project>("project");
-  proj->videoManager.finalFrame->bind(0);
+  if(proj->videoManager.finalFrame)
+    proj->videoManager.finalFrame->bind(0);
 
   prg->use();
   prg->set2uiv("windowSize",(uint32_t*)&(vars.getUVec2("windowSize")));

@@ -73,6 +73,16 @@ add_executable(${PROJECT_NAME}
   VideoManager.cpp
   Stream.hpp
   Stream.cpp
+  getTimeFormat.hpp
+  getTimeFormat.cpp
+  computeFrame.hpp
+  computeFrame.cpp
+  editProgram.hpp
+  editProgram.cpp
+  saveFragment.hpp
+  saveFragment.cpp
+  loadFragment.hpp
+  loadFragment.cpp
   ${VIDEO_SOURCES}
   )
 target_include_directories(${PROJECT_NAME} PUBLIC 
