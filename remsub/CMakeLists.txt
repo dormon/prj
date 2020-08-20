@@ -48,6 +48,11 @@ find_package(imguiVars      CONFIG REQUIRED)
 find_package(VarsGLMDecorator CONFIG REQUIRED)
 
 
+set(ImGuiFileDialog_sources
+  ImGuiFileDialog/ImGuiFileDialog.cpp
+  ImGuiFileDialog/ImGuiFileDialog.h
+  ImGuiFileDialog/ImGuiFileDialogConfig.h
+  )
 
 add_executable(${PROJECT_NAME} 
   main.cpp 
@@ -86,6 +91,7 @@ add_executable(${PROJECT_NAME}
   mainMenu.hpp
   mainMenu.cpp
   ${VIDEO_SOURCES}
+  ${ImGuiFileDialog_sources}
   )
 target_include_directories(${PROJECT_NAME} PUBLIC 
   ${CMAKE_CURRENT_SOURCE_DIR} 
