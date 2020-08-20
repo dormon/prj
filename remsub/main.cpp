@@ -25,6 +25,7 @@
 #include <computeFrame.hpp>
 #include <editProgram.hpp>
 #include <loadFragment.hpp>
+#include <mainMenu.hpp>
 
 
 
@@ -124,6 +125,7 @@ void EmptyProject::draw(){
   ___;
 
   editProgram(vars);
+  mainMenu(vars);
   ___;
 
   drawImguiVars(vars);

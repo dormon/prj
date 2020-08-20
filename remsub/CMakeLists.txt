@@ -83,6 +83,8 @@ add_executable(${PROJECT_NAME}
   saveFragment.cpp
   loadFragment.hpp
   loadFragment.cpp
+  mainMenu.hpp
+  mainMenu.cpp
   ${VIDEO_SOURCES}
   )
 target_include_directories(${PROJECT_NAME} PUBLIC 

@@ -39,15 +39,4 @@ void editProgram(vars::Vars&vars){
   proj->videoManager.setFrame();
   proj->videoManager.showGUI();
 
-  if(ImGui::BeginMainMenuBar()){
-    if(ImGui::BeginMenu("file")){
-      if(ImGui::MenuItem("open")){
-      }
-      if(ImGui::MenuItem("save")){
-        vars.get<Project>("project")->save(vars.getString("projectName"));
-      }
-      ImGui::EndMenu();
-    }
-    ImGui::EndMainMenuBar();
-  }
 }
