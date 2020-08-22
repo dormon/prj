@@ -90,6 +90,12 @@ add_executable(${PROJECT_NAME}
   loadFragment.cpp
   mainMenu.hpp
   mainMenu.cpp
+  onKey.hpp
+  onKey.cpp
+  parseArgs.hpp
+  parseArgs.cpp
+  init.hpp
+  init.cpp
   ${VIDEO_SOURCES}
   ${ImGuiFileDialog_sources}
   )

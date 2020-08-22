@@ -22,25 +22,24 @@
 #include <VideoManager.hpp>
 #include <getTimeFormat.hpp>
 
+#include <DVars.hpp>
 #include <computeFrame.hpp>
 #include <editProgram.hpp>
 #include <loadFragment.hpp>
 #include <mainMenu.hpp>
+#include <onKey.hpp>
+#include <parseArgs.hpp>
+#include <init.hpp>
 
 
 
 #define ___ std::cerr << __FILE__ << "/" << __LINE__ << std::endl
 
 
-
-
-
-using DVars = VarsGLMDecorator<vars::Vars>;
-
-class EmptyProject: public simple3DApp::Application{
+class RemSub: public simple3DApp::Application{
  public:
-  EmptyProject(int argc, char* argv[]) : Application(argc, argv,330) {}
-  virtual ~EmptyProject(){}
+  RemSub(int argc, char* argv[]) : Application(argc, argv,330) {}
+  virtual ~RemSub(){}
   virtual void draw() override;
   DVars vars;
 
@@ -54,41 +53,22 @@ class EmptyProject: public simple3DApp::Application{
 
 
 
-void EmptyProject::init(){
+void RemSub::init(){
   window->setSize(1920,1080);
   *vars.add<std::shared_ptr<sdl2cpp::Window>>("window") = window;
   window->setEventCallback(SDL_MOUSEWHEEL,[&](SDL_Event const&e){mouseWheel(e);return true;});
-
-  auto args = std::make_shared<argumentViewer::ArgumentViewer>(argc,argv);
-  auto projectName  = args->gets("--proj","","project file");
-  auto printHelp  = args->isPresent("--help");
-  if(printHelp||!args->validate()){
-    std::cerr <<args->toStr() << std::endl;
-  }
-
-  auto proj = vars.add<Project>("project");
-  vars.addString("projectName",projectName);
-  if(projectName != "")
-    proj->load(projectName);
-
-  vars.add<ge::gl::VertexArray>("emptyVao");
   vars.addUVec2("windowSize",window->getWidth(),window->getHeight());
-  vars.addMap<SDL_Keycode, bool>("input.keyDown");
 
-  vars.addBool("compile");
+  parseArgs(vars,argc,argv);
 
-  vars.addString("computeSourceFile","../drawVideo.fp");
-  loadFragment(vars);
-
-  vars.addFloat("view.zoom",1.f);
-  vars.add<glm::vec2>("view.offset",glm::vec2(0.f));
+  ::init(vars);
 }
 
 
 
 
 
-void EmptyProject::draw(){
+void RemSub::draw(){
   FUNCTION_CALLER();
 
 
@@ -134,21 +114,11 @@ void EmptyProject::draw(){
   swap();
 }
 
-void EmptyProject::key(SDL_Event const& event, bool DOWN) {
-  auto&keys = vars.getMap<SDL_Keycode, bool>("input.keyDown");
-  keys[event.key.keysym.sym] = DOWN;
-  if(DOWN && event.key.keysym.sym == SDLK_SPACE)
-    vars.getBool("playVideo") ^= true;
-  if(DOWN && event.key.keysym.sym == SDLK_RIGHT){
-    vars.get<VideoManager>("videoManager")->nextFrame();
-  }
-  if(DOWN && event.key.keysym.sym == SDLK_LEFT){
-    vars.get<VideoManager>("videoManager")->prevFrame();
-  }
-
+void RemSub::key(SDL_Event const& event, bool DOWN) {
+  onKey(vars,event,DOWN);
 }
 
-void EmptyProject::mouseWheel(SDL_Event const& event){
+void RemSub::mouseWheel(SDL_Event const& event){
   auto&zoom = vars.getFloat("view.zoom");
   auto zoomInc = 0.1f*event.wheel.y;
   int x,y;
@@ -172,7 +142,7 @@ void EmptyProject::mouseWheel(SDL_Event const& event){
   if(zoom < 0.1f)zoom = 0.1f;
 }
 
-void EmptyProject::mouseMove(SDL_Event const& e) {
+void RemSub::mouseMove(SDL_Event const& e) {
   if(e.motion.state & SDL_BUTTON_MMASK){
     auto&offset = vars.getVec2("view.offset");
     offset.x += 2.f * (float)e.motion.xrel / (float)window->getWidth();
@@ -180,7 +150,7 @@ void EmptyProject::mouseMove(SDL_Event const& e) {
   }
 }
 
-void EmptyProject::resize(uint32_t x,uint32_t y){
+void RemSub::resize(uint32_t x,uint32_t y){
   auto&windowSize = vars.getUVec2("windowSize");
   windowSize.x = x;
   windowSize.y = y;
@@ -190,7 +160,7 @@ void EmptyProject::resize(uint32_t x,uint32_t y){
 
 
 int main(int argc,char*argv[]){
-  EmptyProject app{argc, argv};
+  RemSub app{argc, argv};
   app.start();
   return EXIT_SUCCESS;
 }
