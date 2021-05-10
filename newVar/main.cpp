@@ -432,38 +432,38 @@ class T{
 
 int main(){
 
-  auto th = std::thread([](){std::cerr<<"a"<<std::endl;});
-  return 0;
+  //auto th = std::thread([](){std::cerr<<"a"<<std::endl;});
+  //return 0;
 
-  T{tag<float>()};
-  size_t N = 100000;
-  {
-    auto t = measure([&](){
-      MyVec<float>myvec;
-      for(size_t i=0;i<N;++i)
-        myvec.emplace_back();
-    });
-    std::cerr << "time: " << t << std::endl;
-  }
-  {
-    auto t = measure([&](){
-      std::vector<float>myvec;
-      for(size_t i=0;i<N;++i)
-        myvec.emplace_back();
-    });
-    std::cerr << "time: " << t << std::endl;
-  }
+  //T{tag<float>()};
+  //size_t N = 1000000;
+  //{
+  //  auto t = measure([&](){
+  //    MyVec<float>myvec;
+  //    for(size_t i=0;i<N;++i)
+  //      myvec.emplace_back();
+  //  });
+  //  std::cerr << "time: " << t << std::endl;
+  //}
+  //{
+  //  auto t = measure([&](){
+  //    std::vector<float>myvec;
+  //    for(size_t i=0;i<N;++i)
+  //      myvec.emplace_back();
+  //  });
+  //  std::cerr << "time: " << t << std::endl;
+  //}
 
-  return 0;
-  std::vector<A>vec;
-  
-  vec.emplace_back();
-  vec.emplace_back();
-  vec.emplace_back();
-  vec.emplace_back();
-  vec.emplace_back();
+  //return 0;
+  //std::vector<A>vec;
+  //
+  //vec.emplace_back();
+  //vec.emplace_back();
+  //vec.emplace_back();
+  //vec.emplace_back();
+  //vec.emplace_back();
 
-  return 0;
+  //return 0;
   auto a = var<float>();
   std::cerr << a.stamp() << std::endl;
   a = 3.3f;
