@@ -75,9 +75,9 @@ class Matrix: public Vector{
       columns = o.columns;
       return*this;
     }
-    Vector operator[](size_t r){
-      return Vector(data + columns*r,columns);
-    }
+    //Vector operator[](size_t r){
+    //  return Vector(data + columns*r,columns);
+    //}
     Vector const operator[](size_t r)const{
       return Vector(data + columns*r,columns);
     }
@@ -114,29 +114,29 @@ using Fce = std::function<float(float)>;
 constexpr const auto relu = [](float x){if(x>=0.f)return x;return x*0.1f;};
 constexpr const auto diffRelu = [](float x){if(x>=0.f)return 1.f;return 0.1f;};
 
-void add(Vector&v,Vector const&a,Vector const&b){
-  for(size_t i=0;i<a.size;++i)
+void add(float*v,float const*a,float const*b,size_t n){
+  for(size_t i=0;i<n;++i)
     v[i] = a[i] + b[i];
 }
 
-void sub(Vector&v,Vector const&a,Vector const&b){
-  for(size_t i=0;i<a.size;++i)
+void sub(float*v,float const*a,float const*b,size_t n){
+  for(size_t i=0;i<n;++i)
     v[i] = a[i] - b[i];
 }
 
-void vvvmul(Vector&v,Vector const&a,Vector const&b){
-  for(size_t i=0;i<a.size;++i)
+void vvvmul(float*v,float const*a,float const*b,size_t n){
+  for(size_t i=0;i<n;++i)
     v[i] = a[i] * b[i];
 }
 
-void vvcmul(Vector&v,Vector const&a,float b){
-  for(size_t i=0;i<a.size;++i)
+void vvcmul(float*v,float const*a,float b,size_t n){
+  for(size_t i=0;i<n;++i)
     v[i] = a[i] * b;
 }
 
-float dot(Vector const&a,Vector const&b){
+float dot(float const*a,float const*b,size_t n){
   float acc = 0;
-  for(size_t i=0;i<a.size;++i)
+  for(size_t i=0;i<n;++i)
     acc += a[i] * b[i];
   return acc;
 }
@@ -153,7 +153,8 @@ void add(Matrix&c,Matrix const&a,Matrix const&b){
 
 void vmvmul(Vector&c,Matrix const&a,Vector const&b){
   for(size_t i=0;i<c.size;++i)
-    c.data[i] = dot(a[i],b);
+    //c.data[i] = dot(a[i].data,b.data,b.size);
+    c.data[i] = dot(a.data+i*a.columns,b.data,b.size);
 }
 
 void mulTransposed(Vector&c,Matrix const&a,Vector const&b){
@@ -217,7 +218,7 @@ class Layer: public LayerBase{
     }
     Vector const& compute(Vector const&x){
       vmvmul(weightX,weight,x);
-      add(z,weightX,bias);
+      add(z.data,weightX.data,bias.data,bias.size);
       apply(o,z,f);
       return o;
     }
@@ -285,15 +286,15 @@ class Network{
     }
     Vector C;
     void backward(Vector const&x,Vector const&y,float s){
-      sub(C,layers.back().o,y);
-      vvcmul(C,C,-2*s);
+      sub(C.data,layers.back().o.data,y.data,y.size);
+      vvcmul(C.data,C.data,-2*s,C.size);
 
       auto const computeUpdate = [&](size_t l,Vector const&C){
         auto&ll           = layers[l];
         auto&biasUpdate   = ll.biasUpdate  ;
         auto&gz           = ll.gz          ;
         auto&weightUpdate = ll.weightUpdate;
-        vvvmul(biasUpdate,C,gz);
+        vvvmul(biasUpdate.data,C.data,gz.data,gz.size);
         if(l == 0)
           mvvmul(weightUpdate,biasUpdate,x);
         else
@@ -310,7 +311,7 @@ class Network{
     }
     void update(){
       for(auto&l:layers){
-        add(l.bias,l.bias,l.biasUpdate);
+        add(l.bias.data,l.bias.data,l.biasUpdate.data,l.biasUpdate.size);
         add(l.weight,l.weight,l.weightUpdate);
       }
     }
@@ -332,8 +333,8 @@ class Network{
       for(size_t i=0;i<samples.size();++i){
         //std::cerr << "TEST: " << i << "/" << samples.size() << std::endl;
         compute(o,samples[i].x);
-        sub(oy,o,samples[i].y);
-        counter += dot(oy,oy);
+        sub(oy.data,o.data,samples[i].y.data,o.size);
+        counter += dot(oy.data,oy.data,oy.size);
       }
       return counter / samples.size();
     }
@@ -362,8 +363,11 @@ class Network{
 int main(){
   srand(time(0));
   Network nn(2);
-  nn.pushLayer(2);
-  nn.pushLayer(2);
+  nn.pushLayer(20);
+  nn.pushLayer(20);
+  nn.pushLayer(20);
+  nn.pushLayer(20);
+  nn.pushLayer(20);
   nn.pushLayer(1);
 
   nn.randomize(-1,1);
