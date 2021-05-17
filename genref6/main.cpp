@@ -105,38 +105,48 @@ void apply(float*o,float const*v,Fce const&f,size_t n){
     o[i] = f(v[i]);
 }
 
+enum class LayerType{INPUT,DEEP,OUTPUT};
+
 class Layer{
   public:
-    void create(size_t i,size_t o,Fce const&fce=relu,Fce const&gce=diffRelu){
+    void create(size_t i,size_t o,LayerType t = LayerType::DEEP,Fce const&fce=relu,Fce const&gce=diffRelu){
       output = o;
       input  = i;
       f = fce;
       g = gce;
-      allocate(input,output);
+      layerType = t;
+      allocate();
     }
-    void allocate(size_t input,size_t output){
-      weight       = new float[input*output];
-      bias         = new float[      output];
-      biasUpdate   = new float[      output];
-      weightUpdate = new float[input*output];
-      weightX      = new float[      output];
-      z            = new float[      output];
-      o            = new float[      output];
-      gz           = new float[      output];
-      twbu         = new float[input       ];
+    void allocate(){
+      if(layerType != LayerType::INPUT){
+        weight       = new float[input*output];
+        bias         = new float[      output];
+        biasUpdate   = new float[      output];
+        weightUpdate = new float[input*output];
+        weightX      = new float[      output];
+        z            = new float[      output];
+        if(layerType != LayerType::OUTPUT)
+          o            = new float[      output];
+        gz           = new float[      output];
+        twbu         = new float[input       ];
+      }
     }
     void free(){
-      delete[]weight      ;
-      delete[]bias        ;
-      delete[]biasUpdate  ;
-      delete[]weightUpdate;
-      delete[]weightX     ;
-      delete[]z           ;
-      delete[]o           ;
-      delete[]gz          ;
-      delete[]twbu        ;
+      if(layerType != LayerType::INPUT){
+        delete[]weight      ;
+        delete[]bias        ;
+        delete[]biasUpdate  ;
+        delete[]weightUpdate;
+        delete[]weightX     ;
+        delete[]z           ;
+        if(layerType != LayerType::OUTPUT)
+          delete[]o           ;
+        delete[]gz          ;
+        delete[]twbu        ;
+      }
     }
     float const* compute(float const*x){
+      if(layerType==LayerType::INPUT)return o;
       vmvmul(weightX,weight,x,output,input);
       add(z,weightX,bias,output);
       apply(o,z,f,output);
@@ -148,17 +158,20 @@ class Layer{
       return o;
     }
     void randomize(float mmin,float mmax){
+      if(layerType==LayerType::INPUT)return;
       ::randomize(bias,mmin,mmax,output);
       ::randomize(weight,mmin,mmax,input*output);
     }
     void update(){
+      if(layerType==LayerType::INPUT)return;
       add(bias,bias,biasUpdate,output);
       add(weight,weight,weightUpdate,input*output);
     }
     size_t output;
     size_t input ;
-    Fce   f           ;
-    Fce   g           ;
+    LayerType layerType;
+    Fce       f;
+    Fce       g;
     float*weight       = nullptr;
     float*bias         = nullptr;
     float*weightX      = nullptr;
@@ -181,9 +194,9 @@ class Network{
   public:
     size_t inputSize = 0;
     Network(std::vector<size_t>const&ls,Fce const&f = relu,Fce const&g = diffRelu):inputSize(ls.front()),C(ls.back()){
-      layers.resize(ls.size()-1);
-      for(size_t i=0;i<ls.size()-1;++i)
-        layers[i].create(ls[i],ls[i+1]);
+      layers.resize(ls.size());
+      for(size_t i=0;i<ls.size();++i)
+        layers[i].create(i>0?ls[i-1]:0,ls[i],i==0?LayerType::INPUT:LayerType::DEEP);
     }
     ~Network(){
       for(auto&l:layers)
@@ -192,33 +205,20 @@ class Network{
     }
     std::vector<Layer>layers;
     float const* forward(float const*x){
-      bool first = true;
-      Layer*prev;
-      for(auto&l:layers){
-        if(first){
-          first = false;
-          l.forward(x);
-        }else
-          l.forward(prev->o);
-        prev = &l;
-      }
-      return prev->o;
+      layers.front().o = (float*)x;
+      for(size_t i=1;i<layers.size();++i)
+        layers.at(i).forward(layers.at(i-1).o);
+      return layers.back().o;
     }
     void compute(std::vector<float>&o,std::vector<float> const&i){
-      bool first = true;
-      Layer*prev = nullptr;
-      for(auto&l:layers){
-        if(first){
-          first = false;
-          l.compute(i.data());
-        }else
-          l.compute(prev->o);
-        prev = &l;
-      }
-      copy(o.data(),prev->o,o.size());
+      layers.front().o = (float*)i.data();
+      for(size_t i=1;i<layers.size();++i)
+        layers.at(i).compute(layers.at(i-1).o);
+      copy(o.data(),layers.back().o,o.size());
     }
     std::vector<float> C;
     void backward(std::vector<float> const&x,std::vector<float> const&y,float s){
+      layers.front().o = (float*)x.data();
       sub(C.data(),layers.back().o,y.data(),y.size());
       vvcmul(C.data(),C.data(),-2*s,C.size());
 
@@ -228,15 +228,12 @@ class Network{
         auto&gz           = ll.gz          ;
         auto&weightUpdate = ll.weightUpdate;
         vvvmul(biasUpdate,C,gz,ll.output);
-        if(l == 0)
-          mvvmul(weightUpdate,biasUpdate,x.data(),ll.output,x.size());
-        else
-          mvvmul(weightUpdate,biasUpdate,layers[l-1].o,ll.output,layers[l-1].output);
+        mvvmul(weightUpdate,biasUpdate,layers[l-1].o,ll.output,layers[l-1].output);
       };
 
       computeUpdate(layers.size()-1,C.data());
 
-      for(size_t i=layers.size()-1;i>0;--i){
+      for(size_t i=layers.size()-1;i>1;--i){
         auto&pl = layers.at(i);
         mulTransposed(pl.twbu,pl.weight,pl.biasUpdate,pl.input,pl.output);
         computeUpdate(i-1,pl.twbu);
@@ -285,7 +282,7 @@ class Network{
 
 int main(){
   srand(time(0));
-  auto nn = Network({2,20,20,20,20,20,1});
+  auto nn = Network({2,20,20,20,20,1});
 
   nn.randomize(-1,1);
   auto const genSamples = [](size_t input,size_t output,size_t N,float mmin,float mmax){
@@ -299,7 +296,7 @@ int main(){
     }
     return samples;
   };
-  auto trainSamples = genSamples(nn.input(),nn.output(),100000,-2,2);
+  auto trainSamples = genSamples(nn.input(),nn.output(),10000,-2,2);
   auto testSamples  = genSamples(nn.input(),nn.output(),1000,-2,2);
 
   measure("traininig ",[&](){
@@ -317,7 +314,8 @@ int main(){
   std::vector<float> x(2);
   x[0] = 1;
   x[1] = 2;
-  std::cerr << nn(x) << std::endl;
+  auto oo = nn(x);
+  std::cerr << oo << std::endl;
 
   return 0;
 }
