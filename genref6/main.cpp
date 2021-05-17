@@ -204,21 +204,19 @@ class Network{
       layers.clear();
     }
     std::vector<Layer>layers;
-    float const* forward(float const*x){
-      layers.front().o = (float*)x;
+    float const* forward(){
       for(size_t i=1;i<layers.size();++i)
-        layers.at(i).forward(layers.at(i-1).o);
+        layers[i].forward(layers[i-1].o);
       return layers.back().o;
     }
     void compute(std::vector<float>&o,std::vector<float> const&i){
       layers.front().o = (float*)i.data();
       for(size_t i=1;i<layers.size();++i)
-        layers.at(i).compute(layers.at(i-1).o);
+        layers[i].compute(layers[i-1].o);
       copy(o.data(),layers.back().o,o.size());
     }
     std::vector<float> C;
-    void backward(std::vector<float> const&x,std::vector<float> const&y,float s){
-      layers.front().o = (float*)x.data();
+    void backward(std::vector<float> const&y,float s){
       sub(C.data(),layers.back().o,y.data(),y.size());
       vvcmul(C.data(),C.data(),-2*s,C.size());
 
@@ -243,8 +241,9 @@ class Network{
       for(auto&l:layers)l.update();
     }
     void sampleTrain(Sample const&sample,float s){
-      forward(sample.x.data());
-      backward(sample.x,sample.y,s);
+      layers.front().o = (float*)sample.x.data();
+      forward();
+      backward(sample.y,s);
       update();
     }
     void trainSGD(std::vector<Sample>const&samples,float speed){
@@ -281,7 +280,8 @@ class Network{
 };
 
 int main(){
-  srand(time(0));
+  //srand(time(0));
+  srand(0);
   auto nn = Network({2,20,20,20,20,1});
 
   nn.randomize(-1,1);
@@ -296,7 +296,7 @@ int main(){
     }
     return samples;
   };
-  auto trainSamples = genSamples(nn.input(),nn.output(),10000,-2,2);
+  auto trainSamples = genSamples(nn.input(),nn.output(),100000,-2,2);
   auto testSamples  = genSamples(nn.input(),nn.output(),1000,-2,2);
 
   measure("traininig ",[&](){

@@ -403,12 +403,13 @@ class Network{
 };
 
 int main(){
-  srand(time(0));
+  //srand(time(0));
+  srand(0);
   Network nn(2);
-  nn.pushLayer(10);
-  nn.pushLayer(10);
-  nn.pushLayer(10);
-  nn.pushLayer(10);
+  nn.pushLayer(20);
+  nn.pushLayer(20);
+  nn.pushLayer(20);
+  nn.pushLayer(20);
   nn.pushLayer(1);
 
   nn.randomize(-1,1);
