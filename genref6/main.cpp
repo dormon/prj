@@ -107,34 +107,12 @@ void apply(float*o,float const*v,Fce const&f,size_t n){
 
 class Layer{
   public:
-    Layer(
-        size_t/**/      /**/input /**/ /**/        ,
-        size_t/**/      /**/output/**/ /**/        ,
-        Fce   /**/const&/**/fce   /**/=/**/relu    ,
-        Fce   /**/const&/**/gce   /**/=/**/diffRelu):
-      output      (output      ),
-      input       (input       ),
-      f           (fce         ),
-      g           (gce         )
-    {
+    void create(size_t i,size_t o,Fce const&fce=relu,Fce const&gce=diffRelu){
+      output = o;
+      input  = i;
+      f = fce;
+      g = gce;
       allocate(input,output);
-    }
-    Layer() = delete;
-    Layer(Layer const&l){
-      allocate(l.input,l.output);
-
-      copy(weight      ,l.weight      ,l.input*l.output);
-      copy(bias        ,l.bias        ,        l.output);
-      copy(biasUpdate  ,l.biasUpdate  ,        l.output);
-      copy(weightUpdate,l.weightUpdate,l.input*l.output);
-      copy(weightX     ,l.weightX     ,        l.output);
-      copy(z           ,l.z           ,        l.output);
-      copy(o           ,l.o           ,        l.output);
-      copy(gz          ,l.gz          ,        l.output);
-      output = l.output;
-      input = l.input;
-      f = l.f;
-      g = l.g;
     }
     void allocate(size_t input,size_t output){
       weight       = new float[input*output];
@@ -147,7 +125,7 @@ class Layer{
       gz           = new float[      output];
       twbu         = new float[input       ];
     }
-    ~Layer(){
+    void free(){
       delete[]weight      ;
       delete[]bias        ;
       delete[]biasUpdate  ;
@@ -158,13 +136,13 @@ class Layer{
       delete[]gz          ;
       delete[]twbu        ;
     }
-    float* compute(float const*x){
+    float const* compute(float const*x){
       vmvmul(weightX,weight,x,output,input);
       add(z,weightX,bias,output);
       apply(o,z,f,output);
       return o;
     }
-    float* forward(float const*x){
+    float const* forward(float const*x){
       compute(x);
       apply(gz,z,g,output);
       return o;
@@ -172,6 +150,10 @@ class Layer{
     void randomize(float mmin,float mmax){
       ::randomize(bias,mmin,mmax,output);
       ::randomize(weight,mmin,mmax,input*output);
+    }
+    void update(){
+      add(bias,bias,biasUpdate,output);
+      add(weight,weight,weightUpdate,input*output);
     }
     size_t output;
     size_t input ;
@@ -199,11 +181,17 @@ class Network{
   public:
     size_t inputSize = 0;
     Network(std::vector<size_t>const&ls,Fce const&f = relu,Fce const&g = diffRelu):inputSize(ls.front()),C(ls.back()){
+      layers.resize(ls.size()-1);
       for(size_t i=0;i<ls.size()-1;++i)
-        layers.emplace_back(ls[i],ls[i+1],f,g);
+        layers[i].create(ls[i],ls[i+1]);
+    }
+    ~Network(){
+      for(auto&l:layers)
+        l.free();
+      layers.clear();
     }
     std::vector<Layer>layers;
-    float* forward(float const*x){
+    float const* forward(float const*x){
       bool first = true;
       Layer*prev;
       for(auto&l:layers){
@@ -255,10 +243,7 @@ class Network{
       }
     }
     void update(){
-      for(auto&l:layers){
-        add(l.bias,l.bias,l.biasUpdate,l.output);
-        add(l.weight,l.weight,l.weightUpdate,l.input*l.output);
-      }
+      for(auto&l:layers)l.update();
     }
     void sampleTrain(Sample const&sample,float s){
       forward(sample.x.data());
