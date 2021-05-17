@@ -19,87 +19,21 @@ float randomf(float mmin,float mmax){
   return uniformf()*(mmax-mmin)+mmin;
 }
 
-class Vector{
-  public:
-    Vector(float*d,size_t s):data(d),size(s),allocated(false){}
-    Vector(float const*d,size_t s):data(const_cast<float*>(d)),size(s),allocated(false){}
-    Vector(size_t s):size(s),allocated(true){data = new float[s];}
-    Vector(Vector const&o){copy(o);}
-    Vector&operator=(Vector const&o){
-      free();
-      copy(o);
-      return*this;
-    }
-    float&operator[](size_t i){
-      return data[i];
-    }
-    float const&operator[](size_t i)const{
-      return data[i];
-    }
-    ~Vector(){
-      free();
-    }
-    void randomize(float mmin,float mmax){
-      for(size_t i=0;i<size;++i)
-        data[i] = randomf(mmin,mmax);
-    }
-    void free(){
-      if(allocated)delete[]data;
-      data = nullptr;
-      size = 0;
-      allocated = false;
-    }
-    void copy(Vector const&o){
-      if(o.allocated){
-        data = new float[o.size];
-        memcpy(data,o.data,sizeof(float)*o.size);
-      }else
-        data = o.data;
-      size = o.size;
-      allocated = o.allocated;
-    }
-    float* data      = nullptr;
-    size_t size      = 0      ;
-    bool   allocated = false  ;
-};
+void randomize(float*v,float mmin,float mmax,size_t n){
+  for(size_t i=0;i<n;++i)
+    v[i] = randomf(mmin,mmax);
+}
 
-class Matrix: public Vector{
-  public:
-    Matrix(size_t r,size_t c):Vector(r*c),rows(r),columns(c){}
-    Matrix(float*d,size_t r,size_t c):Vector(d,r*c),rows(r),columns(c){}
-    Matrix(Matrix const&o):Vector(o),rows(o.rows),columns(o.columns){}
-    Matrix&operator=(Matrix const&o){
-      free();
-      copy(o);
-      rows = o.rows;
-      columns = o.columns;
-      return*this;
-    }
-    //Vector operator[](size_t r){
-    //  return Vector(data + columns*r,columns);
-    //}
-    Vector const operator[](size_t r)const{
-      return Vector(data + columns*r,columns);
-    }
-    size_t rows    = 0;
-    size_t columns = 0;
-};
-
-std::ostream& operator<< (std::ostream& stream, const Vector& v) {
+std::ostream& operator<< (std::ostream& stream, const std::vector<float>& v) {
   stream << "[";
-  for(size_t i=0;i<v.size;++i){
+  for(size_t i=0;i<v.size();++i){
     if(i>0)stream << ",";
-    stream << v.data[i];
+    stream << v[i];
   }
   stream << "]";
   return stream;
 }
 
-std::ostream& operator<< (std::ostream& stream, const Matrix& v) {
-  for(size_t r=0;r<v.rows;++r)
-    stream << v[r] << std::endl;
-  return stream;
-}
 
 void measure(std::string const&n,std::function<void()>const&f){
   auto now  = std::chrono::high_resolution_clock::now();
@@ -141,54 +75,48 @@ float dot(float const*a,float const*b,size_t n){
   return acc;
 }
 
-void copy(Vector&c,Vector const&a){
-  for(size_t i=0;i<c.size;++i)
+void copy(float*c,float const*a,size_t n){
+  for(size_t i=0;i<n;++i)
     c[i] = a[i];
 }
 
-void add(Matrix&c,Matrix const&a,Matrix const&b){
-  for(size_t i=0;i<a.size;++i)
-    c.data[i] = a.data[i] + b.data[i];
+void vmvmul(float*o,float const*m,float const*b,size_t r,size_t c){
+  for(size_t i=0;i<r;++i)
+    o[i] = dot(m+i*c,b,c);
 }
 
-void vmvmul(Vector&c,Matrix const&a,Vector const&b){
-  for(size_t i=0;i<c.size;++i)
-    //c.data[i] = dot(a[i].data,b.data,b.size);
-    c.data[i] = dot(a.data+i*a.columns,b.data,b.size);
-}
-
-void mulTransposed(Vector&c,Matrix const&a,Vector const&b){
-  for(size_t o=0;o<c.size;++o){
+void mulTransposed(float*c,float const*m,float const*b,size_t os,size_t is){
+  for(size_t o=0;o<os;++o){
     float acc = 0;
-    for(size_t i=0;i<b.size;++i)
-      acc += a.data[i*c.size+o] * b.data[i];
-    c.data[o] = acc;
+    for(size_t i=0;i<is;++i)
+      acc += m[i*os+o] * b[i];
+    c[o] = acc;
   }
 }
 
-void mvvmul(Matrix&o,Vector const&a,Vector const&b){
-  for(size_t r=0;r<o.rows;++r)
-    for(size_t c=0;c<o.columns;++c)
-      o.data[r*o.columns+c] = a[r] * b[c];
+void mvvmul(float*o,float const*a,float const*b,size_t r,size_t c){
+  for(size_t y=0;y<r;++y)
+    for(size_t x=0;x<c;++x)
+      o[y*c+x] = a[y] * b[x];
 }
 
-void apply(Vector&o,Vector const&v,Fce const&f){
-  for(size_t i=0;i<v.size;++i)
+void apply(float*o,float const*v,Fce const&f,size_t n){
+  for(size_t i=0;i<n;++i)
     o[i] = f(v[i]);
 }
 
 class LayerBase{
   public:
-    virtual Vector const&getOutput()const = 0;
+    virtual float*getOutput()const = 0;
 };
 
 class Input: public LayerBase{
   public:
-    Vector &output;
-    Input(Vector &i):output(i){}
-    void setInput(Vector &i){output = i;}
-    Vector const&getOutput()const override{
-      return output;
+    std::vector<float> &output;
+    Input(std::vector<float> &i):output(i){}
+    void setInput(std::vector<float> &i){output = i;}
+    float* getOutput()const override{
+      return output.data();
     }
 };
 
@@ -199,58 +127,90 @@ class Layer: public LayerBase{
         size_t/**/      /**/output/**/ /**/        ,
         Fce   /**/const&/**/fce   /**/=/**/relu    ,
         Fce   /**/const&/**/gce   /**/=/**/diffRelu):
-      weight      (output,input),
-      bias        (output      ),
+      output      (output      ),
+      input       (input       ),
       f           (fce         ),
-      g           (gce         ), 
-      weightX     (output      ),
-      z           (output      ),
-      o           (output      ),
-      weightUpdate(output,input),
-      biasUpdate  (output      ),
-      gz          (output      ),
-      twbu        (input       )
+      g           (gce         )
     {
+      allocate(input,output);
+    }
+    Layer() = delete;
+    Layer(Layer const&l){
+      allocate(l.input,l.output);
 
+      copy(weight      ,l.weight      ,l.input*l.output);
+      copy(bias        ,l.bias        ,        l.output);
+      copy(biasUpdate  ,l.biasUpdate  ,        l.output);
+      copy(weightUpdate,l.weightUpdate,l.input*l.output);
+      copy(weightX     ,l.weightX     ,        l.output);
+      copy(z           ,l.z           ,        l.output);
+      copy(o           ,l.o           ,        l.output);
+      copy(gz          ,l.gz          ,        l.output);
+      output = l.output;
+      input = l.input;
+      f = l.f;
+      g = l.g;
     }
-    Vector const& getOutput()const override{
+    void allocate(size_t input,size_t output){
+      weight       = new float[input*output];
+      bias         = new float[      output];
+      biasUpdate   = new float[      output];
+      weightUpdate = new float[input*output];
+      weightX      = new float[      output];
+      z            = new float[      output];
+      o            = new float[      output];
+      gz           = new float[      output];
+      twbu         = new float[input       ];
+    }
+    ~Layer(){
+      delete[]weight      ;
+      delete[]bias        ;
+      delete[]biasUpdate  ;
+      delete[]weightUpdate;
+      delete[]weightX     ;
+      delete[]z           ;
+      delete[]o           ;
+      delete[]gz          ;
+      delete[]twbu        ;
+    }
+    float* getOutput()const override{
       return o;
     }
-    Vector const& compute(Vector const&x){
-      vmvmul(weightX,weight,x);
-      add(z.data,weightX.data,bias.data,bias.size);
-      apply(o,z,f);
+    float* compute(float const*x){
+      vmvmul(weightX,weight,x,output,input);
+      add(z,weightX,bias,output);
+      apply(o,z,f,output);
       return o;
     }
-    Vector const& forward(Vector const&x){
+    float* forward(float const*x){
       compute(x);
-      apply(gz,z,g);
+      apply(gz,z,g,output);
       return o;
     }
     void randomize(float mmin,float mmax){
-      bias.randomize(mmin,mmax);
-      weight.randomize(mmin,mmax);
+      ::randomize(bias,mmin,mmax,output);
+      ::randomize(weight,mmin,mmax,input*output);
     }
-    size_t output()const{return weight.rows;}
-    size_t input()const{return weight.columns;}
-    Matrix weight      ;
-    Vector bias        ;
+    size_t output;
+    size_t input ;
+    float*weight=nullptr;
+    float*bias  =nullptr;
     Fce    f           ;
     Fce    g           ;
-    Vector weightX     ;
-    Vector z           ;
-    Vector o           ;
-    Matrix weightUpdate;
-    Vector biasUpdate  ;
-    Vector gz          ;
-    Vector twbu        ;
+    float*weightX = nullptr;
+    float*z = nullptr          ;
+    float*o = nullptr          ;
+    float*weightUpdate = nullptr;
+    float*biasUpdate  = nullptr;
+    float*gz          = nullptr;
+    float*twbu        = nullptr;
 };
 
 class Sample{
   public:
     Sample(size_t i,size_t o):x(i),y(o){}
-    Vector x;
-    Vector y;
+    std::vector<float> x;
+    std::vector<float> y;
 };
 
 class Network{
@@ -258,7 +218,7 @@ class Network{
     size_t inputSize = 0;
     Network(size_t i):inputSize(i),C(i){}
     std::vector<Layer>layers;
-    Vector const& forward(Vector const&x){
+    float* forward(float const*x){
       bool first = true;
       Layer*prev;
       for(auto&l:layers){
@@ -271,52 +231,52 @@ class Network{
       }
       return prev->o;
     }
-    void compute(Vector&o,Vector const&i){
+    void compute(std::vector<float>&o,std::vector<float> const&i){
       bool first = true;
       Layer*prev = nullptr;
       for(auto&l:layers){
         if(first){
           first = false;
-          l.compute(i);
+          l.compute(i.data());
         }else
           l.compute(prev->o);
         prev = &l;
       }
-      copy(o,prev->o);
+      copy(o.data(),prev->o,o.size());
     }
-    Vector C;
-    void backward(Vector const&x,Vector const&y,float s){
-      sub(C.data,layers.back().o.data,y.data,y.size);
-      vvcmul(C.data,C.data,-2*s,C.size);
+    std::vector<float> C;
+    void backward(std::vector<float> const&x,std::vector<float> const&y,float s){
+      sub(C.data(),layers.back().o,y.data(),y.size());
+      vvcmul(C.data(),C.data(),-2*s,C.size());
 
-      auto const computeUpdate = [&](size_t l,Vector const&C){
+      auto const computeUpdate = [&](size_t l,float const*C){
         auto&ll           = layers[l];
         auto&biasUpdate   = ll.biasUpdate  ;
         auto&gz           = ll.gz          ;
         auto&weightUpdate = ll.weightUpdate;
-        vvvmul(biasUpdate.data,C.data,gz.data,gz.size);
+        vvvmul(biasUpdate,C,gz,ll.output);
         if(l == 0)
-          mvvmul(weightUpdate,biasUpdate,x);
+          mvvmul(weightUpdate,biasUpdate,x.data(),ll.output,x.size());
         else
-          mvvmul(weightUpdate,biasUpdate,layers[l-1].o);
+          mvvmul(weightUpdate,biasUpdate,layers[l-1].o,ll.output,layers[l-1].output);
       };
 
-      computeUpdate(layers.size()-1,C);
+      computeUpdate(layers.size()-1,C.data());
 
       for(size_t i=layers.size()-1;i>0;--i){
         auto&pl = layers.at(i);
-        mulTransposed(pl.twbu,pl.weight,pl.biasUpdate);
+        mulTransposed(pl.twbu,pl.weight,pl.biasUpdate,pl.input,pl.output);
         computeUpdate(i-1,pl.twbu);
       }
     }
     void update(){
       for(auto&l:layers){
-        add(l.bias.data,l.bias.data,l.biasUpdate.data,l.biasUpdate.size);
-        add(l.weight,l.weight,l.weightUpdate);
+        add(l.bias,l.bias,l.biasUpdate,l.output);
+        add(l.weight,l.weight,l.weightUpdate,l.input*l.output);
       }
     }
     void sampleTrain(Sample const&sample,float s){
-      forward(sample.x);
+      forward(sample.x.data());
       backward(sample.x,sample.y,s);
       update();
     }
@@ -327,14 +287,14 @@ class Network{
       }
     }
     float test(std::vector<Sample>const&samples){
-      Vector o(output());
-      Vector oy(output());
+      std::vector<float> o(output());
+      std::vector<float> oy(output());
       float counter = 0;
       for(size_t i=0;i<samples.size();++i){
         //std::cerr << "TEST: " << i << "/" << samples.size() << std::endl;
         compute(o,samples[i].x);
-        sub(oy.data,o.data,samples[i].y.data,o.size);
-        counter += dot(oy.data,oy.data,oy.size);
+        sub(oy.data(),o.data(),samples[i].y.data(),o.size());
+        counter += dot(oy.data(),oy.data(),oy.size());
       }
       return counter / samples.size();
     }
@@ -346,18 +306,18 @@ class Network{
       if(layers.empty())
         layers.emplace_back(input(),n,f,g);
       else
-        layers.emplace_back(layers.back().output(),n,f,g);
-      C = Vector(n);
+        layers.emplace_back(layers.back().output,n,f,g);
+      C = std::vector<float>(n);
     }
 
-    Vector operator()(Vector const&x){
-      Vector y(output());
+    std::vector<float> operator()(std::vector<float> const&x){
+      std::vector<float> y(output());
       compute(y,x);
       return y;
     }
 
     size_t input()const{return inputSize;}
-    size_t output()const{return layers.back().output();}
+    size_t output()const{return layers.back().output;}
 };
 
 int main(){
@@ -376,9 +336,9 @@ int main(){
     for(size_t i=0;i<N;++i){
       samples.push_back(Sample(input,output));
       auto&s = samples.back();
-      s.x.data[0] = randomf(mmin,mmax);
-      s.x.data[1] = randomf(mmin,mmax);
-      s.y.data[0] = s.x.data[0] + s.x.data[1];
+      s.x[0] = randomf(mmin,mmax);
+      s.x[1] = randomf(mmin,mmax);
+      s.y[0] = s.x[0] + s.x[1];
     }
     return samples;
   };
@@ -397,9 +357,9 @@ int main(){
   //  std::cerr << l.weight << std::endl;
   //}
 
-  Vector x(2);
-  x.data[0] = 1;
-  x.data[1] = 2;
+  std::vector<float> x(2);
+  x[0] = 1;
+  x[1] = 2;
   std::cerr << nn(x) << std::endl;
 
   return 0;
