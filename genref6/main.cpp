@@ -105,22 +105,7 @@ void apply(float*o,float const*v,Fce const&f,size_t n){
     o[i] = f(v[i]);
 }
 
-class LayerBase{
-  public:
-    virtual float*getOutput()const = 0;
-};
-
-class Input: public LayerBase{
-  public:
-    std::vector<float> &output;
-    Input(std::vector<float> &i):output(i){}
-    void setInput(std::vector<float> &i){output = i;}
-    float* getOutput()const override{
-      return output.data();
-    }
-};
-
-class Layer: public LayerBase{
+class Layer{
   public:
     Layer(
         size_t/**/      /**/input /**/ /**/        ,
@@ -173,9 +158,6 @@ class Layer: public LayerBase{
       delete[]gz          ;
       delete[]twbu        ;
     }
-    float* getOutput()const override{
-      return o;
-    }
     float* compute(float const*x){
       vmvmul(weightX,weight,x,output,input);
       add(z,weightX,bias,output);
@@ -193,17 +175,17 @@ class Layer: public LayerBase{
     }
     size_t output;
     size_t input ;
-    float*weight=nullptr;
-    float*bias  =nullptr;
-    Fce    f           ;
-    Fce    g           ;
-    float*weightX = nullptr;
-    float*z = nullptr          ;
-    float*o = nullptr          ;
+    Fce   f           ;
+    Fce   g           ;
+    float*weight       = nullptr;
+    float*bias         = nullptr;
+    float*weightX      = nullptr;
+    float*z            = nullptr;
+    float*o            = nullptr;
     float*weightUpdate = nullptr;
-    float*biasUpdate  = nullptr;
-    float*gz          = nullptr;
-    float*twbu        = nullptr;
+    float*biasUpdate   = nullptr;
+    float*gz           = nullptr;
+    float*twbu         = nullptr;
 };
 
 class Sample{
@@ -216,7 +198,10 @@ class Sample{
 class Network{
   public:
     size_t inputSize = 0;
-    Network(size_t i):inputSize(i),C(i){}
+    Network(std::vector<size_t>const&ls,Fce const&f = relu,Fce const&g = diffRelu):inputSize(ls.front()),C(ls.back()){
+      for(size_t i=0;i<ls.size()-1;++i)
+        layers.emplace_back(ls[i],ls[i+1],f,g);
+    }
     std::vector<Layer>layers;
     float* forward(float const*x){
       bool first = true;
@@ -302,13 +287,6 @@ class Network{
       for(auto&l:layers)
         l.randomize(mmin,mmax);
     }
-    void pushLayer(size_t n,Fce const&f = relu,Fce const&g = diffRelu){
-      if(layers.empty())
-        layers.emplace_back(input(),n,f,g);
-      else
-        layers.emplace_back(layers.back().output,n,f,g);
-      C = std::vector<float>(n);
-    }
 
     std::vector<float> operator()(std::vector<float> const&x){
       std::vector<float> y(output());
@@ -322,13 +300,7 @@ class Network{
 
 int main(){
   srand(time(0));
-  Network nn(2);
-  nn.pushLayer(20);
-  nn.pushLayer(20);
-  nn.pushLayer(20);
-  nn.pushLayer(20);
-  nn.pushLayer(20);
-  nn.pushLayer(1);
+  auto nn = Network({2,20,20,20,20,20,1});
 
   nn.randomize(-1,1);
   auto const genSamples = [](size_t input,size_t output,size_t N,float mmin,float mmax){
