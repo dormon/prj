@@ -45,8 +45,8 @@ void measure(std::string const&n,std::function<void()>const&f){
 
 using Fce = std::function<float(float)>; 
 
-constexpr const auto relu = [](float x){if(x>=0.f)return x;return x*0.1f;};
-constexpr const auto diffRelu = [](float x){if(x>=0.f)return 1.f;return 0.1f;};
+constexpr const auto relu     = [](float x){if(x>=0.f)return 1.f*x;return .1f*x;};
+constexpr const auto diffRelu = [](float x){if(x>=0.f)return 1.f  ;return .1f  ;};
 
 void add(float*v,float const*a,float const*b,size_t n){
   for(size_t i=0;i<n;++i)
@@ -100,7 +100,7 @@ void mvvmul(float*o,float const*a,float const*b,size_t r,size_t c){
       o[y*c+x] = a[y] * b[x];
 }
 
-void apply(float*o,float const*v,Fce const&f,size_t n){
+void apply(float*o,Fce const&f,float const*v,size_t n){
   for(size_t i=0;i<n;++i)
     o[i] = f(v[i]);
 }
@@ -145,17 +145,14 @@ class Layer{
         delete[]twbu        ;
       }
     }
-    float const* compute(float const*x){
-      if(layerType==LayerType::INPUT)return o;
+    void compute(float const*x){
       vmvmul(weightX,weight,x,output,input);
       add(z,weightX,bias,output);
-      apply(o,z,f,output);
-      return o;
+      apply(o,f,z,output);
     }
-    float const* forward(float const*x){
+    void forward(float const*x){
       compute(x);
-      apply(gz,z,g,output);
-      return o;
+      apply(gz,g,z,output);
     }
     void randomize(float mmin,float mmax){
       if(layerType==LayerType::INPUT)return;
@@ -163,7 +160,6 @@ class Layer{
       ::randomize(weight,mmin,mmax,input*output);
     }
     void update(){
-      if(layerType==LayerType::INPUT)return;
       add(bias,bias,biasUpdate,output);
       add(weight,weight,weightUpdate,input*output);
     }
@@ -204,10 +200,9 @@ class Network{
       layers.clear();
     }
     std::vector<Layer>layers;
-    float const* forward(){
+    void forward(){
       for(size_t i=1;i<layers.size();++i)
         layers[i].forward(layers[i-1].o);
-      return layers.back().o;
     }
     void compute(std::vector<float>&o,std::vector<float> const&i){
       layers.front().o = (float*)i.data();
@@ -217,7 +212,7 @@ class Network{
     }
     std::vector<float> C;
     void backward(std::vector<float> const&y,float s){
-      sub(C.data(),layers.back().o,y.data(),y.size());
+      sub(C.data(),layers.back().o,y.data(),layers.back().output);
       vvcmul(C.data(),C.data(),-2*s,C.size());
 
       auto const computeUpdate = [&](size_t l,float const*C){
@@ -238,7 +233,7 @@ class Network{
       }
     }
     void update(){
-      for(auto&l:layers)l.update();
+      for(size_t i=1;i<layers.size();++i)layers[i].update();
     }
     void sampleTrain(Sample const&sample,float s){
       layers.front().o = (float*)sample.x.data();
@@ -275,7 +270,7 @@ class Network{
       return y;
     }
 
-    size_t input()const{return inputSize;}
+    size_t input()const{return layers.front().output;}
     size_t output()const{return layers.back().output;}
 };
 
