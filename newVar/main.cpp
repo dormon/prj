@@ -16,6 +16,12 @@
 
 using namespace std;
 
+void tests(){
+  {
+    Vars vars;
+    vars.addf32("a");
+  }
+}
 
 class A{
   public:
@@ -74,6 +80,7 @@ class T{
 };
 
 int main(){
+  tests();
 
   //auto th = std::thread([](){std::cerr<<"a"<<std::endl;});
   //return 0;

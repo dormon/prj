@@ -1,6 +1,7 @@
 #ifndef __VARS__
 #define __VARS__
 
+#include <string>
 #include <cstdint>
 #include <functional>
 #include <set>
@@ -147,6 +148,18 @@ class Vars{
     using VarSelection = std::set<Var*>;
     using Tags         = std::set<Tag >;
     template<typename CLASS,typename...ARGS>
+    CLASS&add(std::string const&name,ARGS&&...args){
+      auto ptr = allocateVar<CLASS>();
+      callConstructor<CLASS>(ptr,args...);
+      auto res = name2Var.emplace(std::piecewise_construct,
+          std::forward_as_tuple(name),
+          std::forward_as_tuple(ptr),
+          std::forward_as_tuple(getDestructor<CLASS>()),
+          std::forward_as_tuple(typeid(CLASS)));
+      Var&var      = std::get<0>(res)->second;
+      return var.get<CLASS>();
+    }
+    template<typename CLASS,typename...ARGS>
     CLASS&addOrGet(std::string const&name,ARGS&&...args){
       return *std::get<0>(name2Var.emplace(name,args...));
     }
@@ -168,6 +181,8 @@ class Vars{
     void addTag    (std::string const&varName,Tags const&tags);
     void removeTag (std::string const&varName,Tags const&tags);
     bool notChanged(void*fce,char const*fceName);
+    float&f32(std::string const&varName);
+    float&addf32(std::string const&varName,float d=0.f);
     void exitFunction();
     class Caller{
       public:
@@ -319,6 +334,10 @@ void Vars::exitFunction(){
 void Vars::record(Var*var){
   for(size_t i=0;i<callstackTop;++i)
     callstack.at(i)->record(var);
+}
+
+float&Vars::addf32(std::string const&varName,float d){
+  //return add<float>(varName,d);
 }
 
 
