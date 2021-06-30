@@ -8,6 +8,7 @@
 #include <chrono>
 #include <sstream>
 #include <map>
+#include <cmath>
 
 #define ___ std::cerr << __FILE__ << " " << __LINE__ << std::endl
 
@@ -47,6 +48,12 @@ using Fce = std::function<float(float)>;
 
 constexpr const auto relu     = [](float x){if(x>=0.f)return 1.f*x;return .1f*x;};
 constexpr const auto diffRelu = [](float x){if(x>=0.f)return 1.f  ;return .1f  ;};
+constexpr const auto selu     = [](float x){const float lambda=1.0507f;const float alpha=1.6733f;if(x>0.f)return lambda*x;else return lambda*(alpha*std::exp(x)-alpha);};
+constexpr const auto diffSelu = [](float x){const float lambda=1.0507f;const float alpha=1.6733f;if(x>0.f)return lambda  ;else return lambda*(alpha*std::exp(x)      );};
+//constexpr const auto selu     = [](float x){if(x>=0.f)return 1.f*x;else return -.1f*x;}; // funguje
+//constexpr const auto diffSelu = [](float x){if(x>=0.f)return 1.f  ;else return -.1f  ;};
+//constexpr const auto selu     = [](float x){if(x>=0.f)return fmodf(x,1.f);else return .1f*fmodf(-x,2.f);};
+//constexpr const auto diffSelu = [](float x){if(x>=0.f)return 1.f  ;else return -.1f  ;};
 
 void add(float*v,float const*a,float const*b,size_t n){
   for(size_t i=0;i<n;++i)
@@ -192,7 +199,7 @@ class Network{
     Network(std::vector<size_t>const&ls,Fce const&f = relu,Fce const&g = diffRelu):inputSize(ls.front()),C(ls.back()){
       layers.resize(ls.size());
       for(size_t i=0;i<ls.size();++i)
-        layers[i].create(i>0?ls[i-1]:0,ls[i],i==0?LayerType::INPUT:LayerType::DEEP);
+        layers[i].create(i>0?ls[i-1]:0,ls[i],i==0?LayerType::INPUT:LayerType::DEEP,f,g);
     }
     ~Network(){
       for(auto&l:layers)
@@ -277,7 +284,12 @@ class Network{
 int main(){
   //srand(time(0));
   srand(0);
-  auto nn = Network({2,20,20,20,20,1});
+
+  auto ll = std::vector<size_t>{2,20,20,20,20,20,20,20,20,1};
+  auto f = relu;
+  auto df = diffRelu;
+
+  auto nn = Network(ll,f,df);
 
   nn.randomize(-1,1);
   auto const genSamples = [](size_t input,size_t output,size_t N,float mmin,float mmax){
@@ -310,7 +322,7 @@ int main(){
   x[0] = 1;
   x[1] = 2;
   auto oo = nn(x);
-  std::cerr << oo << std::endl;
+  std::cerr << x[0] << " + " << x[1] <<" = " << oo << std::endl;
 
   return 0;
 }
