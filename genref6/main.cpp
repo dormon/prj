@@ -163,8 +163,12 @@ class Layer{
     }
     void randomize(float mmin,float mmax){
       if(layerType==LayerType::INPUT)return;
-      ::randomize(bias,mmin,mmax,output);
-      ::randomize(weight,mmin,mmax,input*output);
+      for(size_t i=0;i<output;++i)bias[i]=0.f;
+      for(size_t o=0;o<output;++o)
+        for(size_t i=0;i<input;++i)
+          weight[o*input+i]=i==o?1.f:0.f;
+      //::randomize(bias,mmin,mmax,output);
+      //::randomize(weight,mmin,mmax,input*output);
     }
     void update(){
       add(bias,bias,biasUpdate,output);
@@ -285,7 +289,7 @@ int main(){
   //srand(time(0));
   srand(0);
 
-  auto ll = std::vector<size_t>{2,20,20,20,20,20,20,20,20,1};
+  auto ll = std::vector<size_t>{2,20,20,20,20,20,1};
   auto f = relu;
   auto df = diffRelu;
 
@@ -303,7 +307,7 @@ int main(){
     }
     return samples;
   };
-  auto trainSamples = genSamples(nn.input(),nn.output(),100000,-2,2);
+  auto trainSamples = genSamples(nn.input(),nn.output(),200000,-2,2);
   auto testSamples  = genSamples(nn.input(),nn.output(),1000,-2,2);
 
   measure("traininig ",[&](){
