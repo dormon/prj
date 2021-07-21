@@ -21,6 +21,10 @@ void tests(){
     Vars vars;
     vars.addf32("a");
   }
+  {
+    Vars vars;
+    vars.f32("a")=32;
+  }
 }
 
 class A{
