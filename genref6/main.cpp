@@ -112,6 +112,18 @@ void apply(float*o,Fce const&f,float const*v,size_t n){
     o[i] = f(v[i]);
 }
 
+void clamp(float*a,float mmin,float mmax,size_t n){
+  for(size_t i=0;i<n;++i){
+    if(a[i]>mmax)a[i]=mmax;
+    if(a[i]<mmin)a[i]=mmin;
+  }
+}
+
+void norm(float*a,size_t n){
+  float s = sqrt(dot(a,a,n));
+  if(s>0.01)vvcmul(a,a,1/s,n);
+}
+
 enum class LayerType{INPUT,DEEP,OUTPUT};
 
 class Layer{
@@ -173,7 +185,12 @@ class Layer{
     void update(){
       add(bias,bias,biasUpdate,output);
       add(weight,weight,weightUpdate,input*output);
+      //norm(bias,output);
+      clamp(bias  ,-1,+1,output);
+      //clamp(weight,-2,+2,input*output);
     }
+    size_t maxOutput;
+    size_t maxInput ;
     size_t output;
     size_t input ;
     LayerType layerType;
