@@ -10,20 +10,105 @@
 #include <chrono>
 #include <stack>
 #include <thread>
+#include <cassert>
 
 #define __VARS_IMPLEMENTATION__
 #include "vars.hpp"
 
 using namespace std;
 
+void varTests(){
+  int static base = 0;
+  struct CD{CD(int a){base = a;}~CD(){base = 10;}};
+  {
+    auto ptr = allocateVar<float>();
+    deallocateVar(ptr);
+  }
+  {
+    base = 0;
+    auto ptr = allocateVar<CD>();
+    callConstructor<CD>(ptr,3);
+    assert(base == 3);
+    auto dst = getDestructor<CD>();
+    dst(ptr);
+    assert(base == 10);
+    deallocateVar(ptr);
+  }
+  {
+    base = 0;
+    auto ptr = construct<CD>(3);
+    assert(base == 3);
+    getDestructor<CD>()(ptr);
+    deallocateVar(ptr);
+    assert(base == 10);
+  }
+  {
+    base = 0;
+    {
+      auto ptr = allocateVar<CD>();
+      callConstructor<CD>(ptr,3);
+      auto a = Var{ptr,getDestructor<CD>(),typeid(CD)};
+      assert(base == 3);
+    }
+    assert(base == 10);
+  }
+  {
+    var<float>();
+  }
+  {
+    var<float>(1.3f);
+  }
+  {
+    auto a = var<float>(3.f);
+    a = 3.f;
+  }
+  {
+    auto a = var<float>(3.f);
+    assert(a.stamp() == 0);
+    a.updateStamp();
+    assert(a.stamp() == 1);
+    a.reCreate<float>(4.f);
+    assert(a.stamp() == 2);
+    a.reCreate<uint16_t>(2);
+    assert(a.stamp() == 3);
+  }
+}
+
 void tests(){
+  varTests();
   {
     Vars vars;
-    vars.addf32("a");
+    auto a = vars.addf32("a");
   }
   {
     Vars vars;
+    vars.addf32("a");
     vars.f32("a")=32;
+  }
+  {
+    Vars vars;
+    auto a = vars.addf32("a",1.f);
+    assert(a == 1.f);
+  }
+  {
+    Vars vars;
+    vars.addf32("a",3.f);
+    assert(vars.f32("a") == 3.f);
+  }
+  {
+    Vars vars;
+    auto b = vars.f32r("a",3.f);
+    assert(b == 3.f);
+    auto c = vars.f32r("a",4.f);
+    assert(c == 4.f);
+  }
+  {
+    Vars vars;
+    auto b = vars.f32a("a",3.f);
+    assert(b == 3.f);
+    auto c = vars.f32a("a",4.f);
+    assert(c == 3.f);
+
   }
 }
 
@@ -118,10 +203,10 @@ int main(){
   //vec.emplace_back();
 
   //return 0;
-  auto a = var<float>();
-  std::cerr << a.stamp() << std::endl;
-  a = 3.3f;
-  std::cerr << a.stamp() << std::endl;
-  float b = a;
+  //auto a = var<float>();
+  //std::cerr << a.stamp() << std::endl;
+  //a = 3.3f;
+  //std::cerr << a.stamp() << std::endl;
+  //float b = a;
   return 0;
 }

@@ -24,6 +24,13 @@ void callConstructor(uint8_t*ptr,ARGS&&...args){
   new(reinterpret_cast<CLASS*>(ptr))CLASS(args...);
 }
 
+template<typename CLASS,typename...ARGS>
+uint8_t*construct(ARGS&&...args){
+  auto ptr = allocateVar<CLASS>();
+  callConstructor<CLASS>(ptr,args...);
+  return ptr;
+}
+
 void deallocateVar(uint8_t*p){
   delete [] p;
 }
@@ -67,7 +74,7 @@ class Var{
     ~Var();
     void updateStamp();
     void signal();
-    void seSignal(SignalCallback const&callback);
+    void setSignal(SignalCallback const&callback);
     SignalCallback getOnChange()const;
     Stamp stamp()const;
   protected:
@@ -82,8 +89,7 @@ class Var{
 
 
 template<typename CLASS,typename...ARGS>
-Var::Var(tag<CLASS>,ARGS&&...args):Var(allocateVar<CLASS>(),getDestructor<CLASS>(),typeid(CLASS)){
-  callConstructor<CLASS>(data,args...);
+Var::Var(tag<CLASS>,ARGS&&...args):Var(construct<CLASS>(args...),getDestructor<CLASS>(),typeid(CLASS)){
 }
 
 template<typename CLASS>
@@ -98,8 +104,8 @@ CLASS&Var::reCreate(ARGS&&...args){
   destructor(data);
 
   if(typeid(CLASS) != type){
-    deallocateVar(data);
     auto const oldStamp = stamp();
+    deallocateVar(data);
     data = allocateVar<CLASS>();
     new(this)Var(data,getDestructor<CLASS>(),typeid(CLASS));
     timeStamp = oldStamp;
@@ -130,9 +136,7 @@ bool Var::is()const{return typeid(T) == type;}
 
 template<typename T,typename...ARGS>
 Var var(ARGS&&...args){
-  auto ptr = allocateVar<T>();
-  callConstructor<T>(ptr,args...);
-  return Var(ptr,getDestructor<T>(),typeid(T));
+  return Var(construct<T>(args...),getDestructor<T>(),typeid(T));
 }
 
 
@@ -149,20 +153,29 @@ class Vars{
     using Tags         = std::set<Tag >;
     template<typename CLASS,typename...ARGS>
     CLASS&add(std::string const&name,ARGS&&...args){
-      auto ptr = allocateVar<CLASS>();
-      callConstructor<CLASS>(ptr,args...);
+      auto ptr = construct<CLASS>(args...);
       auto res = name2Var.emplace(std::piecewise_construct,
           std::forward_as_tuple(name),
-          std::forward_as_tuple(ptr),
-          std::forward_as_tuple(getDestructor<CLASS>()),
-          std::forward_as_tuple(typeid(CLASS)));
+          std::forward_as_tuple(ptr,getDestructor<CLASS>(),typeid(CLASS))
+          );
       Var&var      = std::get<0>(res)->second;
       return var.get<CLASS>();
     }
     template<typename CLASS,typename...ARGS>
     CLASS&addOrGet(std::string const&name,ARGS&&...args){
-      return *std::get<0>(name2Var.emplace(name,args...));
+      auto ptr = construct<CLASS>(args...);
+      auto res = name2Var.emplace(std::piecewise_construct,
+          std::forward_as_tuple(name),
+          std::forward_as_tuple(ptr,getDestructor<CLASS>(),typeid(CLASS))
+          );
+      Var&var      = std::get<0>(res)->second;
+      return var.get<CLASS>();
     }
+    template<typename CLASS,typename...ARGS>
+    CLASS&get(std::string const&name){
+      return name2Var.at(name).get<CLASS>();
+    }
+
     template<typename CLASS,typename...ARGS>
     CLASS&reCreate(std::string const&name,ARGS&&...args){
       auto res = name2Var.emplace(std::piecewise_construct,
@@ -181,8 +194,10 @@ class Vars{
     void addTag    (std::string const&varName,Tags const&tags);
     void removeTag (std::string const&varName,Tags const&tags);
     bool notChanged(void*fce,char const*fceName);
-    float&f32(std::string const&varName);
+    float&f32   (std::string const&varName            );
     float&addf32(std::string const&varName,float d=0.f);
+    float&f32r  (std::string const&varName,float d=0.f);
+    float&f32a  (std::string const&varName,float d=0.f);
     void exitFunction();
     class Caller{
       public:
@@ -248,7 +263,7 @@ void Var::signal(){
   signalCallback();
 }
 
-void Var::seSignal(SignalCallback const&callback){
+void Var::setSignal(SignalCallback const&callback){
   signalCallback = callback;
 }
 Var::SignalCallback Var::getOnChange()const{
@@ -336,8 +351,20 @@ void Vars::record(Var*var){
     callstack.at(i)->record(var);
 }
 
+float&Vars::f32(std::string const&varName){
+  return get<float>(varName);
+}
+
 float&Vars::addf32(std::string const&varName,float d){
-  //return add<float>(varName,d);
+  return add<float>(varName,d);
+}
+
+float&Vars::f32r  (std::string const&varName,float d){
+  return reCreate<float>(varName,d);
+}
+
+float&Vars::f32a  (std::string const&varName,float d){
+  return addOrGet<float>(varName,d);
 }
 
 
