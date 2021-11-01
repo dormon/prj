@@ -78,35 +78,34 @@ void tests(){
   varTests();
   {
     Vars vars;
-    auto a = vars.addf32("a");
+    auto a = vars.f32("a");
   }
   {
     Vars vars;
-    vars.addf32("a");
-    vars.f32("a")=32;
+    vars.f32("a") = 32;
   }
   {
     Vars vars;
-    auto a = vars.addf32("a",1.f);
+    auto a = vars.f32("a",1.f);
     assert(a == 1.f);
   }
   {
     Vars vars;
-    vars.addf32("a",3.f);
+    vars.f32("a",1.f) = 3.f;
     assert(vars.f32("a") == 3.f);
   }
   {
     Vars vars;
-    auto b = vars.f32r("a",3.f);
+    auto b = vars.f32("a",3.f);
     assert(b == 3.f);
-    auto c = vars.f32r("a",4.f);
-    assert(c == 4.f);
+    auto c = vars.f32("a",4.f);
+    assert(c == 3.f);
   }
   {
     Vars vars;
-    auto b = vars.f32a("a",3.f);
+    auto b = vars.f32("a",3.f);
     assert(b == 3.f);
-    auto c = vars.f32a("a",4.f);
+    auto c = vars.f32("a",4.f);
     assert(c == 3.f);
 
   }
@@ -161,12 +160,6 @@ auto measure(std::function<void()>const&f){
   auto t = dur.count();
   return t;
 }
-
-class T{
-  public:
-    template<typename C>
-      T(tag<C>){}
-};
 
 int main(){
   tests();

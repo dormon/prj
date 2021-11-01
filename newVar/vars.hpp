@@ -11,7 +11,7 @@ namespace vars{
 }
 
 template<class...>struct types{using type=types;};
-template<class T>struct tag{using type=T;};
+template<class T>struct Class{using type=T;};
 template<class Tag>using type_t=typename Tag::type;
 
 template<typename CLASS>
@@ -58,7 +58,7 @@ class Var{
     using Type             = std::type_info       ;
     using SignalCallback   = std::function<void()>;
     using Stamp            = size_t               ;
-    template<typename CLASS,typename...ARGS>Var(tag<CLASS>,ARGS&&...args);
+    template<typename CLASS,typename...ARGS>Var(Class<CLASS>,ARGS&&...args);
     template<typename CLASS                >Var&operator=(CLASS&&value);
     template<typename CLASS                >operator CLASS const&()const;
     template<typename CLASS                >operator CLASS&();
@@ -89,7 +89,7 @@ class Var{
 
 
 template<typename CLASS,typename...ARGS>
-Var::Var(tag<CLASS>,ARGS&&...args):Var(construct<CLASS>(args...),getDestructor<CLASS>(),typeid(CLASS)){
+Var::Var(Class<CLASS>,ARGS&&...args):Var(construct<CLASS>(args...),getDestructor<CLASS>(),typeid(CLASS)){
 }
 
 template<typename CLASS>
@@ -152,7 +152,7 @@ class Vars{
     using VarSelection = std::set<Var*>;
     using Tags         = std::set<Tag >;
     template<typename CLASS,typename...ARGS>
-    CLASS&add(std::string const&name,ARGS&&...args){
+    CLASS&var(std::string const&name,ARGS&&...args){
       auto ptr = construct<CLASS>(args...);
       auto res = name2Var.emplace(std::piecewise_construct,
           std::forward_as_tuple(name),
@@ -160,27 +160,13 @@ class Vars{
           );
       Var&var      = std::get<0>(res)->second;
       return var.get<CLASS>();
-    }
-    template<typename CLASS,typename...ARGS>
-    CLASS&addOrGet(std::string const&name,ARGS&&...args){
-      auto ptr = construct<CLASS>(args...);
-      auto res = name2Var.emplace(std::piecewise_construct,
-          std::forward_as_tuple(name),
-          std::forward_as_tuple(ptr,getDestructor<CLASS>(),typeid(CLASS))
-          );
-      Var&var      = std::get<0>(res)->second;
-      return var.get<CLASS>();
-    }
-    template<typename CLASS,typename...ARGS>
-    CLASS&get(std::string const&name){
-      return name2Var.at(name).get<CLASS>();
     }
 
     template<typename CLASS,typename...ARGS>
-    CLASS&reCreate(std::string const&name,ARGS&&...args){
+    CLASS&reVar(std::string const&name,ARGS&&...args){
       auto res = name2Var.emplace(std::piecewise_construct,
           std::forward_as_tuple(name),
-          std::forward_as_tuple(tag<CLASS>{},args...));
+          std::forward_as_tuple(Class<CLASS>{},args...));
       auto firstAdd = std::get<1>(res);
       Var&var      = std::get<0>(res)->second;
       if(firstAdd)return var;
@@ -194,10 +180,8 @@ class Vars{
     void addTag    (std::string const&varName,Tags const&tags);
     void removeTag (std::string const&varName,Tags const&tags);
     bool notChanged(void*fce,char const*fceName);
-    float&f32   (std::string const&varName            );
-    float&addf32(std::string const&varName,float d=0.f);
+    float&f32   (std::string const&varName,float d=0.f);
     float&f32r  (std::string const&varName,float d=0.f);
-    float&f32a  (std::string const&varName,float d=0.f);
     void exitFunction();
     class Caller{
       public:
@@ -351,22 +335,9 @@ void Vars::record(Var*var){
     callstack.at(i)->record(var);
 }
 
-float&Vars::f32(std::string const&varName){
-  return get<float>(varName);
+float&Vars::f32(std::string const&varName,float d){
+  return var<float>(varName,d);
 }
-
-float&Vars::addf32(std::string const&varName,float d){
-  return add<float>(varName,d);
-}
-
-float&Vars::f32r  (std::string const&varName,float d){
-  return reCreate<float>(varName,d);
-}
-
-float&Vars::f32a  (std::string const&varName,float d){
-  return addOrGet<float>(varName,d);
-}
-
 
 Vars::FunctionData::FunctionData(Vars&vars,char const*fceName):name(fceName){}
 bool Vars::FunctionData::notChanged(){
