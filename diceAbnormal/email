@@ -1,0 +1,85 @@
+Ahoj, co se týče meetingu a detekci anomálií a tvého příkladu s kostkou, na které za sebou padlo 15x 6 a že je to stejně pravděpodobné, jako jákoliv jiná sekvence čísel {1,2,3,4,5,6} o patnácti položká:
+
+U kostky, která je nestranná/nezaujatá/non-biased/spravedlivá/náhodná by mělo platit:
+
+Když kotkou hodím šest milion krát, mělo by mi padnout přibližně stejné množství jedniček, dvojek, trojek, ... přibližně 1000 000 pro každé číslo.
+
+Když hodím 60 krát bude to přibližně 10:10:10:10:10:10 ... - ale bude tam větší rozptyl.
+
+Čím víc hodů tím více se to bude limitně blížit stejným číslům (v relativním měřítku).
+
+
+Takže když 15x hodíš 6ku: 0:0:0:0:0:15 - což je nepravděpodobné
+
+
+Druhý případ je, pokud by kostka měla paměť a házela pokaždé stejnou sekvenci čísel:
+
+123456 123456 123456 123456 ...
+
+v takovém případě by platilo |1| = |2| = |3| = |4| = |5| = |6| v limitním případě a podle prvního testu by jsi nepoznal, že je to abnormální kostka
+
+Musí platit podmíněná pravděpodobnost:
+
+p(1,předcházející hod) = 1/6
+
+p(2,předcházející hod) = 1/6
+
+...
+
+Tím dokážeš detekovat anomálii na spravedlivé kostce.
+
+
+Pokud bys měl kostku, která je nespravedlivá, měla by pravděpodobnosti
+
+p(1) != 1/6
+
+p(2) != 1/6
+
+....
+
+p(1,předcházející hod) != 1/6
+
+p(2,předcházející hod) != 1/6
+
+...
+
+Měla by jinou "charakteristiku" těchto pravděpodobností.
+
+A pak by jsi mohl na základě této charakteristiky spočítat (ne)pravděpodobnost nového jevu.
+
+
+Anomálnie je otočená hodnota podmíněné pravděpodobnosti dat daná viděnými daty:
+
+něco jako:
+
+mám sekveci dat (čísel), které jsem viděl:
+
+23124523212342123212423
+
+přijde nové dato (číslo),
+
+6
+
+Míra anomálnosti:
+
+1 - p(6 , 23124523212342123212423)
+
+
+Ale možná jsem tě zle pochopil.
+
+
+Je to podobné, jako když programátor obdrží neznámou funci, která vrací int.
+
+Pustí ji několikrát zasebou a pokaždé mu padne sudé číslo.
+
+Proto začne předpokládat, že funce vrací jen sudá čísla.
+
+Anomálie pro něj bude, když vrátí liché číslo.
+
+
+Když obdrží známou funci
+
+
+
+
+
