@@ -23,9 +23,10 @@ uint32_t myRand(uint32_t x){
 
 int main(){
   size_t N = 0x100000000;
-  std::vector<uint32_t>data(N);
-  std::memset(data.data(),0,sizeof(uint32_t)*data.size());
+  std::vector<uint8_t>data(N);
+  std::memset(data.data(),0,sizeof(uint8_t)*data.size());
   for(size_t i=0;i<N;++i){
+    std::cerr << i << std::endl;
     uint32_t w = myRand(i);
     if(data[w]!=0){
       std::cerr << "duplicate element: " << w << std::endl;

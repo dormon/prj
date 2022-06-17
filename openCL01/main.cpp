@@ -3,7 +3,6 @@
 #include<OpenCLHelper.h>
 #include<cstdlib>
 #include<limits>
-#include<glm/glm.hpp>
 
 class OCL{
   public:
