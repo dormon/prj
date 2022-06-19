@@ -350,6 +350,41 @@ uint32_t scatter_6_2_inst(uint32_t v){
   return mem[0];
 }
 
+uint32_t scatter_16_2_xor(uint32_t x){
+  uint32_t a;
+  a = x << 8u;
+  x = a ^  x;
+  x = x &  0x00ff00ffu;
+  a = x << 4u;
+  x = a ^  x;
+  x = x &  0x0f0f0f0fu;
+  a = x << 2u;
+  x = a ^  x;
+  x = x &  0x33333333u;
+  a = x << 1u;
+  x = a ^  x;
+  x = x &  0x55555555u;
+  return x;
+}
+
+
+uint32_t scatter_16_2_power(uint32_t x){
+  uint32_t a;
+  uint32_t b;
+  a = x & 0x00009249u;
+  a = a * a;
+  a = a & 0x41041041u;
+  b = x & 0x00002492u;
+  b = b * b;
+  b = b & 0x04104104u;
+  a = a | b;
+  x = x & 0x00004924u;
+  x = x * x;
+  x = x & 0x10410410u;
+  x = x | a;
+  return x;
+}
+
 // dcba*0111
 //    dcba
 //   dcba
@@ -404,8 +439,8 @@ int main(){
   //std::cerr << "|insts| = " << insts.size() << std::endl;
   //return 0;
 
-  printMorton(4);
-  return 0;
+  //printMorton(4);
+  //return 0;
 
   if(test(scatter_6_2,[](uint32_t x){return scatter(x,2);},1<<6))
     std::cerr << "scatter_6_2 is good" << std::endl;
@@ -416,5 +451,15 @@ int main(){
     std::cerr << "scatter_6_2_inst is good" << std::endl;
   else
     std::cerr << "scatter_6_2_inst is bad" << std::endl;
+
+  if(test(scatter_16_2_xor,[](uint32_t x){return scatter(x,2);},1<<16))
+    std::cerr << "scatter_16_2_xor is good" << std::endl;
+  else
+    std::cerr << "scatter_16_2_xor is bad" << std::endl;
+
+  if(test(scatter_16_2_power,[](uint32_t x){return scatter(x,2);},1<<16))
+    std::cerr << "scatter_16_2_power is good" << std::endl;
+  else
+    std::cerr << "scatter_16_2_power is bad" << std::endl;
 
 }
