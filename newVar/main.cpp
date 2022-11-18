@@ -142,7 +142,7 @@ class MyVec{
         reserved = 1;
       }else{
         if(size >= reserved)
-        reserved *= 2;
+          reserved *= 2;
         data = realloc(data,sizeof(T)*reserved);
       }
     }
@@ -161,8 +161,24 @@ auto measure(std::function<void()>const&f){
   return t;
 }
 
+void init(Vars&vars){
+  VARS_PROLOGUE(init);
+
+  std::cerr << "value of a: " << vars.f32("a") << std::endl;
+}
+
 int main(){
-  tests();
+  Vars vars;
+  vars.f32r("a",3);
+
+  init(vars);
+  init(vars);
+  vars.f32("a") = 4;
+  vars.get("a")->updateStamp();
+  init(vars);
+
+
+  //tests();
 
   //auto th = std::thread([](){std::cerr<<"a"<<std::endl;});
   //return 0;

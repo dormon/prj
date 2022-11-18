@@ -1,7 +1,7 @@
 BIN      = sharedOrNot
-LIB      = -lassimp
+LIB      = #-lassimp
 CPPFLAGS = -std=c++14 -Wall -O3
-CPP      = g++-5
+CPP      = g++
 OBJ      = main.o ArrayDescription.o AtomicDescription.o FceDescription.o Function.o MemFceDescription.o PtrDescription.o Resource.o StructDescription.o TypeDescription.o AnyDescription.o VoidDescription.o
 
 all: ${BIN}
@@ -10,7 +10,7 @@ ${BIN}: ${OBJ}
 	${CPP} ${OBJ} -o ${BIN} ${LIB}
 
 %.o: %.cpp
-	${CPP} -o $@ ${CPPFLAGS} -c $<
+	${CPP} -o $@ ${CPPFLAGS} -c $< -I/media/devel/install/linux2/include/
 
 Resource.cpp: Resource.h
 

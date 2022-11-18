@@ -372,7 +372,9 @@ uint32_t scatter_16_2_power(uint32_t x){
   uint32_t a;
   uint32_t b;
   a = x & 0x00009249u;
-  a = a * a;
+  float z=(*(float*)&a) * (*(float*)&a);
+  a=*(uint32_t*)&z;
+  //a = a * a;
   a = a & 0x41041041u;
   b = x & 0x00002492u;
   b = b * b;
