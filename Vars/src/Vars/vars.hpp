@@ -288,7 +288,7 @@ Var::SignalCallback Var::getOnChange()const{
 }
 Var::Stamp Var::stamp()const{return timeStamp;}
 
-Var::Type const& Var::getType()const{return type;}
+Var::Type const& Var::getType()const{assert(this!=nullptr);return type;}
 
 bool Var::signalIsEmpty()const{
   return signalCallback == nullptr;
@@ -303,8 +303,8 @@ Var*Vars::get(std::string const&name){
 }
 
 void Vars::remove(std::string const&name){
+  //removeTag(name,var2Tags.at(name));
   name2Var.erase(name);
-  removeTag(name,var2Tags.at(name));
   var2Tags.erase(name);
 }
 

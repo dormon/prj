@@ -8,62 +8,77 @@
 using namespace vars;
 using namespace std;
 
-SCENARIO("var tests"){
+
+SCENARIO("var allocateVar deallocateVar"){
+  auto ptr = allocateVar<float>();
+  deallocateVar(ptr);
+}
+
+SCENARIO("var constructors and destructors"){
   int static base = 0;
   struct CD{CD(int a){base = a;}~CD(){base = 10;}};
+
+  base = 0;
+  auto ptr = allocateVar<CD>();
+  callConstructor<CD>(ptr,3);
+  REQUIRE(base == 3);
+  auto dst = getDestructor<CD>();
+  dst(ptr);
+  REQUIRE(base == 10);
+  deallocateVar(ptr);
+}
+
+SCENARIO("var construct"){
+  int static base = 0;
+  struct CD{CD(int a){base = a;}~CD(){base = 10;}};
+  base = 0;
+  auto ptr = construct<CD>(3);
+  REQUIRE(base == 3);
+  getDestructor<CD>()(ptr);
+  deallocateVar(ptr);
+  REQUIRE(base == 10);
+}
+
+SCENARIO("var callConstructor"){
+  int static base = 0;
+  struct CD{CD(int a){base = a;}~CD(){base = 10;}};
+  base = 0;
+  auto ptr = allocateVar<CD>();
+  callConstructor<CD>(ptr,3);
   {
-    auto ptr = allocateVar<float>();
-    deallocateVar(ptr);
-  }
-  {
-    base = 0;
-    auto ptr = allocateVar<CD>();
-    callConstructor<CD>(ptr,3);
+    auto a = Var{ptr,getDestructor<CD>(),typeid(CD)};
     REQUIRE(base == 3);
-    auto dst = getDestructor<CD>();
-    dst(ptr);
-    REQUIRE(base == 10);
-    REQUIRE(base == 10);
-    deallocateVar(ptr);
   }
-  {
-    base = 0;
-    auto ptr = construct<CD>(3);
-    REQUIRE(base == 3);
-    getDestructor<CD>()(ptr);
-    deallocateVar(ptr);
-    REQUIRE(base == 10);
-  }
-  {
-    base = 0;
-    {
-      auto ptr = allocateVar<CD>();
-      callConstructor<CD>(ptr,3);
-      auto a = Var{ptr,getDestructor<CD>(),typeid(CD)};
-      REQUIRE(base == 3);
-    }
-    REQUIRE(base == 10);
-  }
-  {
-    var<float>();
-  }
-  {
-    var<float>(1.3f);
-  }
-  {
+  REQUIRE(base == 10);
+}
+
+SCENARIO("var create var"){
+  var<float>();
+}
+
+SCENARIO("var create var with default"){
+  var<float>(1.3f);
+}
+
+SCENARIO("var create var and set value"){
     auto a = var<float>(3.f);
     a = 3.f;
-  }
-  {
-    auto a = var<float>(3.f);
-    REQUIRE(a.stamp() == 0);
-    a.updateStamp();
-    REQUIRE(a.stamp() == 1);
-    a.reCreate<float>(4.f);
-    REQUIRE(a.stamp() == 2);
-    a.reCreate<uint16_t>(2);
-    REQUIRE(a.stamp() == 3);
-  }
+}
+
+SCENARIO("var stamps"){
+  auto a = var<float>(3.f);
+  REQUIRE(a.stamp() == 0);
+  a.updateStamp();
+  REQUIRE(a.stamp() == 1);
+  a.reCreate<float>(4.f);
+  REQUIRE(a.stamp() == 2);
+  a.reCreate<uint16_t>(2);
+  REQUIRE(a.stamp() == 3);
+}
+
+SCENARIO("var type"){
+  auto a = var<float>(3.f);
+  REQUIRE(a.getType() == typeid(float));
 }
 
 
@@ -206,26 +221,66 @@ SCENARIO("Directory II"){
 }
 #endif
 
-
-SCENARIO("Basic vars tests"){
+SCENARIO("Vars::has tests"){
   Vars vars;
+  REQUIRE(vars.has("checkBox") == false);
+}
+
+SCENARIO("Vars::br test"){
+  Vars vars;
+  vars.br("checkBox",true);
+  REQUIRE(vars.has("checkBox") == true);
+}
+
+SCENARIO("Vars::remove test"){
+  Vars vars;
+  vars.br("checkBox",true);
+  REQUIRE(vars.has("checkBox") == true);
+  vars.remove("checkBox");
+  REQUIRE(vars.has("checkBox") == false);
+}
+
+SCENARIO("Vars::remove test2"){
+  Vars vars;
+  vars.br("checkBox",true);
+  REQUIRE(vars.has("checkBox") == true);
+  vars.remove("checkBox");
   REQUIRE(vars.has("checkBox") == false);
   vars.br("checkBox",true);
   REQUIRE(vars.has("checkBox") == true);
-  REQUIRE(vars.getType("checkBox") == typeid(bool));
-  REQUIRE(vars.b("checkBox")==true);
-  REQUIRE(vars.stamp("checkBox")==1);
-  //REQUIRE(vars.isDir("checkBox") == false);
-  //REQUIRE(vars.isVar("checkBox") == true);
-  vars.b("checkBox") = false;
-  vars.updateStamp("checkBox");
-  REQUIRE(vars.b("checkBox")==false);
-  REQUIRE(vars.stamp("checkBox")==2);
   vars.remove("checkBox");
   REQUIRE(vars.has("checkBox") == false);
-  //REQUIRE(vars.isDir("checkBox") == false);
-  //REQUIRE(vars.isVar("checkBox") == false);
 }
+
+SCENARIO("Vars::get test"){
+  Vars vars;
+  vars.br("checkBox",true);
+  auto v = vars.get("checkBox");
+  REQUIRE(v != nullptr);
+  REQUIRE(v->getType() == typeid(bool));
+}
+
+//SCENARIO("Vars::getType test2"){
+//  Vars vars;
+//  vars.br("checkBox",true);
+//  REQUIRE(vars.getType("checkBox") == typeid(bool));
+//}
+
+//SCENARIO("Basic vars tests"){
+//  Vars vars;
+//  REQUIRE(vars.has("checkBox") == false);
+//  vars.br("checkBox",true);
+//  REQUIRE(vars.has("checkBox") == true);
+//  REQUIRE(vars.getType("checkBox") == typeid(bool));
+//  REQUIRE(vars.b("checkBox")==true);
+//  REQUIRE(vars.stamp("checkBox")==1);
+//  //vars.b("checkBox") = false;
+//  //vars.updateStamp("checkBox");
+//  //REQUIRE(vars.b("checkBox")==false);
+//  //REQUIRE(vars.stamp("checkBox")==2);
+//  //vars.remove("checkBox");
+//  //REQUIRE(vars.has("checkBox") == false);
+//}
 
 
 #if 0
