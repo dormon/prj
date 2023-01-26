@@ -8,4 +8,4 @@ for fileName in os.listdir("."):
 
 os.system("`find | grep \"build\" | sed \"s/build.*/build\/*/g\" | sort -u | tr '\n' \" \" | sed \"s/\(.*\)/rm -rf \1/g\"`")
 
-os.system("rm `find | grep build`")
+os.system("rm -rf `find | grep build`")
