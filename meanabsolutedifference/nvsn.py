@@ -4,7 +4,7 @@ def mad(x):
     res = 0
     counter = 0
     for i in range(len(x)):
-        for j in range(i,len(x)):
+        for j in range(i+1,len(x)):
             counter+=1
             res += abs(x[i]-x[j])
     return float(res)/float(counter)
