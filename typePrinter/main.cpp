@@ -226,9 +226,9 @@ template<>inline std::string keyword<TestClass>(){return "TestClass";}
 template<>inline std::string keyword<std::string>(){return "string";}
 
 int main(){
-  std::cout<<keyword<int32_t(int32_t const&)>()<<std::endl;
   //if(std::is_same<decltype(&A::add),int(A::*)(int,int)>::value)std::cout<<"jojo"<<std::endl;
   //return 0;
+  std::cout<<keyword<int32_t(int32_t const&)>()<<std::endl;
   std::cout<<keyword<int32_t>()<<std::endl;
   std::cout<<keyword<int32_t[3]>()<<std::endl;
   std::cout<<keyword<int32_t[1][2][3][4]>()<<std::endl;

@@ -55,19 +55,21 @@ constexpr const auto diffSelu = [](float x){const float lambda=1.0507f;const flo
 //constexpr const auto selu     = [](float x){if(x>=0.f)return fmodf(x,1.f);else return .1f*fmodf(-x,2.f);};
 //constexpr const auto diffSelu = [](float x){if(x>=0.f)return 1.f  ;else return -.1f  ;};
 
-void add(float*v,float const*a,float const*b,size_t n){
+void perComponent(float*v,float const*a,float const*b,size_t n,std::function<float(float,float)>const&op){
   for(size_t i=0;i<n;++i)
-    v[i] = a[i] + b[i];
+    v[i] = op(a[i],b[i]);
+}
+
+void add(float*v,float const*a,float const*b,size_t n){
+  perComponent(v,a,b,n,[](float a,float b){return a+b;});
 }
 
 void sub(float*v,float const*a,float const*b,size_t n){
-  for(size_t i=0;i<n;++i)
-    v[i] = a[i] - b[i];
+  perComponent(v,a,b,n,[](float a,float b){return a-b;});
 }
 
 void vvvmul(float*v,float const*a,float const*b,size_t n){
-  for(size_t i=0;i<n;++i)
-    v[i] = a[i] * b[i];
+  perComponent(v,a,b,n,[](float a,float b){return a*b;});
 }
 
 void vvcmul(float*v,float const*a,float b,size_t n){

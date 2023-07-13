@@ -1,7 +1,7 @@
 BIN      = isShared
 LIB      = -pthread
-CPPFLAGS = -std=c++14 -Wall -O3
-CPP      = g++-5
+CPPFLAGS = -std=c++17 -Wall -O3
+CPP      = g++
 OBJ      = main.o
 
 all: ${BIN}

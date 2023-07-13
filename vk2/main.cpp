@@ -3,6 +3,9 @@
 #include<vector>
 #include<memory>
 
+#include"dormonvu.hpp"
+
+#if 0
 #include <dlfcn.h>
 #include "comp.hpp"
 
@@ -476,10 +479,18 @@ VkInstance createInstance(void*vulkanLib){
 
   return instance;
 }
+#endif
+
+#include<functional>
 
 int main(int argc,char*argv[]){
+  Vulkan vk;
+  vk.start();
+  vk.stop();
 
-#if 1
+    
+
+#if 0
   auto vulkanLib                = openVulkanLib();
 
   auto instance = createInstance(vulkanLib);

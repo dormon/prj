@@ -1,6 +1,6 @@
 BIN=vk
 
-${BIN}: main.o
+${BIN}: main.o dormonvu.o
 	g++ --std=c++17 $^ -o ${BIN} -Os -s -O3 -ldl
 
 comp.spv: comp.glsl
@@ -14,8 +14,12 @@ comp.hpp: comp.spv binToTxt
 	./binToTxt comp.spv >> comp.hpp
 	echo "};" >> comp.hpp
 
-main.o: main.cpp comp.hpp
+
+main.o: main.cpp comp.hpp dormonvu.hpp
 	g++ -c --std=c++17 main.cpp -O3 -g
+
+dormonvu.o: dormonvu.cpp dormonvu.hpp
+	g++ -c --std=c++17 dormonvu.cpp -O3 -g
 
 #%.o: %.cpp
 #	g++ -c --std=c++17 $^ -O3 -g

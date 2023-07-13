@@ -49,10 +49,34 @@ int main (){
 );
 
 int main(){
+  
+  Floata a(3.1415925);
+  a.set(9.);
+  std::cerr << "a.get() " << a.get() << std::endl; 
+    
+  std::cerr << getSource<Floata>() << std::endl;
+
+  auto json = R".(
+  {
+    "name"    : "Tomas",
+    "lastName": "Ugabuga",
+  }
+  ).";
+
+  struct jstr{
+    std::string name     = "Tomas"  ;
+    std::string lastName = "Ugabuga";
+  };
+
+
+  auto str = STRINGIFY(int a = sizeof(int););
+
+  std::cerr << str << std::endl;
+
   //Float aVal(13);
   //std::cout << aVal.get() << std::endl;
   //std::cout << getSource<Float>() << std::endl;
-  std::cout << nn << std::endl;
+  //std::cout << nn << std::endl;
   return 0;
 }
 

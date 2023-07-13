@@ -36,16 +36,16 @@ struct Exp{
   Exp swap()const{return Exp(op[1],op[0],type);}
 };
 
-Exp var      (std::string const&a    ){return Exp(a);}
-Exp log      (Exp const&a            ){return Exp(a,Exp::LOG);}
-Exp sin      (Exp const&a            ){return Exp(a,Exp::SIN);}
-Exp cos      (Exp const&a            ){return Exp(a,Exp::COS);}
-Exp operator+(Exp const&a,Exp const&b){return Exp(a,b,Exp::ADD);}
-Exp operator*(Exp const&a,Exp const&b){return Exp(a,b,Exp::MUL);}
-Exp operator-(Exp const&a,Exp const&b){return Exp(a,-1.f*b,Exp::ADD);}
-Exp operator/(Exp const&a,Exp const&b){return Exp(a,b,Exp::DIV);}
-Exp operator^(Exp const&a,Exp const&b){return Exp(a,b,Exp::POW);}
-Exp operator-(Exp const&a            ){return -1.f*a;}
+Exp var      (std::string const&a            ){return Exp(a);}
+Exp log      (Exp         const&a            ){return Exp(a,Exp::LOG);}
+Exp sin      (Exp         const&a            ){return Exp(a,Exp::SIN);}
+Exp cos      (Exp         const&a            ){return Exp(a,Exp::COS);}
+Exp operator+(Exp         const&a,Exp const&b){return Exp(a,b,Exp::ADD);}
+Exp operator*(Exp         const&a,Exp const&b){return Exp(a,b,Exp::MUL);}
+Exp operator-(Exp         const&a,Exp const&b){return Exp(a,-1.f*b,Exp::ADD);}
+Exp operator/(Exp         const&a,Exp const&b){return Exp(a,b,Exp::DIV);}
+Exp operator^(Exp         const&a,Exp const&b){return Exp(a,b,Exp::POW);}
+Exp operator-(Exp         const&a            ){return -1.f*a;}
 
 std::string toStr(Exp const&e,bool addB=false){
   std::stringstream ss;
@@ -140,8 +140,8 @@ Exp diff(Exp const&e,std::string const&v){
     case Exp::CONST:res = 0                                                  ;break;
     case Exp::VAR  :res = e.name == v?1.f:0.f                                ;break;
     case Exp::LOG  :res = diff(e[0],v)/e[0]                                  ;break;
-    case Exp::SIN  :res = cos(e[0])                                          ;break;
-    case Exp::COS  :res = -sin(e[0])                                         ;break;
+    case Exp::SIN  :res =  cos(e[0])*diff(e[0],v)                            ;break;
+    case Exp::COS  :res = -sin(e[0])*diff(e[0],v)                            ;break;
     case Exp::ADD  :res = diff(e[0],v)+diff(e[1],v)                          ;break;
     case Exp::MUL  :res =  diff(e[0],v)*e[1] + e[0]*diff(e[1],v)             ;break;
     case Exp::DIV  :res = (diff(e[0],v)*e[1] - e[0]*diff(e[1],v))/(e[1]*e[1]);break;
