@@ -15,72 +15,7 @@
 #define ___ std::cerr << __LINE__ << std::endl
 
 
-constexpr char const*vkResultString(VkResult const&err){
-#define IF_ERR_RETURN(x)if(err==x)return #x
-  IF_ERR_RETURN(VK_SUCCESS);
-  IF_ERR_RETURN(VK_NOT_READY);
-  IF_ERR_RETURN(VK_TIMEOUT);
-  IF_ERR_RETURN(VK_EVENT_SET);
-  IF_ERR_RETURN(VK_EVENT_RESET);
-  IF_ERR_RETURN(VK_INCOMPLETE);
-  IF_ERR_RETURN(VK_ERROR_OUT_OF_HOST_MEMORY);
-  IF_ERR_RETURN(VK_ERROR_OUT_OF_DEVICE_MEMORY);
-  IF_ERR_RETURN(VK_ERROR_INITIALIZATION_FAILED);
-  IF_ERR_RETURN(VK_ERROR_DEVICE_LOST);
-  IF_ERR_RETURN(VK_ERROR_MEMORY_MAP_FAILED);
-  IF_ERR_RETURN(VK_ERROR_LAYER_NOT_PRESENT);
-  IF_ERR_RETURN(VK_ERROR_EXTENSION_NOT_PRESENT);
-  IF_ERR_RETURN(VK_ERROR_FEATURE_NOT_PRESENT);
-  IF_ERR_RETURN(VK_ERROR_INCOMPATIBLE_DRIVER);
-  IF_ERR_RETURN(VK_ERROR_TOO_MANY_OBJECTS);
-  IF_ERR_RETURN(VK_ERROR_FORMAT_NOT_SUPPORTED);
-  IF_ERR_RETURN(VK_ERROR_FRAGMENTED_POOL);
-  IF_ERR_RETURN(VK_ERROR_UNKNOWN);
-  IF_ERR_RETURN(VK_ERROR_OUT_OF_POOL_MEMORY);
-  IF_ERR_RETURN(VK_ERROR_INVALID_EXTERNAL_HANDLE);
-  IF_ERR_RETURN(VK_ERROR_FRAGMENTATION);
-  IF_ERR_RETURN(VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS);
-  IF_ERR_RETURN(VK_ERROR_SURFACE_LOST_KHR);
-  IF_ERR_RETURN(VK_ERROR_NATIVE_WINDOW_IN_USE_KHR);
-  IF_ERR_RETURN(VK_SUBOPTIMAL_KHR);
-  IF_ERR_RETURN(VK_ERROR_OUT_OF_DATE_KHR);
-  IF_ERR_RETURN(VK_ERROR_INCOMPATIBLE_DISPLAY_KHR);
-  IF_ERR_RETURN(VK_ERROR_VALIDATION_FAILED_EXT);
-  IF_ERR_RETURN(VK_ERROR_INVALID_SHADER_NV);
-  //IF_ERR_RETURN(VK_ERROR_INCOMPATIBLE_VERSION_KHR);
-  IF_ERR_RETURN(VK_ERROR_INVALID_DRM_FORMAT_MODIFIER_PLANE_LAYOUT_EXT);
-  IF_ERR_RETURN(VK_ERROR_NOT_PERMITTED_EXT);
-  IF_ERR_RETURN(VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT);
-  IF_ERR_RETURN(VK_THREAD_IDLE_KHR);
-  IF_ERR_RETURN(VK_THREAD_DONE_KHR);
-  IF_ERR_RETURN(VK_OPERATION_DEFERRED_KHR);
-  IF_ERR_RETURN(VK_OPERATION_NOT_DEFERRED_KHR);
-  IF_ERR_RETURN(VK_PIPELINE_COMPILE_REQUIRED_EXT);
-  IF_ERR_RETURN(VK_ERROR_OUT_OF_POOL_MEMORY_KHR);
-  IF_ERR_RETURN(VK_ERROR_INVALID_EXTERNAL_HANDLE_KHR);
-  IF_ERR_RETURN(VK_ERROR_FRAGMENTATION_EXT);
-  IF_ERR_RETURN(VK_ERROR_INVALID_DEVICE_ADDRESS_EXT);
-  IF_ERR_RETURN(VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS_KHR);
-  IF_ERR_RETURN(VK_ERROR_PIPELINE_COMPILE_REQUIRED_EXT);
-  return "VK_RESULT_MAX_ENUM";
-#undef IF_ERR_RETURN
-}
 
-void throwError(std::string const&file,uint32_t line,std::string const&fce,VkResult err){
-  std::stringstream ss;
-  ss << file << "/" << line << "/" << fce << " " << vkResultString(err);
-  throw std::runtime_error(ss.str());
-}
-
-#define VK_CALL(fce,...) \
-  if(auto err = fce(__VA_ARGS__);err != VK_SUCCESS)\
-    throwError(__FILE__,__LINE__,#fce,err)
-
-std::string versionString(uint32_t version){
-  std::stringstream ss;
-  ss << VK_VERSION_MAJOR(version) << "." << VK_VERSION_MINOR(version) << "." << VK_VERSION_PATCH(version);
-  return ss.str();
-}
 
 #define DECLARE(f) PFN_##f f
 #define DECLARE2(i,f) PFN_##f f
@@ -150,12 +85,6 @@ INSTANCE_FUNCTION_LIST(_,DECLARE2);
 
 DEVICE_FUNCTION_LIST(_,DECLARE2);
 
-void*openVulkanLib(){
-  void*vulkanLib = dlopen("libvulkan.so",RTLD_LAZY);
-  if(!vulkanLib)std::cerr << "cannot open libvulkan.so" << std::endl;
-  return vulkanLib;
-}
-
 void load_vkGetInstanceProcAddr(void*vulkanLib){
   vkGetInstanceProcAddr = LOAD(vkGetInstanceProcAddr);
   if(!vkGetInstanceProcAddr)std::cerr << "cannot load vkGetInstanceProcAddr" << std::endl;
@@ -205,22 +134,6 @@ void printLayerProperties(std::vector<VkLayerProperties>const&layerProperties){
   }
 }
 
-namespace vk{
-  class InstanceImpl{
-    public:
-  };
-  class Instance{
-    public:
-    protected:
-      friend class InstanceImpl;
-      std::shared_ptr<InstanceImpl>impl;
-  };
-  class createInstance{
-    public:
-
-  };
-}
-
 void*myalloc(void*userData,size_t size,size_t alignment,VkSystemAllocationScope scope){
   auto res = malloc(size);
   std::cerr << "alloc: " << res << " " << size << " " << alignment << " " << scope << std::endl;
@@ -247,87 +160,10 @@ VkAllocationCallbacks clbs = {
   nullptr,
 };
 
-#define WITH(T,N) T N;{auto&d=N//}
-#define ENDWITH() }[]{}()
-
-
-VkInstance createInstance(){
-  VkApplicationInfo applicationInfo={
-    .sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-    .pNext              = nullptr                           ,
-    .pApplicationName   = ""                                ,
-    .applicationVersion = 0                                 ,
-    .pEngineName        = ""                                ,
-    .engineVersion      = 0                                 ,
-    .apiVersion         = VK_MAKE_VERSION(1,0,0)            ,
-  };
-
-
-  std::vector<char const*>enabledLayerNames = {
-    "VK_LAYER_KHRONOS_validation",
-    //"VK_LAYER_KHRONOS_validation",
-    //"VK_LAYER_LUNARG_api_dump",
-    //"VK_LAYER_VALVE_steam_fossilize_64",
-    //"VK_LAYER_VALVE_steam_overlay_32",
-    //"VK_LAYER_VALVE_steam_overlay_64",
-    //"VK_LAYER_VALVE_steam_fossilize_32",
-    //"VK_LAYER_MESA_device_select",
-    //"VK_LAYER_MESA_overlay",
-  };
-  VkInstanceCreateInfo instanceCreateInfo = {
-    .sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO         ,
-    .pNext                   = nullptr                                        ,
-    .flags                   = 0                                              ,
-    .pApplicationInfo        = &applicationInfo                               ,
-    .enabledLayerCount       = static_cast<uint32_t>(enabledLayerNames.size()),
-    .ppEnabledLayerNames     = enabledLayerNames.data()                       ,
-    .enabledExtensionCount   = 0                                              ,
-    .ppEnabledExtensionNames = nullptr                                        ,
-  };
-
-
-  VkInstance instance;
-  VK_CALL(vkCreateInstance,&instanceCreateInfo,nullptr,&instance);
-  return instance;
-}
-
-std::vector<VkPhysicalDevice>getPhysicalDevices(VkInstance instance){
-  uint32_t physicalDeviceCount;
-  VK_CALL(vkEnumeratePhysicalDevices,instance,&physicalDeviceCount,nullptr);
-  std::vector<VkPhysicalDevice>physicalDevices(physicalDeviceCount);
-  VK_CALL(vkEnumeratePhysicalDevices,instance,&physicalDeviceCount,physicalDevices.data());
-  return physicalDevices;
-}
-
-std::vector<VkPhysicalDeviceProperties>getPhysicalDeviceProperties(std::vector<VkPhysicalDevice>const&physicalDevices){
-  std::vector<VkPhysicalDeviceProperties>physicalDeviceProperties(physicalDevices.size());
-  for(size_t i=0;i<physicalDevices.size();++i){
-    vkGetPhysicalDeviceProperties(physicalDevices.at(i),&physicalDeviceProperties.at(i));
-  }
-  return physicalDeviceProperties;
-}
-
-void printPhysicalDeviceProperties(std::vector<VkPhysicalDeviceProperties>const&physicalDeviceProperties){
-  for(auto const&p:physicalDeviceProperties){
-    std::cerr << p.deviceName << std::endl;
-    std::cerr << "  apiVersion   : " << versionString(p.apiVersion) << std::endl;
-    std::cerr << "  deviceID     : " << p.deviceID << std::endl;
-    std::cerr << "  vendorID     : " << p.vendorID << std::endl;
-    std::cerr << "  driverVersion: " << p.driverVersion << std::endl;
-  }
-}
 
 VkPhysicalDevice selectDevice(std::vector<VkPhysicalDevice>const&physicalDevices){
   uint32_t selectedDevice = 0;
   return physicalDevices.at(selectedDevice);
-}
-
-std::vector<VkQueueFamilyProperties>getQueueFamilyProperties(VkPhysicalDevice const&physicalDevice){
-  uint32_t queueFamilyPropertyCount;
-  vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice,&queueFamilyPropertyCount,nullptr);
-  std::vector<VkQueueFamilyProperties>queueFamilyProperties(queueFamilyPropertyCount);
-  vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice,&queueFamilyPropertyCount,queueFamilyProperties.data());
-  return queueFamilyProperties;
 }
 
 size_t getQueueFamilyIndex(std::vector<VkQueueFamilyProperties>const&queueFamilyProperties){
@@ -457,28 +293,6 @@ void printMemoryTypes(VkPhysicalDeviceMemoryProperties physicalDeviceMemoryPrope
   }
 }
 
-class Instance{
-  protected:
-    std::shared_ptr<VkInstance>instance;
-};
-
-VkInstance createInstance(void*vulkanLib){
-  load_vkGetInstanceProcAddr(vulkanLib);
-  loadNoInstanceFunctions();
-
-  auto apiVersion               = getAPIVersion();
-
-  printAPIVersion(apiVersion);
-
-  auto layerProperties          = getLayerProperties();
-
-  printLayerProperties(layerProperties);
-  auto instance                 = createInstance();
-  loadInstanceFunctions(instance);
-
-
-  return instance;
-}
 #endif
 
 #include<functional>
@@ -486,18 +300,15 @@ VkInstance createInstance(void*vulkanLib){
 int main(int argc,char*argv[]){
   Vulkan vk;
   vk.start();
+  vk.printPhysicalDeviceGroups();
+  vk.printPhysicalDeviceProperties();
+  vk.printQueueProperties();
   vk.stop();
 
     
 
 #if 0
-  auto vulkanLib                = openVulkanLib();
 
-  auto instance = createInstance(vulkanLib);
-
-  auto physicalDevices          = getPhysicalDevices(instance);
-  auto physicalDeviceProperties = getPhysicalDeviceProperties(physicalDevices);
-  printPhysicalDeviceProperties(physicalDeviceProperties);
   auto physicalDevice           = selectDevice(physicalDevices);
   auto queueFamilyProperties    = getQueueFamilyProperties(physicalDevice);
   auto queueFamilyIndex         = getQueueFamilyIndex(queueFamilyProperties);
