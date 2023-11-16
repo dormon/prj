@@ -2,6 +2,7 @@
 #include<iostream>
 #include <dlfcn.h>
 
+char const*vkResultString(VkResult const&err);
 void throwError(std::string const&file,uint32_t line,std::string const&fce,std::string const&msg){
   std::stringstream ss;
   ss << file << "/" << line << "/" << fce << " " << msg;
@@ -11,11 +12,39 @@ void throwError(std::string const&file,uint32_t line,std::string const&fce,std::
 void throwError(std::string const&file,uint32_t line,std::string const&fce,VkResult err){
   throwError(file,line,fce,vkResultString(err));
 }
+void throwError(std::string const&file,uint32_t line,std::string const&fce,std::string const&msg);
+void throwError(std::string const&file,uint32_t line,std::string const&fce,VkResult err);
+
+template<typename FCE>struct FceReturnType;                                
+template<typename OUTPUT,typename... ARGS>                                 
+struct FceReturnType<OUTPUT(ARGS...)>{                                     
+  using type = OUTPUT;                                                     
+};
+
+template<typename FCE,typename... ARGS>
+void callAndThrowIfError(
+    std::string const&file,
+    uint32_t line,
+    std::string const&fceName,
+    FCE*fce,
+    ARGS... args){
+  if(!fce)throwError(file,line,fceName,"is nullptr");
+  if constexpr (std::is_same<typename FceReturnType<FCE>::type,void>::value){
+    fce(args...);
+  }else{
+    auto err = fce(args...);
+    if(err != VK_SUCCESS)
+      throwError(file,line,fceName,err);
+  }
+}
+
+#define VK_CALL(fce,...) \
+  callAndThrowIfError(__FILE__,__LINE__,#fce,fce,__VA_ARGS__)
 
 
 
+#define IF_ERR_RETURN(x,...)if(err==x)return #x;
 char const*vkResultString(VkResult const&err){
-#define IF_ERR_RETURN(x)if(err==x)return #x
   IF_ERR_RETURN(VK_SUCCESS);
   IF_ERR_RETURN(VK_NOT_READY);
   IF_ERR_RETURN(VK_TIMEOUT);
@@ -62,13 +91,37 @@ char const*vkResultString(VkResult const&err){
   IF_ERR_RETURN(VK_ERROR_INVALID_OPAQUE_CAPTURE_ADDRESS_KHR);
   IF_ERR_RETURN(VK_ERROR_PIPELINE_COMPILE_REQUIRED_EXT);
   return "VK_RESULT_MAX_ENUM";
-#undef IF_ERR_RETURN
 }
+
+#define LIST_QUEUE_FLAGS(f,...)\
+  f(VK_QUEUE_GRAPHICS_BIT      ,__VA_ARGS__)\
+  f(VK_QUEUE_COMPUTE_BIT       ,__VA_ARGS__)\
+  f(VK_QUEUE_TRANSFER_BIT      ,__VA_ARGS__)\
+  f(VK_QUEUE_PROTECTED_BIT     ,__VA_ARGS__)\
+  f(VK_QUEUE_SPARSE_BINDING_BIT,__VA_ARGS__)
+
+#define LIST_COMMA(x,...) x,
+#define IF_ERR_RETURN(x,...)if(err==x)return #x;
+
+
+char const*queueFlagToStr(VkQueueFlags err){
+
+  std::vector<int>asd{
+    LIST_QUEUE_FLAGS(LIST_COMMA)
+  };
+
+  LIST_QUEUE_FLAGS(IF_ERR_RETURN);
+
+
+  return "";
+}
+#undef IF_ERR_RETURN
+
+
 
 #define LOAD(f)                      f = (decltype(f))dlsym(vulkanLib,#f);if(!f)std::cerr << #f << " == " << f << std::endl
 #define LOAD_INSTANCE_FUNCTION(i,f)  f = (decltype(f))vkGetInstanceProcAddr(i,#f);if(!f)std::cerr << #f << " == " << f << std::endl
 #define LOAD_NO_INSTANCE_FUNCTION(f) f = LOAD_INSTANCE_FUNCTION(nullptr,f)
-#define LOAD_DEVICE_FUNCTION(i,f)    f = (decltype(f))vkGetDeviceProcAddr(i,#f);if(!f)std::cerr << #f << " == " << f << std::endl
 
 void*openVulkanLib(){
   void*vulkanLib = dlopen("libvulkan.so",RTLD_LAZY);
@@ -86,9 +139,15 @@ void Vulkan::start(){
   getPhysicalDevices();
   getPhysicalDeviceProperties();
   getQueueFamilyProperties();
+  createLogicalDevices();
 }
 
 void Vulkan::stop(){
+  for(auto&pdev:physicalDevices){
+    for(auto&ldev:pdev.logicalDevices){
+      vkDestroyDevice(ldev.device,nullptr);
+    }
+  }
   VK_CALL(vkDestroyInstance,instance,nullptr);
   dlclose(vulkanLib);
 };
@@ -144,6 +203,8 @@ void Vulkan::printPhysicalDeviceGroups(){
   for(auto const&x:physicalDeviceGroups){
     std::cerr << "group:"<<i++<<std::endl;
     std::cerr << "  physicalDeviceCount : " << x.physicalDeviceCount << std::endl;
+    for(uint32_t i=0;i<x.physicalDeviceCount;++i)
+      std::cerr << "  physicalDevices[" << i << "]" << " : " << x.physicalDevices[0] << std::endl;
 
   }
 }
@@ -156,8 +217,15 @@ void Vulkan::getPhysicalDevices(){
   VK_CALL(vkEnumeratePhysicalDevices,instance,&physicalDeviceCount,devs.data());
 
   physicalDevices.resize(physicalDeviceCount);
-  for(uint32_t i=0;i<physicalDeviceCount;++i)
+  for(uint32_t i=0;i<physicalDeviceCount;++i){
     physicalDevices.at(i).physicalDevice = devs.at(i);
+    physicalDevices.at(i).vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties;
+  }
+
+}
+
+void Vulkan::PhysicalDevice::getProperties(){
+  vkGetPhysicalDeviceProperties(physicalDevice,&properties);
 }
 
 void Vulkan::getPhysicalDeviceProperties(){
@@ -173,49 +241,50 @@ std::string versionString(uint32_t version){
 }
 
 template<typename T>
-void printValue(std::string const&name,T const&v){
+void printValue(int indent,int padding,std::string const&name,T const&v){
+  for(int i=0;i<indent;++i)std::cerr << " ";
+  std::cerr << name;
+  auto ep = padding-name.length();
+  for(int i=0;i<ep;++i)std::cerr << " ";
+  std::cerr << ": " << v << std::endl;
 }
 
 void Vulkan::printPhysicalDeviceProperties(){
   for(auto const&dev:physicalDevices){
     auto const&p = dev.properties;
     std::cerr << p.deviceName << std::endl;
-    std::cerr << "  apiVersion   : " << versionString(p.apiVersion) << std::endl;
-    std::cerr << "  deviceID     : " << p.deviceID << std::endl;
-    std::cerr << "  vendorID     : " << p.vendorID << std::endl;
-    std::cerr << "  driverVersion: " << p.driverVersion << std::endl;
+    printValue(2,13,"apiVersion"   ,versionString(p.apiVersion   ));
+    printValue(2,13,"deviceID"     ,              p.deviceID      );
+    printValue(2,13,"vendorID"     ,              p.vendorID      );
+    printValue(2,13,"driverVersion",              p.driverVersion );
   }
 }
+
+//uint32_t getPhysicalDeviceQueueFamilyPropertiesCount(VkPhysicalDevice const&pd){
+//  uint32_t count;
+//  vkGetPhysicalDeviceQueueFamilyProperties(pd,&count,nullptr);
+//  return count;
+//}
 
 void Vulkan::getQueueFamilyProperties(){
   for(auto&dev:physicalDevices){
     auto const&pd = dev.physicalDevice;
     uint32_t count;
     vkGetPhysicalDeviceQueueFamilyProperties(pd,&count,nullptr);
-    dev.queueFamilyProperties.resize(count);
-    vkGetPhysicalDeviceQueueFamilyProperties(pd,&count,dev.queueFamilyProperties.data());
+    std::vector<VkQueueFamilyProperties>qfp;
+    qfp.resize(count);
+    dev.queueFamilies.resize(count);
+    vkGetPhysicalDeviceQueueFamilyProperties(pd,&count,qfp.data());
+    for(size_t i=0;i<qfp.size();++i)
+      dev.queueFamilies.at(i).properties = qfp.at(i);
   }
 }
 
-char const*queueFlagToStr(VkQueueFlags f){
-  switch(f){
-    case VK_QUEUE_GRAPHICS_BIT      :return"VK_QUEUE_GRAPHICS_BIT"      ;
-    case VK_QUEUE_COMPUTE_BIT       :return"VK_QUEUE_COMPUTE_BIT"       ;
-    case VK_QUEUE_TRANSFER_BIT      :return"VK_QUEUE_TRANSFER_BIT"      ;
-    case VK_QUEUE_PROTECTED_BIT     :return"VK_QUEUE_PROTECTED_BIT"     ;
-    case VK_QUEUE_SPARSE_BINDING_BIT:return"VK_QUEUE_SPARSE_BINDING_BIT";
-  }
-  return "";
-}
 
 std::string queueFlagsToStr(VkQueueFlags f){
   std::stringstream ss;
   std::vector<VkQueueFlags>const flags = {
-    VK_QUEUE_GRAPHICS_BIT      ,
-    VK_QUEUE_COMPUTE_BIT       ,
-    VK_QUEUE_TRANSFER_BIT      ,
-    VK_QUEUE_PROTECTED_BIT     ,
-    VK_QUEUE_SPARSE_BINDING_BIT,
+    LIST_QUEUE_FLAGS(LIST_COMMA)
   };
 
   bool first = true;
@@ -233,7 +302,9 @@ void Vulkan::printQueueProperties(){
   for(auto const&dev:physicalDevices){
     std::cerr << dev.properties.deviceName << std::endl;
     int i=0;
-    for(auto const&q:dev.queueFamilyProperties){
+    for(auto const&qf:dev.queueFamilies){
+      auto const&q = qf.properties;
+
       std::cerr << "  queueFamily:"<<(i++)<<std::endl;
       auto&itg = q.minImageTransferGranularity;
       std::cerr << "    minImageTransferGranularity.width  : " << itg.width    << std::endl;
@@ -245,3 +316,156 @@ void Vulkan::printQueueProperties(){
     }
   }
 }
+
+void Vulkan::throwIfPhysicalDeviceOutOfRange(uint32_t dev){
+  if(dev < physicalDevices.size())return;
+  throw std::runtime_error("Cannot find queue family, physical device out of range");
+}
+
+bool Vulkan::areQueueFlagsIncompatible(QueueFamility const&family,VkQueueFlags required){
+  return (family.properties.queueFlags & required) != required;
+}
+
+bool Vulkan::notEnoughFamilyCapacity(QueueFamility const&family,uint32_t count){
+  return count + family.used > family.properties.queueCount;
+}
+
+bool Vulkan::isQueueFamilyIncopatible(QueueFamility family,VkQueueFlags required,uint32_t count){
+  return 
+    areQueueFlagsIncompatible(family,required) ||
+    notEnoughFamilyCapacity(family,count);
+}
+
+uint32_t Vulkan::findQueueFamily(uint32_t physicalDevice,VkQueueFlags requiredFlags,uint32_t count){
+  throwIfPhysicalDeviceOutOfRange(physicalDevice);
+
+  auto const&qf = physicalDevices[physicalDevice].queueFamilies;
+  for(size_t i=0;i<qf.size();++i){
+    if(isQueueFamilyIncopatible(qf.at(i),requiredFlags,count))continue;
+    return i;
+  }
+
+  throw std::runtime_error("Cannot find queue family");
+  return 0;
+}
+
+VkDeviceQueueCreateInfo deviceQueueCreateInfo(uint32_t index,uint32_t count,float const*priorities){
+  return VkDeviceQueueCreateInfo{
+    .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+    .pNext            = nullptr                                   ,
+    .flags            = 0                                         ,
+    .queueFamilyIndex = index                                     ,
+    .queueCount       = count                                     ,
+    .pQueuePriorities = priorities                                ,
+  };
+}
+
+VkDeviceCreateInfo deviceCreateInfo(uint32_t count,VkDeviceQueueCreateInfo const*infos){
+  return VkDeviceCreateInfo{
+    .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+    .pNext                   = nullptr                             ,
+    .flags                   = 0                                   ,
+    .queueCreateInfoCount    = count                               ,
+    .pQueueCreateInfos       = infos                               ,
+    .enabledLayerCount       = 0                                   ,
+    .ppEnabledLayerNames     = nullptr                             ,
+    .enabledExtensionCount   = 0                                   ,
+    .ppEnabledExtensionNames = nullptr                             ,
+    .pEnabledFeatures        = nullptr                             ,
+  };
+}
+
+
+VkDeviceCreateInfo Vulkan::allocateDeviceCreateInfo(CreateDeviceInfo const&cdi){
+  uint32_t n = cdi.queueCreateInfos.size();
+  return VkDeviceCreateInfo{
+    .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+    .pNext                   = nullptr                             ,
+    .flags                   = 0                                   ,
+    .queueCreateInfoCount    = n                                   ,
+    .pQueueCreateInfos       = new VkDeviceQueueCreateInfo[n]      ,
+    .enabledLayerCount       = 0                                   ,
+    .ppEnabledLayerNames     = nullptr                             ,
+    .enabledExtensionCount   = 0                                   ,
+    .ppEnabledExtensionNames = nullptr                             ,
+    .pEnabledFeatures        = nullptr                             ,
+  };
+}
+
+void Vulkan::fillDeviceCreateInfo(VkDeviceCreateInfo&dci,CreateDeviceInfo const&cdi){
+  auto d = (VkDeviceQueueCreateInfo*)dci.pQueueCreateInfos;
+  for(auto&qci:cdi.queueCreateInfos){
+    uint32_t index = findQueueFamily(cdi.physicalDevice,qci.flags,qci.count);
+    d->sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    d->pNext            = nullptr                                   ;
+    d->flags            = 0                                         ;
+    d->queueFamilyIndex = index                                     ;
+    d->queueCount       = qci.count                                 ;
+    d->pQueuePriorities = qci.priorities.data()                     ;
+    d++;
+  }
+}
+
+VkDeviceCreateInfo Vulkan::createDeviceCreateInfo(CreateDeviceInfo const&cdi){
+  auto dci = allocateDeviceCreateInfo(cdi);
+  fillDeviceCreateInfo(dci,cdi);
+  return dci;
+}
+
+Vulkan::PhysicalDevice&Vulkan::getPhysicalDevice(CreateDeviceInfo const&cdi){
+  return physicalDevices.at(cdi.physicalDevice);
+}
+
+void Vulkan::destroyDeviceCreateInfo(VkDeviceCreateInfo&info){
+  delete[]info.pQueueCreateInfos;
+}
+
+void Vulkan::createLogicalDevice(PhysicalDevice&pd,VkDeviceCreateInfo&ci){
+  pd.logicalDevices.push_back({});
+  auto&pdev = pd.physicalDevice;
+  auto&ldev = pd.logicalDevices.back();
+  VK_CALL(vkCreateDevice,pdev,&ci,nullptr,&ldev.device);
+  //ldev.queueFamily.resize(ci.queueCreateInfoCount);
+  //for(uint32_t i=0;i<ci.queueCreateInfoCount;++i){
+  //  auto&qf = ldev.queueFamily[i];
+  //  qf.familyIndex=ci.pQueueCreateInfos[i].queueFamilyIndex;
+  //  qf.queues.resize(ci.pQueueCreateInfos[i].queueCount);
+  //  ldev.vkGetDeviceQueue(ldev.device,qf.familyIndex,0,qf.queues.data()+0);
+  //}
+}
+
+void Vulkan::loadDeviceFunctions(PhysicalDevice&pdev){
+  auto&ld = pdev.logicalDevices.back();
+  
+#define LOAD_DEVICE_FUNCTION(i,f)\
+  ld.f = (decltype(ld.f))vkGetDeviceProcAddr(i,#f);\
+  if(!ld.f)std::cerr << #f << " == " << ld.f << std::endl
+
+  DEVICE_FUNCTION_LIST(ld.device,LOAD_DEVICE_FUNCTION);
+}
+
+void Vulkan::createLogicalDevice(
+    CreateDeviceInfo const&cdi){
+  auto deviceCreateInfo = createDeviceCreateInfo(cdi);
+  auto&pdev             = getPhysicalDevice(cdi);
+  createLogicalDevice    (pdev,deviceCreateInfo);
+  loadDeviceFunctions    (pdev                 );
+  destroyDeviceCreateInfo(deviceCreateInfo     );
+}
+
+void Vulkan::createLogicalDevices(){
+  for(auto const&cdi:createDeviceInfos)
+    createLogicalDevice(cdi);
+}
+
+//void Vulkan::LogicalDevice::createCommandPools(){
+//  VkCommandPoolCreateInfo commandPoolCreateInfo{
+//    .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+//    .pNext            = nullptr                                   ,
+//    .flags            = 0                                         ,
+//    .queueFamilyIndex = queueFamilyIndex                          ,
+//  };
+//  VkCommandPool commandPool;
+//  VK_CALL(vkCreateCommandPool,device,&commandPoolCreateInfo,nullptr,&commandPool);
+//
+//}

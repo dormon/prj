@@ -157,6 +157,9 @@ int main(){
   auto a = var("a");
   auto b = var("b");
   auto c = (a+b+2.)*a;
+  auto d = a+a+3*a;
+  std::cerr << toStr(optimize(d)) << std::endl;
+
   std::cerr << toStr(c) << std::endl;
   std::cerr << toStr(diff(c,"a")) << std::endl;
   return 0;

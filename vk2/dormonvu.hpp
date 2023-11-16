@@ -7,35 +7,6 @@
 #define VK_NO_PROTOTYPES
 #include<vulkan/vulkan.h>
 
-char const*vkResultString(VkResult const&err);
-void throwError(std::string const&file,uint32_t line,std::string const&fce,std::string const&msg);
-void throwError(std::string const&file,uint32_t line,std::string const&fce,VkResult err);
-
-template<typename FCE>struct FceReturnType;                                
-template<typename OUTPUT,typename... ARGS>                                 
-struct FceReturnType<OUTPUT(ARGS...)>{                                     
-  using type = OUTPUT;                                                     
-};
-
-template<typename FCE,typename... ARGS>
-void callAndThrowIfError(
-    std::string const&file,
-    uint32_t line,
-    std::string const&fceName,
-    FCE*fce,
-    ARGS... args){
-  if(!fce)throwError(file,line,fceName,"is nullptr");
-  if constexpr (std::is_same<typename FceReturnType<FCE>::type,void>::value){
-    fce(args...);
-  }else{
-    auto err = fce(args...);
-    if(err != VK_SUCCESS)
-      throwError(file,line,fceName,err);
-  }
-}
-
-#define VK_CALL(fce,...) \
-  callAndThrowIfError(__FILE__,__LINE__,#fce,fce,__VA_ARGS__)
 
 
 #define DECLARE(f)    PFN_##f f = nullptr;
@@ -104,8 +75,24 @@ struct Vulkan{
   std::string engineName         = "";
   uint32_t    engineVersion      = 0 ;
   uint32_t    apiVersion         = VK_MAKE_VERSION(1,0,0);
-  std::vector<std::string> enabledLayers  = {};
+  std::vector<std::string> enabledLayers      = {};
   std::vector<std::string> enabledExtensions  = {};
+
+  struct QueueCreateInfo{
+    VkQueueFlags       flags      = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT | VK_QUEUE_TRANSFER_BIT;
+    uint32_t           count      = 1    ;
+    std::vector<float> priorities = {1.f};
+  };
+  struct CreateDeviceInfo{
+    uint32_t                    physicalDevice   = 0;
+    std::vector<QueueCreateInfo>queueCreateInfos = {
+      {}
+    };
+  };
+
+  std::vector<CreateDeviceInfo>createDeviceInfos = {
+    {}
+  };
 
   void start();
   void stop();
@@ -113,31 +100,81 @@ struct Vulkan{
   void printPhysicalDeviceProperties();
   void printQueueProperties();
 
-  std::vector<VkPhysicalDeviceGroupProperties>physicalDeviceGroups;
+  protected:
+    std::vector<VkPhysicalDeviceGroupProperties>physicalDeviceGroups;
 
-  struct LogicalDevice{
-    VkDevice device;
+    struct QueueFamily{
+      uint32_t            familyIndex;
+      VkCommandPool       commandPool;
+      std::vector<VkQueue>queues     ;
+    };
 
-  };
+    struct LogicalDevice{
+      VkDevice                device;
+      std::vector<QueueFamily>queueFamily;
+      void createCommandPools();
+      DEVICE_FUNCTION_LIST(_,DECLARE2);
+    };
 
-  struct PhysicalDevice{
-    VkPhysicalDevice physicalDevice;
-    VkPhysicalDeviceProperties properties;
-    std::vector<VkQueueFamilyProperties>queueFamilyProperties;
-    std::vector<LogicalDevice>logicalDevices;
-  };
-  std::vector<PhysicalDevice>physicalDevices;
+    struct QueueFamility{
+      uint32_t                used       = 0;
+      VkQueueFamilyProperties properties    ;
+    };
 
-  VkInstance instance;
-  NO_INSTANCE_FUNCTION_LIST(DECLARE);
-  INSTANCE_FUNCTION_LIST(_,DECLARE2);
+    struct PhysicalDevice;
+    std::vector<PhysicalDevice>physicalDevices;
+
+    //struct LogicalDevice{
+    //  VkDevice device;
+    //};
+    //std::vector<LogicalDevice>logicalDevices;
+
+    VkInstance instance;
+    NO_INSTANCE_FUNCTION_LIST(DECLARE);
+    INSTANCE_FUNCTION_LIST(_,DECLARE2);
 
   private:
     void*vulkanLib = nullptr;
     void load_vkGetInstanceProcAddr(void*vulkanLib);
-    void createInstance();
-    void getPhysicalDevices();
-    void getPhysicalDeviceProperties();
-    void getQueueFamilyProperties();
+    void createInstance                  ();
+    void getPhysicalDevices              ();
+    void getPhysicalDeviceProperties     ();
+    void getQueueFamilyProperties        ();
     void getPhysicalDeviceGroupProperties();
+    void createLogicalDevices            ();
+    void createLogicalDevice(CreateDeviceInfo const&);
+    uint32_t findQueueFamily(
+        uint32_t     physicalDevice,
+        VkQueueFlags requiredFlags ,
+        uint32_t     count         );
+    void     throwIfPhysicalDeviceOutOfRange(
+        uint32_t     dev           );
+    bool areQueueFlagsIncompatible(
+        QueueFamility const&family  ,
+        VkQueueFlags        required);
+    bool notEnoughFamilyCapacity(
+        QueueFamility const&family,
+        uint32_t            count );
+    bool isQueueFamilyIncopatible(
+        QueueFamility queueFlags,
+        VkQueueFlags  required  ,
+        uint32_t      count     );
+    void loadDeviceFunctions(PhysicalDevice&pd);
+    void createLogicalDevice(PhysicalDevice&pdev,VkDeviceCreateInfo&ci);
+    VkDeviceCreateInfo createDeviceCreateInfo(CreateDeviceInfo const&cdi);
+    void destroyDeviceCreateInfo(VkDeviceCreateInfo&info);
+    PhysicalDevice&getPhysicalDevice(CreateDeviceInfo const&cdi);
+    void fillDeviceCreateInfo(VkDeviceCreateInfo&dci,CreateDeviceInfo const&cdi);
+    VkDeviceCreateInfo allocateDeviceCreateInfo(CreateDeviceInfo const&cdi);
+
+};
+
+
+struct Vulkan::PhysicalDevice{
+  VkPhysicalDevice           physicalDevice;
+  VkPhysicalDeviceProperties properties    ;
+  std::vector<QueueFamility >queueFamilies ;
+  std::vector<LogicalDevice >logicalDevices;
+  void getProperties();
+  PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties = nullptr;
 };
