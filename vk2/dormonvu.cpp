@@ -119,9 +119,9 @@ char const*queueFlagToStr(VkQueueFlags err){
 
 
 
-#define LOAD(f)                      f = (decltype(f))dlsym(vulkanLib,#f);if(!f)std::cerr << #f << " == " << f << std::endl
-#define LOAD_INSTANCE_FUNCTION(i,f)  f = (decltype(f))vkGetInstanceProcAddr(i,#f);if(!f)std::cerr << #f << " == " << f << std::endl
-#define LOAD_NO_INSTANCE_FUNCTION(f) f = LOAD_INSTANCE_FUNCTION(nullptr,f)
+#define LOAD(f)                        f = (decltype(f))dlsym(vulkanLib,#f);if(!f)std::cerr << #f << " == " << f << std::endl
+#define LOAD_INSTANCE_FUNCTION(i,f)    f = (decltype(f))vkGetInstanceProcAddr(i,#f);if(!f)std::cerr << #f << " == " << f << std::endl
+#define LOAD_NO_INSTANCE_FUNCTION(i,f) f = LOAD_INSTANCE_FUNCTION(nullptr,f)
 
 void*openVulkanLib(){
   void*vulkanLib = dlopen("libvulkan.so",RTLD_LAZY);
@@ -129,12 +129,21 @@ void*openVulkanLib(){
   return vulkanLib;
 }
 
+void Vulkan::load_physicalDeviceFunctions(){
+#define LOAD_PHYSICAL_DEVICE_FUNCTION(i,f)\
+  physicalDeviceFunctions.f = (decltype(physicalDeviceFunctions.f))vkGetInstanceProcAddr(i,#f);\
+  if(!physicalDeviceFunctions.f)std::cerr << #f << " == " << physicalDeviceFunctions.f << std::endl
+  PHYSICAL_DEVICE_FUNCTION_LIST(instance,LOAD_PHYSICAL_DEVICE_FUNCTION);
+#undef LOAD_PHYSICAL_DEVICE_FUNCTION
+}
+
 void Vulkan::start(){
   vulkanLib = openVulkanLib();
   load_vkGetInstanceProcAddr(vulkanLib);
-  NO_INSTANCE_FUNCTION_LIST(LOAD_NO_INSTANCE_FUNCTION)
+  NO_INSTANCE_FUNCTION_LIST(_,LOAD_NO_INSTANCE_FUNCTION)
   createInstance();
   INSTANCE_FUNCTION_LIST(instance,LOAD_INSTANCE_FUNCTION);
+  load_physicalDeviceFunctions();
   getPhysicalDeviceGroupProperties();
   getPhysicalDevices();
   getPhysicalDeviceProperties();
@@ -209,28 +218,34 @@ void Vulkan::printPhysicalDeviceGroups(){
   }
 }
 
+uint32_t Vulkan::getNofPhysicalDevices(){
+  uint32_t count;
+  VK_CALL(vkEnumeratePhysicalDevices,instance,&count,nullptr);
+  return count;
+}
+
 void Vulkan::getPhysicalDevices(){
-  uint32_t physicalDeviceCount;
-  VK_CALL(vkEnumeratePhysicalDevices,instance,&physicalDeviceCount,nullptr);
-  std::vector<VkPhysicalDevice>devs;
-  devs.resize(physicalDeviceCount);
-  VK_CALL(vkEnumeratePhysicalDevices,instance,&physicalDeviceCount,devs.data());
+  auto count = getNofPhysicalDevices();
+  auto devs = std::vector<VkPhysicalDevice>(count);
+  VK_CALL(vkEnumeratePhysicalDevices,instance,&count,devs.data());
 
-  physicalDevices.resize(physicalDeviceCount);
-  for(uint32_t i=0;i<physicalDeviceCount;++i){
-    physicalDevices.at(i).physicalDevice = devs.at(i);
-    physicalDevices.at(i).vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties;
-  }
+  for(auto const&dev:devs)
+    physicalDevices.emplace_back(dev,physicalDeviceFunctions);
+}
 
+Vulkan::PhysicalDevice::PhysicalDevice(
+    VkPhysicalDevice        const&pd ,
+    PhysicalDeviceFunctions const&pdf):physicalDevice(pd),ctx(pdf){
+  getProperties();
 }
 
 void Vulkan::PhysicalDevice::getProperties(){
-  vkGetPhysicalDeviceProperties(physicalDevice,&properties);
+  ctx.vkGetPhysicalDeviceProperties(physicalDevice,&properties);
 }
 
 void Vulkan::getPhysicalDeviceProperties(){
   for(auto&dev:physicalDevices){
-    vkGetPhysicalDeviceProperties(dev.physicalDevice,&dev.properties);
+    physicalDeviceFunctions.vkGetPhysicalDeviceProperties(dev.physicalDevice,&dev.properties);
   }
 }
 
@@ -270,11 +285,11 @@ void Vulkan::getQueueFamilyProperties(){
   for(auto&dev:physicalDevices){
     auto const&pd = dev.physicalDevice;
     uint32_t count;
-    vkGetPhysicalDeviceQueueFamilyProperties(pd,&count,nullptr);
+    physicalDeviceFunctions.vkGetPhysicalDeviceQueueFamilyProperties(pd,&count,nullptr);
     std::vector<VkQueueFamilyProperties>qfp;
     qfp.resize(count);
     dev.queueFamilies.resize(count);
-    vkGetPhysicalDeviceQueueFamilyProperties(pd,&count,qfp.data());
+    physicalDeviceFunctions.vkGetPhysicalDeviceQueueFamilyProperties(pd,&count,qfp.data());
     for(size_t i=0;i<qfp.size();++i)
       dev.queueFamilies.at(i).properties = qfp.at(i);
   }

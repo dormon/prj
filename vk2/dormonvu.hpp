@@ -8,14 +8,12 @@
 #include<vulkan/vulkan.h>
 
 
+#define DECLARE(i,f) PFN_##f f = nullptr;
 
-#define DECLARE(f)    PFN_##f f = nullptr;
-#define DECLARE2(i,f) PFN_##f f = nullptr;
-
-#define NO_INSTANCE_FUNCTION_LIST(f)\
-  f(vkEnumerateInstanceLayerProperties);\
-  f(vkEnumerateInstanceVersion);\
-  f(vkCreateInstance);\
+#define NO_INSTANCE_FUNCTION_LIST(i,f)\
+  f(i,vkEnumerateInstanceLayerProperties);\
+  f(i,vkEnumerateInstanceVersion);\
+  f(i,vkCreateInstance);\
 
 
 #define INSTANCE_FUNCTION_LIST(i,f)\
@@ -23,13 +21,51 @@
   f(i,vkGetInstanceProcAddr);\
   f(i,vkEnumeratePhysicalDevices);\
   f(i,vkGetDeviceProcAddr);\
-  f(i,vkGetPhysicalDeviceProperties);\
-  f(i,vkGetPhysicalDeviceQueueFamilyProperties);\
   f(i,vkCreateDevice);\
   f(i,vkDestroyDevice);\
-  f(i,vkGetPhysicalDeviceMemoryProperties);\
   f(i,vkEnumeratePhysicalDeviceGroups);\
       
+
+#define PHYSICAL_DEVICE_FUNCTION_LIST(i,f)\
+  f(i,vkEnumeratePhysicalDevices);\
+  f(i,vkGetPhysicalDeviceProperties);\
+  f(i,vkGetPhysicalDeviceProperties2);\
+  f(i,vkGetPhysicalDeviceQueueFamilyProperties);\
+  f(i,vkGetPhysicalDeviceQueueFamilyProperties2);\
+  f(i,vkGetPhysicalDeviceMemoryProperties);\
+  f(i,vkGetPhysicalDeviceMemoryProperties2);\
+  f(i,vkGetPhysicalDeviceDisplayPropertiesKHR);\
+  f(i,vkGetPhysicalDeviceDisplayProperties2KHR);\
+  f(i,vkGetPhysicalDeviceDisplayPlanePropertiesKHR);\
+  f(i,vkGetPhysicalDeviceDisplayPlaneProperties2KHR);\
+  f(i,vkGetDisplayPlaneSupportedDisplaysKHR);\
+  f(i,vkGetDisplayModePropertiesKHR);\
+  f(i,vkGetDisplayModeProperties2KHR);\
+  f(i,vkCreateDisplayModeKHR);\
+  f(i,vkGetDisplayPlaneCapabilitiesKHR);\
+  f(i,vkGetDisplayPlaneCapabilities2KHR);\
+  f(i,vkGetPhysicalDeviceSurfaceSupportKHR);\
+  /*f(i,vkGetPhysicalDeviceWaylandPresentationSupportKHR);*/\
+  /*f(i,vkGetPhysicalDeviceWin32PresentationSupportKHR);*/\
+  /*f(i,vkGetPhysicalDeviceXcbPresentationSupportKHR);*/\
+  /*f(i,vkGetPhysicalDeviceXlibPresentationSupportKHR);*/\
+  f(i,vkGetPhysicalDeviceSurfaceCapabilitiesKHR);\
+  f(i,vkGetPhysicalDeviceSurfaceCapabilities2KHR);\
+  f(i,vkGetPhysicalDeviceSurfaceFormatsKHR);\
+  f(i,vkGetPhysicalDeviceSurfaceFormats2KHR);\
+  f(i,vkGetPhysicalDeviceSurfacePresentModesKHR);\
+  f(i,vkGetPhysicalDevicePresentRectanglesKHR);\
+  f(i,vkEnumerateDeviceLayerProperties);\
+  f(i,vkEnumerateDeviceExtensionProperties);\
+  f(i,vkGetPhysicalDeviceExternalBufferProperties);\
+  f(i,vkGetPhysicalDeviceExternalSemaphoreProperties);\
+  f(i,vkGetPhysicalDeviceExternalFenceProperties);\
+  f(i,vkGetPhysicalDeviceFeatures);\
+  f(i,vkGetPhysicalDeviceFeatures2);\
+  f(i,vkGetPhysicalDeviceFormatProperties);\
+  f(i,vkGetPhysicalDeviceFormatProperties2);\
+  f(i,vkGetPhysicalDeviceImageFormatProperties);\
+  f(i,vkGetPhysicalDeviceImageFormatProperties2);\
 
 
 #define DEVICE_FUNCTION_LIST(i,f)\
@@ -69,6 +105,11 @@
   f(i,vkQueueSubmit);\
   f(i,vkQueueWaitIdle);\
 
+struct PhysicalDeviceFunctions{
+  PHYSICAL_DEVICE_FUNCTION_LIST(_,DECLARE);
+};
+
+
 struct Vulkan{
   std::string applicationName    = "";
   uint32_t    applicationVersion = 0 ;
@@ -101,6 +142,7 @@ struct Vulkan{
   void printQueueProperties();
 
   protected:
+    PhysicalDeviceFunctions physicalDeviceFunctions;
     std::vector<VkPhysicalDeviceGroupProperties>physicalDeviceGroups;
 
     struct QueueFamily{
@@ -113,7 +155,7 @@ struct Vulkan{
       VkDevice                device;
       std::vector<QueueFamily>queueFamily;
       void createCommandPools();
-      DEVICE_FUNCTION_LIST(_,DECLARE2);
+      DEVICE_FUNCTION_LIST(_,DECLARE);
     };
 
     struct QueueFamility{
@@ -130,12 +172,22 @@ struct Vulkan{
     //std::vector<LogicalDevice>logicalDevices;
 
     VkInstance instance;
-    NO_INSTANCE_FUNCTION_LIST(DECLARE);
-    INSTANCE_FUNCTION_LIST(_,DECLARE2);
+    NO_INSTANCE_FUNCTION_LIST(_,DECLARE);
+    INSTANCE_FUNCTION_LIST(_,DECLARE);
 
   private:
     void*vulkanLib = nullptr;
+    VkPhysicalDevice*vk_pDevs;
+    uint32_t         npDevs;
+    struct{
+      VkPhysicalDeviceProperties       props   ;
+      VkPhysicalDeviceMemoryProperties memProps;
+      VkQueueFamilyProperties*         qfProps ;
+      uint32_t                         nQF     ;
+    };
+
     void load_vkGetInstanceProcAddr(void*vulkanLib);
+    void load_physicalDeviceFunctions();
     void createInstance                  ();
     void getPhysicalDevices              ();
     void getPhysicalDeviceProperties     ();
@@ -166,15 +218,18 @@ struct Vulkan{
     PhysicalDevice&getPhysicalDevice(CreateDeviceInfo const&cdi);
     void fillDeviceCreateInfo(VkDeviceCreateInfo&dci,CreateDeviceInfo const&cdi);
     VkDeviceCreateInfo allocateDeviceCreateInfo(CreateDeviceInfo const&cdi);
+    PhysicalDevice createPhysicalDevice(VkPhysicalDevice const&pd);
+    uint32_t       getNofPhysicalDevices();
 
 };
 
-
 struct Vulkan::PhysicalDevice{
+  PhysicalDevice(VkPhysicalDevice const&pd,PhysicalDeviceFunctions const&pdf);
   VkPhysicalDevice           physicalDevice;
   VkPhysicalDeviceProperties properties    ;
   std::vector<QueueFamility >queueFamilies ;
   std::vector<LogicalDevice >logicalDevices;
+  PhysicalDeviceFunctions    ctx;
   void getProperties();
-  PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties = nullptr;
 };
+
