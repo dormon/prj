@@ -9,6 +9,8 @@
 #define VK_NO_PROTOTYPES
 #include<vulkan/vulkan.h>
 
+#include<spirv/1.0/spirv.h>
+
 #define ___ std::cerr << __LINE__ << std::endl
 
 
@@ -261,7 +263,7 @@ VkInstance createInstance(){
 
 
   std::vector<char const*>enabledLayerNames = {
-    "VK_LAYER_KHRONOS_validation",
+    //"VK_LAYER_KHRONOS_validation",
     //"VK_LAYER_KHRONOS_validation",
     //"VK_LAYER_LUNARG_api_dump",
     //"VK_LAYER_VALVE_steam_fossilize_64",
@@ -532,6 +534,16 @@ int main(int argc,char*argv[]){
 
   void*mappedBuffer=nullptr;
   VK_CALL(vkMapMemory,device,deviceMemory,0,1024*1024*sizeof(float),0,&mappedBuffer);
+
+  //uint32_t codeSpv[] = {
+  //  SpvMagicNumber,
+  //  SpvVersion,
+  //  0x051a00BB,
+  //  27,
+  //  0,
+  //  SpvCapabilityShader,
+
+  //};
 
   VkShaderModule shaderModule;
   VkShaderModuleCreateInfo shaderModuleCreateInfo{

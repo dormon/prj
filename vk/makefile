@@ -4,7 +4,9 @@ ${BIN}: main.o
 	g++ --std=c++17 $^ -o ${BIN} -Os -s -O3 -ldl
 
 comp.spv: comp.glsl
-	glslc -fshader-stage=compute $^ -o comp.spv
+	#glslc -fshader-stage=compute $^ -o comp.spv
+	glslang -S comp $^ -V -o comp.spv
+
 
 binToTxt: binToTxt.cpp
 	g++ --std=c++17 binToTxt.cpp -o binToTxt
