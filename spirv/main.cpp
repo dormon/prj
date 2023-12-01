@@ -6,8 +6,8 @@ int main(int argc,char*argv[]){
   uint32_t const code[]={
     SpvMagicNumber,
     SpvVersion,
-    0xDE9E,
-    27,
+    0x0008000Bu,
+    27u,
     0,
 
     SpvOpCapability | (2u<<16u), // 0x00020011,
