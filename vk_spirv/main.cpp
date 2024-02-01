@@ -203,21 +203,76 @@ void printLayerProperties(std::vector<VkLayerProperties>const&layerProperties){
   }
 }
 
-namespace vk{
-  class InstanceImpl{
-    public:
-  };
-  class Instance{
-    public:
-    protected:
-      friend class InstanceImpl;
-      std::shared_ptr<InstanceImpl>impl;
-  };
-  class createInstance{
-    public:
+class SpirV{
+  public:
+    uint32_t const*getCode()const;
+    uint32_t getCodeLen()const;
+    void magicNumber();
+    void version();
+    void generator(uint32_t v);
+    void bound(uint32_t v);
+    void schema();
+    void capability(uint32_t v);
+    uint32_t wordsPerLiteral(std::string const&v)const;
+    void literal(std::string const&v);
+    void extInstImport(uint32_t id,std::string const&is);
+    void memoryModel(uint32_t addressing,uint32_t model);
+    void entryPoint(uint32_t model,uint32_t id,std::string const&name,std::vector<uint32_t>ids);
+  private:
+    std::vector<uint32_t>code;
+};
 
-  };
+uint32_t const*SpirV::getCode()const{return code.data();}
+uint32_t       SpirV::getCodeLen()const{return code.size();}
+void           SpirV::magicNumber(){code.push_back(SpvMagicNumber);}
+void           SpirV::version(){code.push_back(SpvVersion);}
+void           SpirV::generator(uint32_t v){code.push_back(v);}
+void           SpirV::bound(uint32_t v){code.push_back(v);}
+void           SpirV::schema(){code.push_back(0);}
+void           SpirV::capability(uint32_t v){code.push_back(SpvOpCapability|(2u<<16u));code.push_back(v);}
+
+uint32_t SpirV::wordsPerLiteral(std::string const&v)const{
+  return v.length()/4u + uint32_t(v.length()%4u);
 }
+
+void SpirV::literal(std::string const&v){
+  auto n = wordsPerLiteral(v);
+  for(uint32_t i=0;i<n;++i){
+    uint32_t word = 0u;
+    for(uint32_t b=0;b<4u;++b){
+      if(i*4u+b>=v.length())continue;
+      word |= v[i*4u+b]<<(b*8u);
+    }
+    code.push_back(word);
+  }
+  code.push_back(0);
+}
+
+void           SpirV::extInstImport(uint32_t id,std::string const&is){
+  auto n = wordsPerLiteral(is);
+  code.push_back(SpvOpExtInstImport | ((n+3u)<<16u));
+  code.push_back(id);
+  literal(is);
+}
+
+void SpirV::memoryModel(uint32_t addressing,uint32_t model){
+  code.push_back(SpvOpMemoryModel | (3u<<16u));
+  code.push_back(addressing);
+  code.push_back(model);
+}
+
+void SpirV::entryPoint(uint32_t model,uint32_t id,std::string const&name,std::vector<uint32_t>ids){
+  auto n = wordsPerLiteral(name);
+  code.push_back(SpvOpEntryPoint | ((4u+n)<<16u));
+  code.push_back(model);
+  code.push_back(id);
+  literal(name);
+  for(auto x:ids)code.push_back(x);
+}
+
+
+
+
 
 void*myalloc(void*userData,size_t size,size_t alignment,VkSystemAllocationScope scope){
   auto res = malloc(size);

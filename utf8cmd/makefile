@@ -1,7 +1,7 @@
 BIN       = accessMember
 LIB       = 
 CPPFLAGS = -std=c++14 -Wall -O3 -Wconversion -I.
-CC        = g++-5
+CC        = g++
 OBJ       = main.o
 
 all: ${BIN}
