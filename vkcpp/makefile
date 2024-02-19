@@ -3,7 +3,7 @@ BIN=vk
 ${BIN}: main.o
 	g++ --std=c++17 $^ -o ${BIN} -Os -s -O3 -ldl -lvulkan
 
-main.o: main.cpp
+main.o: main.cpp main.hpp
 	g++ -c --std=c++17 main.cpp -O3 -g
 
 shader.spv: shader.glsl
