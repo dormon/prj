@@ -55,42 +55,80 @@ void work(Vulkan&vulkan){
   auto descriptorSetLayout      = createDescriptorSetLayout(vulkan.device);
   auto descriptorSets           = allocateDescriptorSets(vulkan.device,vulkan.descriptorPool,descriptorSetLayout);
 
-
-  //auto descriptorBufferInfo     = vk::DescriptorBufferInfo(buffer,0,vk::WholeSize);
-  //auto writeDescriptorSet       = vk::WriteDescriptorSet(descriptorSet.at(0),0,0,1,vk::DescriptorType::eStorageBuffer,{},&descriptorBufferInfo);
-  //vulkan.device.updateDescriptorSets(1u,&writeDescriptorSet,0,nullptr);
+  auto descriptorBufferInfo = VkDescriptorBufferInfo{
+    .buffer = buffer       ,
+    .offset = 0            ,
+    .range  = VK_WHOLE_SIZE,
+  };
+  auto writeDescriptorSet = VkWriteDescriptorSet{
+    .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+    .pNext            = nullptr                               ,
+    .dstSet           = descriptorSets[0]                     ,
+    .dstBinding       = 0                                     ,
+    .dstArrayElement  = 0                                     ,
+    .descriptorCount  = 1                                     ,
+    .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER     ,
+    .pImageInfo       = nullptr                               ,
+    .pBufferInfo      = &descriptorBufferInfo                 ,
+    .pTexelBufferView = nullptr                               ,
+  };
+  vkUpdateDescriptorSets(vulkan.device,1,&writeDescriptorSet,0,nullptr);
 
   auto pipelineLayout = createPipelineLayout (vulkan.device,descriptorSetLayout);
   auto pipeline       = createComputePipeline(vulkan.device,shaderModule,pipelineLayout,"main");
 
-  //auto commandBufferAllocateInfo = vk::CommandBufferAllocateInfo(vulkan.commandPool,vk::CommandBufferLevel::ePrimary,1);
-  //auto commandBuffers            = vulkan.device.allocateCommandBuffers(commandBufferAllocateInfo);
+  auto commandBufferAllocateInfo = VkCommandBufferAllocateInfo{
+    .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    .pNext              = nullptr                                       ,
+    .commandPool        = vulkan.commandPool                            ,
+    .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY               ,
+    .commandBufferCount = 1                                             ,
+  };
+  VkCommandBuffer commandBuffer;
+  auto result = vkAllocateCommandBuffers(vulkan.device,&commandBufferAllocateInfo,&commandBuffer);
+  if(result != VK_SUCCESS)throw "cannot allocate command buffer";
 
-  //auto commandBufferBeginInfo = vk::CommandBufferBeginInfo();
-  //commandBuffers.at(0).begin(commandBufferBeginInfo);
-  //commandBuffers.at(0).bindPipeline(vk::PipelineBindPoint::eCompute,pipeline);
-  //commandBuffers.at(0).bindDescriptorSets(vk::PipelineBindPoint::eCompute,pipelineLayout,0,1,descriptorSet.data(),0,{});
-  //commandBuffers.at(0).dispatch(1,1,1);
-  //commandBuffers.at(0).end();
+  auto commandBufferBeginInfo = VkCommandBufferBeginInfo{
+    .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    .pNext            = nullptr                                    ,
+    .flags            = 0                                          ,
+    .pInheritanceInfo = nullptr                                    ,
+  };
+  auto res2 = vkBeginCommandBuffer(commandBuffer,&commandBufferBeginInfo);
+  if(res2 != VK_SUCCESS)throw "cannot begin command buffer";
+  vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_COMPUTE,pipeline);
+  vkCmdBindDescriptorSets(commandBuffer,VK_PIPELINE_BIND_POINT_COMPUTE,pipelineLayout,0,1,&descriptorSets[0],0,nullptr);
+  vkCmdDispatch(commandBuffer,1,1,1);
+  auto res3 = vkEndCommandBuffer(commandBuffer);
+  if(res3 != VK_SUCCESS)throw "cannot end command buffer";
 
-  //auto submitInfo = vk::SubmitInfo({},{},{},commandBuffers.size(),commandBuffers.data());
+  auto submitInfo = VkSubmitInfo{
+    .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .pNext                = nullptr                      ,
+    .waitSemaphoreCount   = 0                            ,
+    .pWaitSemaphores      = nullptr                      ,
+    .pWaitDstStageMask    = nullptr                      ,
+    .commandBufferCount   = 1                            ,
+    .pCommandBuffers      = &commandBuffer               ,
+    .signalSemaphoreCount = 0                            ,
+    .pSignalSemaphores    = nullptr                      ,
+  };
 
-  //auto readBuffer = mapMemory(vulkan);
-  //flushMemory(vulkan,0,1024*sizeof(uint32_t));
+  auto readBuffer = mapMemory(vulkan);
+  flushMemory(vulkan,0,1024*sizeof(uint32_t));
 
-  //vulkan.queue.submit(submitInfo);
-  //vulkan.queue.waitIdle();
+  vkQueueSubmit(vulkan.queue,1,&submitInfo,VK_NULL_HANDLE);
+  vkQueueWaitIdle(vulkan.queue);
 
-  //invalidateMemory(vulkan,0,1024*sizeof(uint32_t));
+  invalidateMemory(vulkan,0,1024*sizeof(uint32_t));
 
-  //auto up=(uint32_t*)readBuffer;
-  //for(int i=0;i<64;++i)
-  //  std::cerr << up[i] << std::endl;
+  auto up=(uint32_t*)readBuffer;
+  for(int i=0;i<64;++i)
+    fprintf(stderr,"%u\n",up[i]);
 
+  vkUnmapMemory(vulkan.device,vulkan.deviceMemory);
 
-  //vulkan.device.unmapMemory(vulkan.deviceMemory);
-
-  //vulkan.device.destroyPipeline           (pipeline);
+  vkDestroyPipeline(vulkan.device,pipeline,nullptr);
   vkDestroyPipelineLayout(vulkan.device,pipelineLayout,nullptr);
   delete[]descriptorSets;
   vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout,nullptr);
@@ -356,9 +394,9 @@ VkDescriptorSet* allocateDescriptorSets(VkDevice device,VkDescriptorPool descrip
   auto descriptorSetAllocateInfo = VkDescriptorSetAllocateInfo{
     .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
     .pNext              = nullptr                                       ,
-    .descriptorPool     = descriptorPool,
-    .descriptorSetCount = 1u,
-    .pSetLayouts        = &descriptorSetLayout,
+    .descriptorPool     = descriptorPool                                ,
+    .descriptorSetCount = 1u                                            ,
+    .pSetLayouts        = &descriptorSetLayout                          ,
   };
 
   VkDescriptorSet*descriptorSets = new VkDescriptorSet[1u];
@@ -386,21 +424,22 @@ VkPipelineLayout createPipelineLayout(VkDevice device,VkDescriptorSetLayout desc
 
 VkPipeline createComputePipeline(VkDevice device,VkShaderModule shaderModule,VkPipelineLayout pipelineLayout,char const*entryPoint){
   auto pipelineShaderStageCreateInfo = VkPipelineShaderStageCreateInfo{
-    .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-    .pNext = nullptr                                            ,
-    .flags = 0                                                  ,
-    .module = shaderModule,
-    .pName = entryPoint,
-    .pSpecializationInfo = nullptr,
-    .stage = 
-  };//({},vk::ShaderStageFlagBits::eCompute,shaderModule,entryPoint.c_str());
+    .sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+    .pNext               = nullptr                                            ,
+    .flags               = 0                                                  ,
+    .stage               = VK_SHADER_STAGE_COMPUTE_BIT                        ,
+    .module              = shaderModule                                       ,
+    .pName               = entryPoint                                         ,
+    .pSpecializationInfo = nullptr                                            ,
+  };
   auto computePipelineCreateInfo     = VkComputePipelineCreateInfo{
-    .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-    .pNext = nullptr                                       ,
-    .flags = 0                                             ,
-    .layout = pipelineLayout,
-    .basePipelineHandle = nullptr,
-    .basePipelineIndex = 0,
+    .sType              = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+    .pNext              = nullptr                                       ,
+    .flags              = 0                                             ,
+    .stage              = pipelineShaderStageCreateInfo                 ,
+    .layout             = pipelineLayout                                ,
+    .basePipelineHandle = nullptr                                       ,
+    .basePipelineIndex  = -1                                            ,
   };
   VkPipeline pipeline;
   auto result = vkCreateComputePipelines(device,nullptr,1,&computePipelineCreateInfo,nullptr,&pipeline);

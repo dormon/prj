@@ -33,7 +33,7 @@ VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device);
 VkDescriptorSet*      allocateDescriptorSets   (VkDevice device,VkDescriptorPool descriptorPool,VkDescriptorSetLayout descriptorSetLayout);
 VkPipelineLayout      createPipelineLayout     (VkDevice device,VkDescriptorSetLayout descriptorSetLayout);
 VkPipeline            createComputePipeline    (VkDevice device,VkShaderModule shaderModule,VkPipelineLayout pipelineLayout,char const*entryPoint);
-//
-//void*mapMemory       (Vulkan const&vulkan);
-//void flushMemory     (Vulkan const&vulkan,size_t offset,size_t size);
-//void invalidateMemory(Vulkan const&vulkan,size_t offset,size_t size);
+
+void*mapMemory       (Vulkan const&vulkan);
+void flushMemory     (Vulkan const&vulkan,size_t offset,size_t size);
+void invalidateMemory(Vulkan const&vulkan,size_t offset,size_t size);
