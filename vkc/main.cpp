@@ -242,12 +242,12 @@ VkDevice createDevice(VkPhysicalDevice physicalDevice,uint32_t queueFamilyIndex)
   float queuePriorities[] = {1.f};
   VkDeviceQueueCreateInfo deviceQueueCreateInfos[] = {
     VkDeviceQueueCreateInfo{
-      .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-      .pNext = nullptr                                   ,
-      .flags = 0                                         ,
-      .queueFamilyIndex = queueFamilyIndex               ,
-      .queueCount       = 1u                             ,
-      .pQueuePriorities = queuePriorities                ,
+      .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+      .pNext            = nullptr                                   ,
+      .flags            = 0                                         ,
+      .queueFamilyIndex = queueFamilyIndex                          ,
+      .queueCount       = 1u                                        ,
+      .pQueuePriorities = queuePriorities                           ,
     },
   };
 
@@ -367,11 +367,11 @@ VkShaderModule createShaderModule(VkDevice device,char const*fileName){
 VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device){
   VkDescriptorSetLayoutBinding descriptorSetLayoutBindings[] = {
     VkDescriptorSetLayoutBinding{
-      .binding = 0,
-      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      .descriptorCount = 1,
-      .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-      .pImmutableSamplers = nullptr,
+      .binding            = 0                                ,
+      .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+      .descriptorCount    = 1                                ,
+      .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,
+      .pImmutableSamplers = nullptr                          ,
     },
   };
 
