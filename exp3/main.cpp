@@ -16,36 +16,115 @@ struct Exp;
 Exp optimize(Exp const&e);
 
 struct Exp{
-  enum Type{CONST=0,VAR,LOG,SIN,COS,ADD,MUL,DIV,POW}type = CONST;
-  float c;
-  std::string name = "";
-  std::vector<size_t>dims;
-  std::vector<Exp>op;
+  //enum Type{CONST=0,VAR,LOG,SIN,COS,ADD,MUL,DIV,POW}type = CONST;
   bool isOptimized=false;
+  virtual std::string toStr()const = 0;
   Exp(){}
-  Exp(std::string const&n):type(VAR),name(n){}
-  Exp(float c):type(CONST),c(c){}
-  Exp(Exp const&a,Type type):type(type){
+};
+
+struct Const:Exp{
+  float c;
+  Const(float c):c(c){}
+  virtual std::string toStr()const override{
+    std::stringstream ss;
+    ss << c;
+    return ss.str();
+  }
+};
+
+struct Var:Exp{
+  std::string name = "";
+  Var(std::string const&n):name(n){}
+  virtual std::string toStr()const override{
+    return name;
+  }
+};
+
+struct Op:Exp{
+  std::vector<Exp>op;
+  Op(Exp const&a){
     op.push_back(a);
   }
-  Exp(Exp const&a,Exp const&b,Type type):type(type){
+  Op(Exp const&a,Exp const&b){
     op.push_back(a);
     op.push_back(b);
   }
   Exp const&operator[](size_t i)const{return op[i];}
-  Exp swap()const{return Exp(op[1],op[0],type);}
+  //Exp swap()const{return Op(op[1],op[0]);}
 };
 
-Exp var      (std::string const&a            ){return Exp(a);}
-Exp mat      (uint32_t          x,uint32_t  y){return Exp(x,y);}
-Exp log      (Exp         const&a            ){return Exp(a,Exp::LOG);}
-Exp sin      (Exp         const&a            ){return Exp(a,Exp::SIN);}
-Exp cos      (Exp         const&a            ){return Exp(a,Exp::COS);}
-Exp operator+(Exp         const&a,Exp const&b){return Exp(a,b,Exp::ADD);}
-Exp operator*(Exp         const&a,Exp const&b){return Exp(a,b,Exp::MUL);}
-Exp operator-(Exp         const&a,Exp const&b){return Exp(a,-1.f*b,Exp::ADD);}
-Exp operator/(Exp         const&a,Exp const&b){return Exp(a,b,Exp::DIV);}
-Exp operator^(Exp         const&a,Exp const&b){return Exp(a,b,Exp::POW);}
+struct Binary:Op{
+  Binary(Exp const&a,Exp const&b):Op(a,b){}
+  virtual std::string toStr()const override{
+    std::stringstream ss;
+    ss << op[0].toStr();
+    ss << getName();
+    ss << op[1].toStr();
+    return ss.str();
+  }
+  virtual std::string getName()const = 0;
+};
+
+struct Add:Binary{
+  Add(Exp const&a,Exp const&b):Binary(a,b){}
+  virtual std::string getName()const override{return "+";}
+};
+
+struct Mul:Binary{
+  Mul(Exp const&a,Exp const&b):Binary(a,b){}
+  virtual std::string getName()const override{return "*";}
+};
+
+struct Sub:Binary{
+  Sub(Exp const&a,Exp const&b):Binary(a,b){}
+  virtual std::string getName()const override{return "-";}
+};
+
+struct Div:Binary{
+  Div(Exp const&a,Exp const&b):Binary(a,b){}
+  virtual std::string getName()const override{return "/";}
+};
+
+struct Pow:Binary{
+  Pow(Exp const&a,Exp const&b):Binary(a,b){}
+  virtual std::string getName()const override{return "^";}
+};
+
+struct Fce:Op{
+  Fce(Exp const&a):Op(a){}
+  virtual std::string toStr()const override{
+    std::stringstream ss;
+    ss << fceName() << "(" << op[0].toStr() << ")";
+    return ss.str();
+  };
+  virtual std::string fceName()const = 0;
+};
+
+struct Log:Fce{
+  Log(Exp const&a):Fce(a){}
+  virtual std::string fceName()const override{return "log";}
+};
+struct Sin:Fce{
+  Sin(Exp const&a):Sin(a){}
+  virtual std::string fceName()const override{return "sin";}
+};
+struct Cos:Fce{
+  Cos(Exp const&a):Cos(a){}
+  virtual std::string fceName()const override{return "cos";}
+};
+
+
+Var var      (std::string const&a            ){return Var(a);}
+Log log      (Exp         const&a            ){return Log(a);}
+Sin sin      (Exp         const&a            ){return Sin(a);}
+Cos cos      (Exp         const&a            ){return Cos(a);}
+Add operator+(Exp         const&a,Exp const&b){return Add(a,b);}
+Mul operator*(Exp         const&a,Exp const&b){return Mul(a,b);}
+Mul operator*(Exp         const&a,float     b){return a*Const(b);}
+Mul operator*(float     b,Exp         const&a){return a*Const(b);}
+Sub operator-(Exp         const&a,Exp const&b){return Sub(a,-1.f*b);}
+Div operator/(Exp         const&a,Exp const&b){return Div(a,b);}
+Pow operator^(Exp         const&a,Exp const&b){return Pow(a,b);}
 Exp operator-(Exp         const&a            ){return -1.f*a;}
 
 std::string toStr(Exp const&e,bool addB=false){

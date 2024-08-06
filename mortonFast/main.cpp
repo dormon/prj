@@ -441,7 +441,7 @@ int main(){
   //std::cerr << "|insts| = " << insts.size() << std::endl;
   //return 0;
 
-  //printMorton(4);
+  printMorton(4);
   //return 0;
 
   if(test(scatter_6_2,[](uint32_t x){return scatter(x,2);},1<<6))

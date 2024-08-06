@@ -131,11 +131,11 @@ enum class LayerType{INPUT,DEEP,OUTPUT};
 class Layer{
   public:
     void create(size_t i,size_t o,LayerType t = LayerType::DEEP,Fce const&fce=relu,Fce const&gce=diffRelu){
-      output = o;
-      input  = i;
-      f = fce;
-      g = gce;
-      layerType = t;
+      output    = o  ;
+      input     = i  ;
+      f         = fce;
+      g         = gce;
+      layerType = t  ;
       allocate();
     }
     void allocate(){
@@ -193,8 +193,8 @@ class Layer{
     }
     size_t maxOutput;
     size_t maxInput ;
-    size_t output;
-    size_t input ;
+    size_t output   ;
+    size_t input    ;
     LayerType layerType;
     Fce       f;
     Fce       g;
@@ -300,8 +300,8 @@ class Network{
       return y;
     }
 
-    size_t input()const{return layers.front().output;}
-    size_t output()const{return layers.back().output;}
+    size_t input ()const{return layers.front().output;}
+    size_t output()const{return layers.back ().output;}
 };
 
 int main(){
