@@ -24,15 +24,15 @@ void gpu_task(int argc,char*argv[]){
 
 Vulkan init(){
   Vulkan vulkan;
-  vulkan.instance       = createInstance        ();
-  vulkan.physicalDevice = getPhysicalDevice     (vulkan.instance);
-  auto queueFamilyIndex = getQueueFamilyIndex   (vulkan.physicalDevice,VK_QUEUE_COMPUTE_BIT|VK_QUEUE_TRANSFER_BIT);
-  auto memoryTypeIndex  = getMemoryTypeIndex    (vulkan.physicalDevice,VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT|VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-  vulkan.device         = createDevice          (vulkan.physicalDevice,queueFamilyIndex);
-  vulkan.deviceMemory   = allocateMemory        (vulkan.device,1024*1024*128,memoryTypeIndex);
-  vkGetDeviceQueue(vulkan.device,queueFamilyIndex,0,&vulkan.queue);
-  vulkan.commandPool    = createCommandPool     (vulkan.device,queueFamilyIndex);
-  vulkan.descriptorPool = createDescriptorPool  (vulkan.device);
+  vulkan.instance       = createInstance      ();
+  vulkan.physicalDevice = getPhysicalDevice   (vulkan.instance);
+  auto queueFamilyIndex = getQueueFamilyIndex (vulkan.physicalDevice,VK_QUEUE_COMPUTE_BIT|VK_QUEUE_TRANSFER_BIT);
+  auto memoryTypeIndex  = getMemoryTypeIndex  (vulkan.physicalDevice,VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT|VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+  vulkan.device         = createDevice        (vulkan.physicalDevice,queueFamilyIndex);
+  vulkan.deviceMemory   = allocateMemory      (vulkan.device,1024*1024*128,memoryTypeIndex);
+  vulkan.queue          = getDeviceQueue      (vulkan.device,queueFamilyIndex);
+  vulkan.commandPool    = createCommandPool   (vulkan.device,queueFamilyIndex);
+  vulkan.descriptorPool = createDescriptorPool(vulkan.device);
   return vulkan;
 }
 
@@ -269,6 +269,12 @@ VkDevice createDevice(VkPhysicalDevice physicalDevice,uint32_t queueFamilyIndex)
   if(result != VK_SUCCESS)throw "cannot create device";
 
   return device;
+}
+
+VkQueue getDeviceQueue(VkDevice device,int queueFamilyIndex){
+  VkQueue queue;
+  vkGetDeviceQueue(device,queueFamilyIndex,0,&queue);
+  return queue;
 }
 
 VkDeviceMemory allocateMemory(VkDevice device,size_t size,uint32_t memoryTypeIndex){

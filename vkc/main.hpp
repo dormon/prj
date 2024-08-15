@@ -23,6 +23,7 @@ VkPhysicalDevice      getPhysicalDevice        (VkInstance instance);
 uint32_t              getQueueFamilyIndex      (VkPhysicalDevice physicalDevice,VkQueueFlags req);
 uint32_t              getMemoryTypeIndex       (VkPhysicalDevice physicalDevice,VkMemoryPropertyFlags req);
 VkDevice              createDevice             (VkPhysicalDevice physicalDevice,uint32_t queueFamilyIndex);
+VkQueue               getDeviceQueue           (VkDevice device,int queueFamilyIndex);
 VkDeviceMemory        allocateMemory           (VkDevice device,size_t size,uint32_t memoryTypeIndex);
 VkCommandPool         createCommandPool        (VkDevice device,uint32_t queueFamilyIndex);
 VkDescriptorPool      createDescriptorPool     (VkDevice device);
