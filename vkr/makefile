@@ -1,10 +1,10 @@
 BIN=vk
 
-${BIN}: main.o devMem.o
+${BIN}: main.o
 	g++ --std=c++17 $^ -o ${BIN} -Os -s -O3 -ldl -lvulkan
 
-%.o: %.cpp %.hpp
-	g++ -c --std=c++17 $< -O3 -g -o $@
+main.o: main.cpp main.hpp
+	g++ -c --std=c++17 main.cpp -O3 -g
 
 shader.spv: shader.glsl
 	glslang -S comp $^ -V -o shader.spv

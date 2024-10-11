@@ -1,14 +1,8 @@
-#include<dlfcn.h>
 #include<vulkan/vulkan.h>
 #include<exception>
 #include<stdio.h>
 
 #include"main.hpp"
-#include"devMem.hpp"
-
-#ifndef CMAKE_ROOT_DIR
-#define CMAKE_ROOT_DIR "."
-#endif
 
 int main(int argc,char*argv[]){
   try{
@@ -30,12 +24,11 @@ void gpu_task(int argc,char*argv[]){
 Vulkan init(){
   Vulkan vulkan;
   vulkan.instance       = createInstance      ();
-  vulkan.instance.getPhysicalDevices();
-  vulkan.physicalDevice = getPhysicalDevice   (vulkan.instance.instance);
+  vulkan.physicalDevice = getPhysicalDevice   (vulkan.instance);
   auto queueFamilyIndex = getQueueFamilyIndex (vulkan.physicalDevice,VK_QUEUE_COMPUTE_BIT|VK_QUEUE_TRANSFER_BIT);
   auto memoryTypeIndex  = getMemoryTypeIndex  (vulkan.physicalDevice,VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT|VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
   vulkan.device         = createDevice        (vulkan.physicalDevice,queueFamilyIndex);
-  vulkan.devMem         = allocateMemory      (vulkan.device,1024*1024*128,memoryTypeIndex);
+  vulkan.deviceMemory   = allocateMemory      (vulkan.device,1024*1024*128,memoryTypeIndex);
   vulkan.queue          = getDeviceQueue      (vulkan.device,queueFamilyIndex);
   vulkan.commandPool    = createCommandPool   (vulkan.device,queueFamilyIndex);
   vulkan.descriptorPool = createDescriptorPool(vulkan.device);
@@ -45,18 +38,18 @@ Vulkan init(){
 void deinit(Vulkan&vulkan){
   vkDestroyDescriptorPool(vulkan.device  ,vulkan.descriptorPool,nullptr);
   vkDestroyCommandPool   (vulkan.device  ,vulkan.commandPool   ,nullptr);
-  vkFreeMemory           (vulkan.devMem.device  ,vulkan.devMem.memory  ,nullptr);
+  vkFreeMemory           (vulkan.device  ,vulkan.deviceMemory  ,nullptr);
   vkDestroyDevice        (vulkan.device  ,nullptr);
-  vkDestroyInstance      (vulkan.instance.instance,nullptr);
+  vkDestroyInstance      (vulkan.instance,nullptr);
 }
 
 void work(Vulkan&vulkan){
   auto buffer                   = createBuffer(vulkan.device,1024*sizeof(uint32_t));
   //auto bufferMemoryRequirements = vulkan.device.getBufferMemoryRequirements(buffer);
 
-  vkBindBufferMemory(vulkan.devMem.device,buffer,vulkan.devMem.memory,0);
+  vkBindBufferMemory(vulkan.device,buffer,vulkan.deviceMemory,0);
 
-  auto shaderModule             = createShaderModule(vulkan.device,CMAKE_ROOT_DIR "/shader.spv");
+  auto shaderModule             = createShaderModule(vulkan.device,"shader.spv");
 
   auto descriptorSetLayout      = createDescriptorSetLayout(vulkan.device);
   auto descriptorSets           = allocateDescriptorSets(vulkan.device,vulkan.descriptorPool,descriptorSetLayout);
@@ -83,27 +76,58 @@ void work(Vulkan&vulkan){
   auto pipelineLayout = createPipelineLayout (vulkan.device,descriptorSetLayout);
   auto pipeline       = createComputePipeline(vulkan.device,shaderModule,pipelineLayout,"main");
 
-  auto commandBuffer = allocateCommandBuffer(vulkan);
+  auto commandBufferAllocateInfo = VkCommandBufferAllocateInfo{
+    .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+    .pNext              = nullptr                                       ,
+    .commandPool        = vulkan.commandPool                            ,
+    .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY               ,
+    .commandBufferCount = 1                                             ,
+  };
+  VkCommandBuffer commandBuffer;
+  auto result = vkAllocateCommandBuffers(vulkan.device,&commandBufferAllocateInfo,&commandBuffer);
+  if(result != VK_SUCCESS)throw "cannot allocate command buffer";
 
-  begin(commandBuffer);
+  auto commandBufferBeginInfo = VkCommandBufferBeginInfo{
+    .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+    .pNext            = nullptr                                    ,
+    .flags            = 0                                          ,
+    .pInheritanceInfo = nullptr                                    ,
+  };
+  auto res2 = vkBeginCommandBuffer(commandBuffer,&commandBufferBeginInfo);
+  if(res2 != VK_SUCCESS)throw "cannot begin command buffer";
   vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_COMPUTE,pipeline);
   vkCmdBindDescriptorSets(commandBuffer,VK_PIPELINE_BIND_POINT_COMPUTE,pipelineLayout,0,1,&descriptorSets[0],0,nullptr);
   vkCmdDispatch(commandBuffer,1,1,1);
-  end(commandBuffer);
+  auto res3 = vkEndCommandBuffer(commandBuffer);
+  if(res3 != VK_SUCCESS)throw "cannot end command buffer";
 
-  vulkan.devMem.flush(0,1024*sizeof(uint32_t));
 
-  submit(vulkan,commandBuffer);
+  auto readBuffer = mapMemory(vulkan);
+  flushMemory(vulkan,0,1024*sizeof(uint32_t));
+
+  submit(vulkan.queue,commandBuffer);
+  auto submitInfo = VkSubmitInfo{
+    .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+    .pNext                = nullptr                      ,
+    .waitSemaphoreCount   = 0                            ,
+    .pWaitSemaphores      = nullptr                      ,
+    .pWaitDstStageMask    = nullptr                      ,
+    .commandBufferCount   = 1                            ,
+    .pCommandBuffers      = &commandBuffer               ,
+    .signalSemaphoreCount = 0                            ,
+    .pSignalSemaphores    = nullptr                      ,
+  };
+  vkQueueSubmit(vulkan.queue,1,&submitInfo,VK_NULL_HANDLE);
 
   vkQueueWaitIdle(vulkan.queue);
 
-  vulkan.devMem.invalidate(0,1024*sizeof(uint32_t));
+  invalidateMemory(vulkan,0,1024*sizeof(uint32_t));
 
-
-  auto ptr = (uint32_t*)vulkan.devMem.map();
+  auto up=(uint32_t*)readBuffer;
   for(int i=0;i<64;++i)
-    fprintf(stderr,"%u\n",ptr[i]);
-  vulkan.devMem.unmap();
+    fprintf(stderr,"%u\n",up[i]);
+
+  vkUnmapMemory(vulkan.device,vulkan.deviceMemory);
 
   vkDestroyPipeline(vulkan.device,pipeline,nullptr);
   vkDestroyPipelineLayout(vulkan.device,pipelineLayout,nullptr);
@@ -113,8 +137,38 @@ void work(Vulkan&vulkan){
   vkDestroyBuffer(vulkan.device,buffer,nullptr);
 }
 
+void*mapMemory(Vulkan const&vulkan){
+  void*readBuffer = nullptr;
+  auto result = vkMapMemory(vulkan.device,vulkan.deviceMemory,0,1024*sizeof(uint32_t),0,&readBuffer);
+  if(result != VK_SUCCESS)throw "cannot map memory";
+  return readBuffer;
+}
 
-Instance createInstance(){
+void flushMemory(Vulkan const&vulkan,size_t offset,size_t size){
+  auto mappedMemoryRange = VkMappedMemoryRange{
+    .sType  = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+    .pNext  = nullptr                              ,
+    .memory = vulkan.deviceMemory                  ,
+    .offset = 0                                    ,
+    .size   = VK_WHOLE_SIZE                        ,
+  };
+  auto result = vkFlushMappedMemoryRanges(vulkan.device,1,&mappedMemoryRange);
+  if(result != VK_SUCCESS)throw "cannot flush memory";
+}
+
+void invalidateMemory(Vulkan const&vulkan,size_t offset,size_t size){
+  auto mappedMemoryRange = VkMappedMemoryRange{
+    .sType  = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+    .pNext  = nullptr                              ,
+    .memory = vulkan.deviceMemory                  ,
+    .offset = 0                                    ,
+    .size   = VK_WHOLE_SIZE                        ,
+  };
+  auto result = vkInvalidateMappedMemoryRanges(vulkan.device,1,&mappedMemoryRange);
+  if(result != VK_SUCCESS)throw "cannot invalidate memory";
+}
+
+VkInstance createInstance(){
   char const* layers[] = {
     "VK_LAYER_KHRONOS_validation"
   };
@@ -130,40 +184,25 @@ Instance createInstance(){
     .ppEnabledExtensionNames = nullptr                               ,
   };
 
-  Instance res;
-  auto result = vkCreateInstance(&instanceCreateInfo,nullptr,&res.instance);
+  VkInstance instance;
+  auto result = vkCreateInstance(&instanceCreateInfo,nullptr,&instance);
   if(result != VK_SUCCESS)throw "cannot create instance";
-  return res;
-}
-
-auto getNofPhysicalDevices(VkInstance instance){
-  uint32_t n = 0;
-  vkEnumeratePhysicalDevices(instance,&n,nullptr);
-  return n;
-}
-
-auto getPhysicalDevices(VkInstance instance,uint32_t n){
-  auto physicalDevices = new VkPhysicalDevice[n];
-  vkEnumeratePhysicalDevices(instance,&n,physicalDevices);
-  return physicalDevices;
-}
-
-auto getPhysicalDeviceProperties(VkPhysicalDevice device){
-  VkPhysicalDeviceProperties properties;
-  vkGetPhysicalDeviceProperties(device,&properties);
-  return properties;
+  return instance;
 }
 
 VkPhysicalDevice getPhysicalDevice(VkInstance instance){
-  uint32_t count   = getNofPhysicalDevices(instance);
-  auto     devices = getPhysicalDevices(instance,count);
+  uint32_t physicalDeviceCount = 0;
+  vkEnumeratePhysicalDevices(instance,&physicalDeviceCount,nullptr);
+  auto physicalDevices = new VkPhysicalDevice[physicalDeviceCount];
+  vkEnumeratePhysicalDevices(instance,&physicalDeviceCount,physicalDevices);
 
-  for(uint32_t i=0;i<count;++i){
-    auto device = devices[i];
-    auto properties = getPhysicalDeviceProperties(device);
+  for(uint32_t i=0;i<physicalDeviceCount;++i){
+    auto physicalDevice = physicalDevices[i];
+    VkPhysicalDeviceProperties properties;
+    vkGetPhysicalDeviceProperties(physicalDevice,&properties);
     if(properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){
-      delete[]devices;
-      return device;
+      delete[]physicalDevices;
+      return physicalDevice;
     }
   }
   return nullptr;
@@ -239,18 +278,17 @@ VkQueue getDeviceQueue(VkDevice device,int queueFamilyIndex){
   return queue;
 }
 
-DevMem allocateMemory(VkDevice device,size_t size,uint32_t memoryTypeIndex){
-  DevMem res;
-  res.device = device;
+VkDeviceMemory allocateMemory(VkDevice device,size_t size,uint32_t memoryTypeIndex){
   auto memoryAllocationInfo = VkMemoryAllocateInfo{
     .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
     .pNext           = nullptr                               ,
     .allocationSize  = size                                  ,
     .memoryTypeIndex = memoryTypeIndex                       ,
   };
-  auto result = vkAllocateMemory(device,&memoryAllocationInfo,nullptr,&res.memory);
+  VkDeviceMemory deviceMemory;
+  auto result = vkAllocateMemory(device,&memoryAllocationInfo,nullptr,&deviceMemory);
   if(result != VK_SUCCESS)throw "cannot allocate memory";
-  return res;
+  return deviceMemory;
 }
 
 
@@ -414,71 +452,4 @@ VkPipeline createComputePipeline(VkDevice device,VkShaderModule shaderModule,VkP
   auto result = vkCreateComputePipelines(device,nullptr,1,&computePipelineCreateInfo,nullptr,&pipeline);
   if(result != VK_SUCCESS)throw "cannot create compute pipeline";
   return pipeline;
-}
-
-void begin(VkCommandBuffer commandBuffer){
-  auto commandBufferBeginInfo = VkCommandBufferBeginInfo{
-    .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-    .pNext            = nullptr                                    ,
-    .flags            = 0                                          ,
-    .pInheritanceInfo = nullptr                                    ,
-  };
-  auto res2 = vkBeginCommandBuffer(commandBuffer,&commandBufferBeginInfo);
-  if(res2 != VK_SUCCESS)throw "cannot begin command buffer";
-}
-
-void end(VkCommandBuffer commandBuffer){
-  auto res3 = vkEndCommandBuffer(commandBuffer);
-  if(res3 != VK_SUCCESS)throw "cannot end command buffer";
-}
-
-void submit(Vulkan const&vulkan,VkCommandBuffer commandBuffer){
-  auto submitInfo = VkSubmitInfo{
-    .sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-    .pNext                = nullptr                      ,
-    .waitSemaphoreCount   = 0                            ,
-    .pWaitSemaphores      = nullptr                      ,
-    .pWaitDstStageMask    = nullptr                      ,
-    .commandBufferCount   = 1                            ,
-    .pCommandBuffers      = &commandBuffer               ,
-    .signalSemaphoreCount = 0                            ,
-    .pSignalSemaphores    = nullptr                      ,
-  };
-  vkQueueSubmit(vulkan.queue,1,&submitInfo,VK_NULL_HANDLE);
-}
-
-VkCommandBuffer allocateCommandBuffer(Vulkan const&vulkan){
-  auto commandBufferAllocateInfo = VkCommandBufferAllocateInfo{
-    .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-    .pNext              = nullptr                                       ,
-    .commandPool        = vulkan.commandPool                            ,
-    .level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY               ,
-    .commandBufferCount = 1                                             ,
-  };
-  VkCommandBuffer commandBuffer;
-  auto result = vkAllocateCommandBuffers(vulkan.device,&commandBufferAllocateInfo,&commandBuffer);
-  if(result != VK_SUCCESS)throw "cannot allocate command buffer";
-  return commandBuffer;
-}
-
-PhysicalDevice::PhysicalDevice(){}
-PhysicalDevice::PhysicalDevice(VkPhysicalDevice dev):device(dev){
-  properties = getPhysicalDeviceProperties(dev);
-}
-
-void Instance::getPhysicalDevices(){
-  nofPhysicalDevices = getNofPhysicalDevices(instance);
-  auto devices = ::getPhysicalDevices(instance,nofPhysicalDevices);
-  physicalDevices = new PhysicalDevice[nofPhysicalDevices];
-  initPhysicalDevices(devices,nofPhysicalDevices);
-  delete devices;
-}
-
-void Instance::initPhysicalDevices(VkPhysicalDevice*devs,uint32_t n){
-  for(uint32_t i=0;i<nofPhysicalDevices;++i)
-    new(physicalDevices+i)PhysicalDevice(devs[i]);
-}
-
-void Instance::deletePhysicalDevices(){
-  delete[]physicalDevices;
 }

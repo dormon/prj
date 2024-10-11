@@ -4,7 +4,7 @@
 #include<stdio.h>
 
 #include"main.hpp"
-#include"devMem.hpp"
+#include<deviceMemory.hpp>
 
 #ifndef CMAKE_ROOT_DIR
 #define CMAKE_ROOT_DIR "."
@@ -136,18 +136,6 @@ Instance createInstance(){
   return res;
 }
 
-auto getNofPhysicalDevices(VkInstance instance){
-  uint32_t n = 0;
-  vkEnumeratePhysicalDevices(instance,&n,nullptr);
-  return n;
-}
-
-auto getPhysicalDevices(VkInstance instance,uint32_t n){
-  auto physicalDevices = new VkPhysicalDevice[n];
-  vkEnumeratePhysicalDevices(instance,&n,physicalDevices);
-  return physicalDevices;
-}
-
 auto getPhysicalDeviceProperties(VkPhysicalDevice device){
   VkPhysicalDeviceProperties properties;
   vkGetPhysicalDeviceProperties(device,&properties);
@@ -239,8 +227,8 @@ VkQueue getDeviceQueue(VkDevice device,int queueFamilyIndex){
   return queue;
 }
 
-DevMem allocateMemory(VkDevice device,size_t size,uint32_t memoryTypeIndex){
-  DevMem res;
+DeviceMemory allocateMemory(VkDevice device,size_t size,uint32_t memoryTypeIndex){
+  DeviceMemory res;
   res.device = device;
   auto memoryAllocationInfo = VkMemoryAllocateInfo{
     .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,

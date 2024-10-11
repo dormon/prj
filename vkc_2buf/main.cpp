@@ -51,34 +51,59 @@ void deinit(Vulkan&vulkan){
 }
 
 void work(Vulkan&vulkan){
-  auto buffer                   = createBuffer(vulkan.device,1024*sizeof(uint32_t));
+  auto buffer                    = createBuffer(vulkan.device,64*sizeof(uint32_t));
+  auto buffer2                   = createBuffer(vulkan.device,64*sizeof(uint32_t));
   //auto bufferMemoryRequirements = vulkan.device.getBufferMemoryRequirements(buffer);
 
-  vkBindBufferMemory(vulkan.devMem.device,buffer,vulkan.devMem.memory,0);
+  vkBindBufferMemory(vulkan.devMem.device,buffer ,vulkan.devMem.memory, 0*sizeof(uint32_t));
+  vkBindBufferMemory(vulkan.devMem.device,buffer2,vulkan.devMem.memory,64*sizeof(uint32_t));
 
   auto shaderModule             = createShaderModule(vulkan.device,CMAKE_ROOT_DIR "/shader.spv");
 
   auto descriptorSetLayout      = createDescriptorSetLayout(vulkan.device);
   auto descriptorSets           = allocateDescriptorSets(vulkan.device,vulkan.descriptorPool,descriptorSetLayout);
 
-  auto descriptorBufferInfo = VkDescriptorBufferInfo{
-    .buffer = buffer       ,
-    .offset = 0            ,
-    .range  = VK_WHOLE_SIZE,
+  VkDescriptorBufferInfo descriptorBufferInfo[] = {
+    VkDescriptorBufferInfo{
+      .buffer = buffer       ,
+      .offset = 0            ,
+      .range  = VK_WHOLE_SIZE,
+    },
+    VkDescriptorBufferInfo{
+      .buffer = buffer2       ,
+      .offset = 0            ,
+      .range  = VK_WHOLE_SIZE,
+    },
   };
-  auto writeDescriptorSet = VkWriteDescriptorSet{
-    .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-    .pNext            = nullptr                               ,
-    .dstSet           = descriptorSets[0]                     ,
-    .dstBinding       = 0                                     ,
-    .dstArrayElement  = 0                                     ,
-    .descriptorCount  = 1                                     ,
-    .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER     ,
-    .pImageInfo       = nullptr                               ,
-    .pBufferInfo      = &descriptorBufferInfo                 ,
-    .pTexelBufferView = nullptr                               ,
+
+  VkWriteDescriptorSet writeDescriptorSet[] = {
+    VkWriteDescriptorSet{
+      .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .pNext            = nullptr                               ,
+      .dstSet           = descriptorSets[0]                     ,
+      .dstBinding       = 0                                     ,
+      .dstArrayElement  = 0                                     ,
+      .descriptorCount  = 1                                     ,
+      .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER     ,
+      .pImageInfo       = nullptr                               ,
+      .pBufferInfo      = descriptorBufferInfo+0                ,
+      .pTexelBufferView = nullptr                               ,
+    },
+    VkWriteDescriptorSet{
+      .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .pNext            = nullptr                               ,
+      .dstSet           = descriptorSets[0]                     ,
+      .dstBinding       = 2                                     ,
+      .dstArrayElement  = 0                                     ,
+      .descriptorCount  = 1                                     ,
+      .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER     ,
+      .pImageInfo       = nullptr                               ,
+      .pBufferInfo      = descriptorBufferInfo+1                ,
+      .pTexelBufferView = nullptr                               ,
+    },
   };
-  vkUpdateDescriptorSets(vulkan.device,1,&writeDescriptorSet,0,nullptr);
+  vkUpdateDescriptorSets(vulkan.device,2,writeDescriptorSet,0,nullptr);
+
 
   auto pipelineLayout = createPipelineLayout (vulkan.device,descriptorSetLayout);
   auto pipeline       = createComputePipeline(vulkan.device,shaderModule,pipelineLayout,"main");
@@ -91,18 +116,20 @@ void work(Vulkan&vulkan){
   vkCmdDispatch(commandBuffer,1,1,1);
   end(commandBuffer);
 
-  vulkan.devMem.flush(0,1024*sizeof(uint32_t));
+  vulkan.devMem.map();
+  vulkan.devMem.flush(0,2*64*sizeof(uint32_t));
+  vulkan.devMem.unmap();
 
   submit(vulkan,commandBuffer);
 
   vkQueueWaitIdle(vulkan.queue);
 
-  vulkan.devMem.invalidate(0,1024*sizeof(uint32_t));
 
 
-  auto ptr = (uint32_t*)vulkan.devMem.map();
-  for(int i=0;i<64;++i)
-    fprintf(stderr,"%u\n",ptr[i]);
+  auto ptr  = (uint32_t*)vulkan.devMem.map();
+  vulkan.devMem.invalidate(0,2*64*sizeof(uint32_t));
+  for(int i=0;i<64*2;++i)
+    fprintf(stderr,"Buf: %u\n",ptr[i]);
   vulkan.devMem.unmap();
 
   vkDestroyPipeline(vulkan.device,pipeline,nullptr);
@@ -110,7 +137,8 @@ void work(Vulkan&vulkan){
   delete[]descriptorSets;
   vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout,nullptr);
   vkDestroyShaderModule(vulkan.device,shaderModule,nullptr);
-  vkDestroyBuffer(vulkan.device,buffer,nullptr);
+  vkDestroyBuffer(vulkan.device,buffer2,nullptr);
+  vkDestroyBuffer(vulkan.device,buffer ,nullptr);
 }
 
 
@@ -271,7 +299,7 @@ VkDescriptorPool createDescriptorPool(VkDevice device){
   VkDescriptorPoolSize descriptorPoolSizes[] = {
     VkDescriptorPoolSize{
       .type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      .descriptorCount = 1u                               ,
+      .descriptorCount = 2u                               ,
     },
   };
   auto descriptorPoolCreateInfo = VkDescriptorPoolCreateInfo{
@@ -337,6 +365,13 @@ VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device){
   VkDescriptorSetLayoutBinding descriptorSetLayoutBindings[] = {
     VkDescriptorSetLayoutBinding{
       .binding            = 0                                ,
+      .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+      .descriptorCount    = 1                                ,
+      .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,
+      .pImmutableSamplers = nullptr                          ,
+    },
+    VkDescriptorSetLayoutBinding{
+      .binding            = 2                                ,
       .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
       .descriptorCount    = 1                                ,
       .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,

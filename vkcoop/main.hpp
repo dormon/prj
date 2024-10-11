@@ -1,16 +1,10 @@
 #pragma once
 
 #include<vulkan/vulkan.h>
-#include"devMem.hpp"
+#include<physicalDevice.hpp>
+#include<deviceMemory.hpp>
 
 void gpu_task(int argc,char*argv[]);
-
-struct PhysicalDevice{
-  PhysicalDevice();
-  PhysicalDevice(VkPhysicalDevice dev);
-  VkPhysicalDevice           device    ;
-  VkPhysicalDeviceProperties properties;
-};
 
 struct Instance{
   VkInstance      instance                    ;
@@ -25,7 +19,7 @@ struct Vulkan{
   Instance         instance      ;
   VkPhysicalDevice physicalDevice;
   VkDevice         device        ;
-  DevMem           devMem        ;
+  DeviceMemory     devMem        ;
   VkQueue          queue         ;
   VkCommandPool    commandPool   ;
   VkDescriptorPool descriptorPool;
@@ -42,7 +36,7 @@ uint32_t              getQueueFamilyIndex      (VkPhysicalDevice physicalDevice,
 uint32_t              getMemoryTypeIndex       (VkPhysicalDevice physicalDevice,VkMemoryPropertyFlags req);
 VkDevice              createDevice             (VkPhysicalDevice physicalDevice,uint32_t queueFamilyIndex);
 VkQueue               getDeviceQueue           (VkDevice device,int queueFamilyIndex);
-DevMem                allocateMemory           (VkDevice device,size_t size,uint32_t memoryTypeIndex);
+DeviceMemory                allocateMemory           (VkDevice device,size_t size,uint32_t memoryTypeIndex);
 VkCommandPool         createCommandPool        (VkDevice device,uint32_t queueFamilyIndex);
 VkDescriptorPool      createDescriptorPool     (VkDevice device);
 
