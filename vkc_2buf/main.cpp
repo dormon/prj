@@ -53,15 +53,18 @@ void deinit(Vulkan&vulkan){
 void work(Vulkan&vulkan){
   auto buffer                    = createBuffer(vulkan.device,64*sizeof(uint32_t));
   auto buffer2                   = createBuffer(vulkan.device,64*sizeof(uint32_t));
+  auto buffer3                   = createBuffer(vulkan.device,64*sizeof(uint32_t));
   //auto bufferMemoryRequirements = vulkan.device.getBufferMemoryRequirements(buffer);
 
-  vkBindBufferMemory(vulkan.devMem.device,buffer ,vulkan.devMem.memory, 0*sizeof(uint32_t));
-  vkBindBufferMemory(vulkan.devMem.device,buffer2,vulkan.devMem.memory,64*sizeof(uint32_t));
+  vkBindBufferMemory(vulkan.devMem.device,buffer ,vulkan.devMem.memory,  0*sizeof(uint32_t));
+  vkBindBufferMemory(vulkan.devMem.device,buffer2,vulkan.devMem.memory, 64*sizeof(uint32_t));
+  vkBindBufferMemory(vulkan.devMem.device,buffer3,vulkan.devMem.memory,128*sizeof(uint32_t));
 
   auto shaderModule             = createShaderModule(vulkan.device,CMAKE_ROOT_DIR "/shader.spv");
 
-  auto descriptorSetLayout      = createDescriptorSetLayout(vulkan.device);
-  auto descriptorSets           = allocateDescriptorSets(vulkan.device,vulkan.descriptorPool,descriptorSetLayout);
+  uint32_t nofDescriptorSetLayouts;
+  auto descriptorSetLayout      = createDescriptorSetLayout(vulkan.device,&nofDescriptorSetLayouts);
+  auto descriptorSets           = allocateDescriptorSets(vulkan.device,vulkan.descriptorPool,descriptorSetLayout,nofDescriptorSetLayouts);
 
   VkDescriptorBufferInfo descriptorBufferInfo[] = {
     VkDescriptorBufferInfo{
@@ -71,6 +74,11 @@ void work(Vulkan&vulkan){
     },
     VkDescriptorBufferInfo{
       .buffer = buffer2       ,
+      .offset = 0            ,
+      .range  = VK_WHOLE_SIZE,
+    },
+    VkDescriptorBufferInfo{
+      .buffer = buffer3       ,
       .offset = 0            ,
       .range  = VK_WHOLE_SIZE,
     },
@@ -93,7 +101,7 @@ void work(Vulkan&vulkan){
       .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .pNext            = nullptr                               ,
       .dstSet           = descriptorSets[0]                     ,
-      .dstBinding       = 2                                     ,
+      .dstBinding       = 3                                     ,
       .dstArrayElement  = 0                                     ,
       .descriptorCount  = 1                                     ,
       .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER     ,
@@ -101,18 +109,30 @@ void work(Vulkan&vulkan){
       .pBufferInfo      = descriptorBufferInfo+1                ,
       .pTexelBufferView = nullptr                               ,
     },
+    VkWriteDescriptorSet{
+      .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .pNext            = nullptr                               ,
+      .dstSet           = descriptorSets[1]                     ,
+      .dstBinding       = 0                                     ,
+      .dstArrayElement  = 0                                     ,
+      .descriptorCount  = 1                                     ,
+      .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER     ,
+      .pImageInfo       = nullptr                               ,
+      .pBufferInfo      = descriptorBufferInfo+2                ,
+      .pTexelBufferView = nullptr                               ,
+    },
   };
-  vkUpdateDescriptorSets(vulkan.device,2,writeDescriptorSet,0,nullptr);
+  vkUpdateDescriptorSets(vulkan.device,sizeof(writeDescriptorSet)/sizeof(VkWriteDescriptorSet),writeDescriptorSet,0,nullptr);
 
 
-  auto pipelineLayout = createPipelineLayout (vulkan.device,descriptorSetLayout);
+  auto pipelineLayout = createPipelineLayout (vulkan.device,2,descriptorSetLayout);
   auto pipeline       = createComputePipeline(vulkan.device,shaderModule,pipelineLayout,"main");
 
   auto commandBuffer = allocateCommandBuffer(vulkan);
 
   begin(commandBuffer);
   vkCmdBindPipeline(commandBuffer,VK_PIPELINE_BIND_POINT_COMPUTE,pipeline);
-  vkCmdBindDescriptorSets(commandBuffer,VK_PIPELINE_BIND_POINT_COMPUTE,pipelineLayout,0,1,&descriptorSets[0],0,nullptr);
+  vkCmdBindDescriptorSets(commandBuffer,VK_PIPELINE_BIND_POINT_COMPUTE,pipelineLayout,0,nofDescriptorSetLayouts,descriptorSets,0,nullptr);
   vkCmdDispatch(commandBuffer,1,1,1);
   end(commandBuffer);
 
@@ -128,15 +148,18 @@ void work(Vulkan&vulkan){
 
   auto ptr  = (uint32_t*)vulkan.devMem.map();
   vulkan.devMem.invalidate(0,2*64*sizeof(uint32_t));
-  for(int i=0;i<64*2;++i)
+  for(int i=0;i<64*3;++i)
     fprintf(stderr,"Buf: %u\n",ptr[i]);
   vulkan.devMem.unmap();
 
   vkDestroyPipeline(vulkan.device,pipeline,nullptr);
   vkDestroyPipelineLayout(vulkan.device,pipelineLayout,nullptr);
   delete[]descriptorSets;
-  vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout,nullptr);
+  vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout[0],nullptr);
+  vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout[1],nullptr);
+  delete[]descriptorSetLayout;
   vkDestroyShaderModule(vulkan.device,shaderModule,nullptr);
+  vkDestroyBuffer(vulkan.device,buffer3,nullptr);
   vkDestroyBuffer(vulkan.device,buffer2,nullptr);
   vkDestroyBuffer(vulkan.device,buffer ,nullptr);
 }
@@ -299,14 +322,14 @@ VkDescriptorPool createDescriptorPool(VkDevice device){
   VkDescriptorPoolSize descriptorPoolSizes[] = {
     VkDescriptorPoolSize{
       .type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      .descriptorCount = 2u                               ,
+      .descriptorCount = 3u                               ,
     },
   };
   auto descriptorPoolCreateInfo = VkDescriptorPoolCreateInfo{
     .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO           ,
     .pNext         = nullptr                                                 ,
     .flags         = 0                                                       ,
-    .maxSets       = 1u                                                      ,
+    .maxSets       = 3u                                                      ,
     .poolSizeCount = sizeof(descriptorPoolSizes)/sizeof(VkDescriptorPoolSize),
     .pPoolSizes    = descriptorPoolSizes                                     ,
   };
@@ -361,8 +384,8 @@ VkShaderModule createShaderModule(VkDevice device,char const*fileName){
   return shaderModule;
 }
 
-VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device){
-  VkDescriptorSetLayoutBinding descriptorSetLayoutBindings[] = {
+VkDescriptorSetLayout*createDescriptorSetLayout(VkDevice device,uint32_t*n){
+  VkDescriptorSetLayoutBinding descriptorSetLayoutBindings1[] = {
     VkDescriptorSetLayoutBinding{
       .binding            = 0                                ,
       .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -371,7 +394,7 @@ VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device){
       .pImmutableSamplers = nullptr                          ,
     },
     VkDescriptorSetLayoutBinding{
-      .binding            = 2                                ,
+      .binding            = 3                                ,
       .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
       .descriptorCount    = 1                                ,
       .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,
@@ -379,44 +402,67 @@ VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device){
     },
   };
 
-  auto descriptorSetLayoutCreateInfo = VkDescriptorSetLayoutCreateInfo{
-    .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO                     ,
-    .pNext        = nullptr                                                                 ,
-    .flags        = 0                                                                       ,
-    .bindingCount = sizeof(descriptorSetLayoutBindings)/sizeof(VkDescriptorSetLayoutBinding),
-    .pBindings    = descriptorSetLayoutBindings                                             ,
+  VkDescriptorSetLayoutBinding descriptorSetLayoutBindings2[] = {
+    VkDescriptorSetLayoutBinding{
+      .binding            = 0                                ,
+      .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+      .descriptorCount    = 1                                ,
+      .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,
+      .pImmutableSamplers = nullptr                          ,
+    },
   };
 
-  VkDescriptorSetLayout descriptorSetLayout;
-  auto result = vkCreateDescriptorSetLayout(device,&descriptorSetLayoutCreateInfo,nullptr,&descriptorSetLayout);
+  VkDescriptorSetLayoutCreateInfo dslci[] = {
+    VkDescriptorSetLayoutCreateInfo{
+      .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO                      ,
+      .pNext        = nullptr                                                                  ,
+      .flags        = 0                                                                        ,
+      .bindingCount = sizeof(descriptorSetLayoutBindings1)/sizeof(VkDescriptorSetLayoutBinding),
+      .pBindings    = descriptorSetLayoutBindings1                                             ,
+    },
+    VkDescriptorSetLayoutCreateInfo{
+      .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO                      ,
+      .pNext        = nullptr                                                                  ,
+      .flags        = 0                                                                        ,
+      .bindingCount = sizeof(descriptorSetLayoutBindings2)/sizeof(VkDescriptorSetLayoutBinding),
+      .pBindings    = descriptorSetLayoutBindings2                                             ,
+    },
+  };
+
+  VkDescriptorSetLayout*descriptorSetLayout = new VkDescriptorSetLayout[2];
+  VkResult result;
+  result = vkCreateDescriptorSetLayout(device,dslci+0,nullptr,descriptorSetLayout+0);
+  if(result != VK_SUCCESS)throw "cannot create descriptorSetLaoyut";
+  result = vkCreateDescriptorSetLayout(device,dslci+1,nullptr,descriptorSetLayout+1);
   if(result != VK_SUCCESS)throw "cannot create descriptorSetLaoyut";
 
+  *n=2;
   return descriptorSetLayout;
 }
 
-VkDescriptorSet* allocateDescriptorSets(VkDevice device,VkDescriptorPool descriptorPool,VkDescriptorSetLayout descriptorSetLayout){
+VkDescriptorSet* allocateDescriptorSets(VkDevice device,VkDescriptorPool descriptorPool,VkDescriptorSetLayout*descriptorSetLayout,uint32_t n){
   auto descriptorSetAllocateInfo = VkDescriptorSetAllocateInfo{
     .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
     .pNext              = nullptr                                       ,
     .descriptorPool     = descriptorPool                                ,
-    .descriptorSetCount = 1u                                            ,
-    .pSetLayouts        = &descriptorSetLayout                          ,
+    .descriptorSetCount = n                                             ,
+    .pSetLayouts        =  descriptorSetLayout                          ,
   };
 
-  VkDescriptorSet*descriptorSets = new VkDescriptorSet[1u];
+  VkDescriptorSet*descriptorSets = new VkDescriptorSet[n];
   auto result = vkAllocateDescriptorSets(device,&descriptorSetAllocateInfo,descriptorSets);
   if(result != VK_SUCCESS)throw "cannot allocate descriptorSets";
 
   return descriptorSets;
 }
 
-VkPipelineLayout createPipelineLayout(VkDevice device,VkDescriptorSetLayout descriptorSetLayout){
+VkPipelineLayout createPipelineLayout(VkDevice device,uint32_t n,VkDescriptorSetLayout*descriptorSetLayout){
   auto pipelineLayoutCreateInfo = VkPipelineLayoutCreateInfo{
     .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
     .pNext                  = nullptr                                      ,
     .flags                  = 0                                            ,
-    .setLayoutCount         = 1u                                           ,
-    .pSetLayouts            = &descriptorSetLayout                         ,
+    .setLayoutCount         = n                                            ,
+    .pSetLayouts            = descriptorSetLayout                          ,
     .pushConstantRangeCount = 0                                            ,
     .pPushConstantRanges    = nullptr                                      ,
   };

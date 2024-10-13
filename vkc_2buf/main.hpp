@@ -48,9 +48,9 @@ VkDescriptorPool      createDescriptorPool     (VkDevice device);
 
 VkBuffer              createBuffer             (VkDevice device,size_t size);
 VkShaderModule        createShaderModule       (VkDevice device,char const*fileName);
-VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device);
-VkDescriptorSet*      allocateDescriptorSets   (VkDevice device,VkDescriptorPool descriptorPool,VkDescriptorSetLayout descriptorSetLayout);
-VkPipelineLayout      createPipelineLayout     (VkDevice device,VkDescriptorSetLayout descriptorSetLayout);
+VkDescriptorSetLayout*createDescriptorSetLayout(VkDevice device,uint32_t*n);
+VkDescriptorSet*      allocateDescriptorSets   (VkDevice device,VkDescriptorPool descriptorPool,VkDescriptorSetLayout*descriptorSetLayout,uint32_t n);
+VkPipelineLayout      createPipelineLayout     (VkDevice device,uint32_t n,VkDescriptorSetLayout*descriptorSetLayout);
 VkPipeline            createComputePipeline    (VkDevice device,VkShaderModule shaderModule,VkPipelineLayout pipelineLayout,char const*entryPoint);
 
 void submit          (Vulkan const&vulakn,VkCommandBuffer cmdBuffer);
