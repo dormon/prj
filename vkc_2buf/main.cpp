@@ -220,9 +220,14 @@ VkPhysicalDevice getPhysicalDevice(VkInstance instance){
   return nullptr;
 }
 
+uint32_t getNofQueueFamilyProperties(VkPhysicalDevice dev){
+  uint32_t count;
+  vkGetPhysicalDeviceQueueFamilyProperties(dev,&count,nullptr);
+  return count;
+}
+
 uint32_t getQueueFamilyIndex(VkPhysicalDevice physicalDevice,VkQueueFlags req){
-  uint32_t queueFamilyPropertyCount;
-  vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice,&queueFamilyPropertyCount,nullptr);
+  auto queueFamilyPropertyCount = getNofQueueFamilyProperties(physicalDevice);
   auto queueFamilyProperties = new VkQueueFamilyProperties[queueFamilyPropertyCount];
   vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice,&queueFamilyPropertyCount,queueFamilyProperties);
 
@@ -456,13 +461,13 @@ VkDescriptorSet* allocateDescriptorSets(VkDevice device,VkDescriptorPool descrip
   return descriptorSets;
 }
 
-VkPipelineLayout createPipelineLayout(VkDevice device,uint32_t n,VkDescriptorSetLayout*descriptorSetLayout){
+VkPipelineLayout createPipelineLayout(VkDevice device,uint32_t n,VkDescriptorSetLayout*setLayouts){
   auto pipelineLayoutCreateInfo = VkPipelineLayoutCreateInfo{
     .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
     .pNext                  = nullptr                                      ,
     .flags                  = 0                                            ,
     .setLayoutCount         = n                                            ,
-    .pSetLayouts            = descriptorSetLayout                          ,
+    .pSetLayouts            = setLayouts                                   ,
     .pushConstantRangeCount = 0                                            ,
     .pPushConstantRanges    = nullptr                                      ,
   };
