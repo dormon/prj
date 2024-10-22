@@ -6,8 +6,8 @@
 #include"main.hpp"
 #include"devMem.hpp"
 
-#ifndef CMAKE_ROOT_DIR
-#define CMAKE_ROOT_DIR "."
+#ifndef ROOT_DIR
+#define ROOT_DIR "."
 #endif
 
 int main(int argc,char*argv[]){
@@ -60,7 +60,7 @@ void work(Vulkan&vulkan){
   vkBindBufferMemory(vulkan.devMem.device,buffer2,vulkan.devMem.memory, 64*sizeof(uint32_t));
   vkBindBufferMemory(vulkan.devMem.device,buffer3,vulkan.devMem.memory,128*sizeof(uint32_t));
 
-  auto shaderModule             = createShaderModule(vulkan.device,CMAKE_ROOT_DIR "/shader.spv");
+  auto shaderModule             = createShaderModule(vulkan.device,"shaders/shader.spv");
 
   uint32_t nofDescriptorSetLayouts;
   auto descriptorSetLayout      = createDescriptorSetLayout(vulkan.device,&nofDescriptorSetLayouts);
@@ -115,6 +115,18 @@ void work(Vulkan&vulkan){
       .dstSet           = descriptorSets[1]                     ,
       .dstBinding       = 0                                     ,
       .dstArrayElement  = 0                                     ,
+      .descriptorCount  = 0                                     ,
+      .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER     ,
+      .pImageInfo       = nullptr                               ,
+      .pBufferInfo      = nullptr                               ,
+      .pTexelBufferView = nullptr                               ,
+    },
+    VkWriteDescriptorSet{
+      .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+      .pNext            = nullptr                               ,
+      .dstSet           = descriptorSets[4]                     ,
+      .dstBinding       = 0                                     ,
+      .dstArrayElement  = 0                                     ,
       .descriptorCount  = 1                                     ,
       .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER     ,
       .pImageInfo       = nullptr                               ,
@@ -122,7 +134,9 @@ void work(Vulkan&vulkan){
       .pTexelBufferView = nullptr                               ,
     },
   };
+  fprintf(stderr,"%i\n",__LINE__);
   vkUpdateDescriptorSets(vulkan.device,sizeof(writeDescriptorSet)/sizeof(VkWriteDescriptorSet),writeDescriptorSet,0,nullptr);
+  fprintf(stderr,"%i\n",__LINE__);
 
 
   auto pipelineLayout = createPipelineLayout (vulkan.device,2,descriptorSetLayout);
@@ -327,14 +341,14 @@ VkDescriptorPool createDescriptorPool(VkDevice device){
   VkDescriptorPoolSize descriptorPoolSizes[] = {
     VkDescriptorPoolSize{
       .type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      .descriptorCount = 3u                               ,
+      .descriptorCount = 5u                               ,
     },
   };
   auto descriptorPoolCreateInfo = VkDescriptorPoolCreateInfo{
     .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO           ,
     .pNext         = nullptr                                                 ,
     .flags         = 0                                                       ,
-    .maxSets       = 3u                                                      ,
+    .maxSets       = 5u                                                      ,
     .poolSizeCount = sizeof(descriptorPoolSizes)/sizeof(VkDescriptorPoolSize),
     .pPoolSizes    = descriptorPoolSizes                                     ,
   };
@@ -346,102 +360,50 @@ VkDescriptorPool createDescriptorPool(VkDevice device){
   return descriptorPool;
 }
 
-VkBuffer createBuffer(VkDevice device,size_t size){
-  auto bufferCreateInfo = VkBufferCreateInfo{
-    .sType                 = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO                                 ,
-    .pNext                 = nullptr                                                              ,
-    .flags                 = 0                                                                    ,
-    .size                  = size                                                                 ,
-    .usage                 = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-    .sharingMode           = VK_SHARING_MODE_EXCLUSIVE                                            ,
-    .queueFamilyIndexCount = 0u                                                                   ,
-    .pQueueFamilyIndices   = nullptr                                                              ,
+VkDescriptorSetLayoutBinding descriptorSetLayoutBinding_csbuf(uint32_t b,uint32_t c,VkSampler const*i=nullptr){
+  return VkDescriptorSetLayoutBinding{
+    .binding            = b                                ,
+    .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+    .descriptorCount    = c                                ,
+    .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,
+    .pImmutableSamplers = i                                ,
   };
-  VkBuffer buffer;
-  auto result = vkCreateBuffer(device,&bufferCreateInfo,nullptr,&buffer);
-  if(result != VK_SUCCESS)throw "cannot create buffer";
-  return buffer;
 }
 
-VkShaderModule createShaderModule(VkDevice device,char const*fileName){
-  auto file = fopen(fileName,"rb");
-  if(!file)throw "cannot open spirv shader";
-  fseek(file, 0, SEEK_END);
-  size_t size = ftell(file);
-  fseek(file, 0, SEEK_SET);
-  auto code = new uint32_t[size/sizeof(uint32_t)];
-  auto read = fread(code,1,size,file);
-  if(read != size)throw "cannot read spirv shader";
-  fclose(file);
-
-  auto shaderModuleCreateInfo = VkShaderModuleCreateInfo{
-    .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-    .pNext    = nullptr                                    ,
-    .flags    = 0                                          ,
-    .codeSize = size                                       ,
-    .pCode    = code                                       ,
+VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo(uint32_t c,VkDescriptorSetLayoutBinding*s){
+  return VkDescriptorSetLayoutCreateInfo{
+    .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+    .pNext        = nullptr                                            ,
+    .flags        = 0                                                  ,
+    .bindingCount = c                                                  ,
+    .pBindings    = s                                                  ,
   };
-
-  VkShaderModule shaderModule;
-  auto result = vkCreateShaderModule(device,&shaderModuleCreateInfo,nullptr,&shaderModule);
-  if(result != VK_SUCCESS)throw "cannot create shader module";
-  delete[]code;
-  return shaderModule;
 }
 
 VkDescriptorSetLayout*createDescriptorSetLayout(VkDevice device,uint32_t*n){
-  VkDescriptorSetLayoutBinding descriptorSetLayoutBindings1[] = {
-    VkDescriptorSetLayoutBinding{
-      .binding            = 0                                ,
-      .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      .descriptorCount    = 1                                ,
-      .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,
-      .pImmutableSamplers = nullptr                          ,
-    },
-    VkDescriptorSetLayoutBinding{
-      .binding            = 3                                ,
-      .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      .descriptorCount    = 1                                ,
-      .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,
-      .pImmutableSamplers = nullptr                          ,
-    },
+  VkDescriptorSetLayoutBinding dslb1[] = {
+    descriptorSetLayoutBinding_csbuf(0,1),
+    descriptorSetLayoutBinding_csbuf(3,1),
   };
 
-  VkDescriptorSetLayoutBinding descriptorSetLayoutBindings2[] = {
-    VkDescriptorSetLayoutBinding{
-      .binding            = 0                                ,
-      .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      .descriptorCount    = 1                                ,
-      .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,
-      .pImmutableSamplers = nullptr                          ,
-    },
+  VkDescriptorSetLayoutBinding dslb2[] = {
+    descriptorSetLayoutBinding_csbuf(0,1),
   };
 
   VkDescriptorSetLayoutCreateInfo dslci[] = {
-    VkDescriptorSetLayoutCreateInfo{
-      .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO                      ,
-      .pNext        = nullptr                                                                  ,
-      .flags        = 0                                                                        ,
-      .bindingCount = sizeof(descriptorSetLayoutBindings1)/sizeof(VkDescriptorSetLayoutBinding),
-      .pBindings    = descriptorSetLayoutBindings1                                             ,
-    },
-    VkDescriptorSetLayoutCreateInfo{
-      .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO                      ,
-      .pNext        = nullptr                                                                  ,
-      .flags        = 0                                                                        ,
-      .bindingCount = sizeof(descriptorSetLayoutBindings2)/sizeof(VkDescriptorSetLayoutBinding),
-      .pBindings    = descriptorSetLayoutBindings2                                             ,
-    },
+    descriptorSetLayoutCreateInfo(sizeof(dslb1)/sizeof(dslb1[0]),dslb1  ),
+    descriptorSetLayoutCreateInfo(0                             ,nullptr),
+    descriptorSetLayoutCreateInfo(sizeof(dslb2)/sizeof(dslb2[0]),dslb2  ),
   };
 
-  VkDescriptorSetLayout*descriptorSetLayout = new VkDescriptorSetLayout[2];
+  *n=sizeof(dslci)/sizeof(dslci[0]);
+  VkDescriptorSetLayout*descriptorSetLayout = new VkDescriptorSetLayout[*n];
   VkResult result;
-  result = vkCreateDescriptorSetLayout(device,dslci+0,nullptr,descriptorSetLayout+0);
-  if(result != VK_SUCCESS)throw "cannot create descriptorSetLaoyut";
-  result = vkCreateDescriptorSetLayout(device,dslci+1,nullptr,descriptorSetLayout+1);
-  if(result != VK_SUCCESS)throw "cannot create descriptorSetLaoyut";
+  for(uint32_t i=0;i<*n;++i){
+    result = vkCreateDescriptorSetLayout(device,dslci+i,nullptr,descriptorSetLayout+i);
+    if(result != VK_SUCCESS)throw "cannot create descriptorSetLaoyut";
+  }
 
-  *n=2;
   return descriptorSetLayout;
 }
 
@@ -451,7 +413,7 @@ VkDescriptorSet* allocateDescriptorSets(VkDevice device,VkDescriptorPool descrip
     .pNext              = nullptr                                       ,
     .descriptorPool     = descriptorPool                                ,
     .descriptorSetCount = n                                             ,
-    .pSetLayouts        =  descriptorSetLayout                          ,
+    .pSetLayouts        = descriptorSetLayout                           ,
   };
 
   VkDescriptorSet*descriptorSets = new VkDescriptorSet[n];

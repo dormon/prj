@@ -1,6 +1,6 @@
 BIN=vk
 
-${BIN}: main.o devMem.o
+${BIN}: main.o devMem.o createShaderModule.o createBuffer.o
 	g++ --std=c++17 $^ -o ${BIN} -Os -s -O3 -ldl -lvulkan
 
 %.o: %.cpp %.hpp
