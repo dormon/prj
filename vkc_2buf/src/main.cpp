@@ -1,4 +1,3 @@
-#include<dlfcn.h>
 #include<vulkan/vulkan.h>
 #include<exception>
 #include<stdio.h>
@@ -112,19 +111,7 @@ void work(Vulkan&vulkan){
     VkWriteDescriptorSet{
       .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
       .pNext            = nullptr                               ,
-      .dstSet           = descriptorSets[1]                     ,
-      .dstBinding       = 0                                     ,
-      .dstArrayElement  = 0                                     ,
-      .descriptorCount  = 0                                     ,
-      .descriptorType   = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER     ,
-      .pImageInfo       = nullptr                               ,
-      .pBufferInfo      = nullptr                               ,
-      .pTexelBufferView = nullptr                               ,
-    },
-    VkWriteDescriptorSet{
-      .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-      .pNext            = nullptr                               ,
-      .dstSet           = descriptorSets[4]                     ,
+      .dstSet           = descriptorSets[2]                     ,
       .dstBinding       = 0                                     ,
       .dstArrayElement  = 0                                     ,
       .descriptorCount  = 1                                     ,
@@ -134,12 +121,10 @@ void work(Vulkan&vulkan){
       .pTexelBufferView = nullptr                               ,
     },
   };
-  fprintf(stderr,"%i\n",__LINE__);
   vkUpdateDescriptorSets(vulkan.device,sizeof(writeDescriptorSet)/sizeof(VkWriteDescriptorSet),writeDescriptorSet,0,nullptr);
-  fprintf(stderr,"%i\n",__LINE__);
 
 
-  auto pipelineLayout = createPipelineLayout (vulkan.device,2,descriptorSetLayout);
+  auto pipelineLayout = createPipelineLayout (vulkan.device,3,descriptorSetLayout);
   auto pipeline       = createComputePipeline(vulkan.device,shaderModule,pipelineLayout,"main");
 
   auto commandBuffer = allocateCommandBuffer(vulkan);
@@ -171,6 +156,7 @@ void work(Vulkan&vulkan){
   delete[]descriptorSets;
   vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout[0],nullptr);
   vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout[1],nullptr);
+  vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout[2],nullptr);
   delete[]descriptorSetLayout;
   vkDestroyShaderModule(vulkan.device,shaderModule,nullptr);
   vkDestroyBuffer(vulkan.device,buffer3,nullptr);

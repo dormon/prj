@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 
 project(vkc)
 
+SET(CMAKE_CXX_STANDARD 20)
+
 find_package(Vulkan REQUIRED)
 
 add_executable(${PROJECT_NAME} 
@@ -14,11 +16,12 @@ add_executable(${PROJECT_NAME}
   src/createShaderModule.cpp
   src/createShaderModule.hpp
   )
-target_link_libraries(${PROJECT_NAME} vulkan)
 
-option(CLEAR_CMAKE_ROOT_DIR "if this is set, #define CMAKE_ROOT_DIR will be .")
+target_link_libraries(${PROJECT_NAME} Vulkan::Vulkan)
 
-if(NOT CLEAR_CMAKE_ROOT_DIR)
+option(CLEAR_ROOT_DIR "if this is set, #define ROOT_DIR will be .")
+
+if(NOT CLEAR_ROOT_DIR)
   target_compile_definitions(${PROJECT_NAME} PUBLIC ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 else()
   target_compile_definitions(${PROJECT_NAME} PUBLIC ROOT_DIR=".")
@@ -47,3 +50,5 @@ add_custom_target(
 
 add_dependencies(run compileShaders)
 
+# this property sets up visual studio start-up project to the project
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${PROJECT_NAME})
