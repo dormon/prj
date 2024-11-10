@@ -50,14 +50,14 @@ void deinit(Vulkan&vulkan){
 }
 
 void work(Vulkan&vulkan){
-  auto buffer                    = createBuffer(vulkan.device,64*sizeof(uint32_t));
+  auto buffer0                   = createBuffer(vulkan.device,64*sizeof(uint32_t));
+  auto buffer1                   = createBuffer(vulkan.device,64*sizeof(uint32_t));
   auto buffer2                   = createBuffer(vulkan.device,64*sizeof(uint32_t));
-  auto buffer3                   = createBuffer(vulkan.device,64*sizeof(uint32_t));
   //auto bufferMemoryRequirements = vulkan.device.getBufferMemoryRequirements(buffer);
 
-  vkBindBufferMemory(vulkan.devMem.device,buffer ,vulkan.devMem.memory,  0*sizeof(uint32_t));
-  vkBindBufferMemory(vulkan.devMem.device,buffer2,vulkan.devMem.memory, 64*sizeof(uint32_t));
-  vkBindBufferMemory(vulkan.devMem.device,buffer3,vulkan.devMem.memory,128*sizeof(uint32_t));
+  vkBindBufferMemory(vulkan.devMem.device,buffer0,vulkan.devMem.memory,  0*sizeof(uint32_t));
+  vkBindBufferMemory(vulkan.devMem.device,buffer1,vulkan.devMem.memory, 64*sizeof(uint32_t));
+  vkBindBufferMemory(vulkan.devMem.device,buffer2,vulkan.devMem.memory,128*sizeof(uint32_t));
 
   auto shaderModule             = createShaderModule(vulkan.device,"shaders/shader.spv");
 
@@ -67,17 +67,17 @@ void work(Vulkan&vulkan){
 
   VkDescriptorBufferInfo descriptorBufferInfo[] = {
     VkDescriptorBufferInfo{
-      .buffer = buffer       ,
+      .buffer = buffer0      ,
       .offset = 0            ,
       .range  = VK_WHOLE_SIZE,
     },
     VkDescriptorBufferInfo{
-      .buffer = buffer2       ,
+      .buffer = buffer1      ,
       .offset = 0            ,
       .range  = VK_WHOLE_SIZE,
     },
     VkDescriptorBufferInfo{
-      .buffer = buffer3       ,
+      .buffer = buffer2      ,
       .offset = 0            ,
       .range  = VK_WHOLE_SIZE,
     },
@@ -154,14 +154,13 @@ void work(Vulkan&vulkan){
   vkDestroyPipeline(vulkan.device,pipeline,nullptr);
   vkDestroyPipelineLayout(vulkan.device,pipelineLayout,nullptr);
   delete[]descriptorSets;
-  vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout[0],nullptr);
-  vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout[1],nullptr);
-  vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout[2],nullptr);
+  for(uint32_t i=0;i<nofDescriptorSetLayouts;++i)
+    vkDestroyDescriptorSetLayout(vulkan.device,descriptorSetLayout[i],nullptr);
   delete[]descriptorSetLayout;
   vkDestroyShaderModule(vulkan.device,shaderModule,nullptr);
-  vkDestroyBuffer(vulkan.device,buffer3,nullptr);
   vkDestroyBuffer(vulkan.device,buffer2,nullptr);
-  vkDestroyBuffer(vulkan.device,buffer ,nullptr);
+  vkDestroyBuffer(vulkan.device,buffer1,nullptr);
+  vkDestroyBuffer(vulkan.device,buffer0,nullptr);
 }
 
 
