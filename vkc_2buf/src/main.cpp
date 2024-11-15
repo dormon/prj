@@ -1,13 +1,16 @@
 #include<vulkan/vulkan.h>
+#include<vulkan/vk_enum_string_helper.h>
 #include<exception>
 #include<stdio.h>
 
-#include"main.hpp"
-#include"devMem.hpp"
+#include<main.hpp>
+#include<devMem.hpp>
+#include<error.hpp>
 
 #ifndef ROOT_DIR
 #define ROOT_DIR "."
 #endif
+
 
 int main(int argc,char*argv[]){
   try{
@@ -16,6 +19,8 @@ int main(int argc,char*argv[]){
     fprintf(stderr,"ERROR: %s",e.what());
   }catch(char const*e){
     fprintf(stderr,"ERROR: %s\n",e);
+  }catch(Error const&e){
+    e.print();
   }
   return 0;
 }
@@ -42,22 +47,22 @@ Vulkan init(){
 }
 
 void deinit(Vulkan&vulkan){
-  vkDestroyDescriptorPool(vulkan.device  ,vulkan.descriptorPool,nullptr);
-  vkDestroyCommandPool   (vulkan.device  ,vulkan.commandPool   ,nullptr);
-  vkFreeMemory           (vulkan.devMem.device  ,vulkan.devMem.memory  ,nullptr);
-  vkDestroyDevice        (vulkan.device  ,nullptr);
+  vkDestroyDescriptorPool(vulkan.device           ,vulkan.descriptorPool,nullptr);
+  vkDestroyCommandPool   (vulkan.device           ,vulkan.commandPool   ,nullptr);
+  vkFreeMemory           (vulkan.devMem.device    ,vulkan.devMem.memory ,nullptr);
+  vkDestroyDevice        (vulkan.device           ,nullptr);
   vkDestroyInstance      (vulkan.instance.instance,nullptr);
 }
 
 void work(Vulkan&vulkan){
-  auto buffer0                   = createBuffer(vulkan.device,64*sizeof(uint32_t));
-  auto buffer1                   = createBuffer(vulkan.device,64*sizeof(uint32_t));
-  auto buffer2                   = createBuffer(vulkan.device,64*sizeof(uint32_t));
+  auto buffer0 = createBuffer(vulkan.device,64*sizeof(uint32_t));
+  auto buffer1 = createBuffer(vulkan.device,64*sizeof(uint32_t));
+  auto buffer2 = createBuffer(vulkan.device,64*sizeof(uint32_t));
   //auto bufferMemoryRequirements = vulkan.device.getBufferMemoryRequirements(buffer);
 
-  vkBindBufferMemory(vulkan.devMem.device,buffer0,vulkan.devMem.memory,  0*sizeof(uint32_t));
-  vkBindBufferMemory(vulkan.devMem.device,buffer1,vulkan.devMem.memory, 64*sizeof(uint32_t));
-  vkBindBufferMemory(vulkan.devMem.device,buffer2,vulkan.devMem.memory,128*sizeof(uint32_t));
+  vulkan.devMem.bind(buffer0,  0*sizeof(uint32_t));
+  vulkan.devMem.bind(buffer1, 64*sizeof(uint32_t));
+  vulkan.devMem.bind(buffer2,128*sizeof(uint32_t));
 
   auto shaderModule             = createShaderModule(vulkan.device,"shaders/shader.spv");
 
@@ -181,8 +186,7 @@ Instance createInstance(){
   };
 
   Instance res;
-  auto result = vkCreateInstance(&instanceCreateInfo,nullptr,&res.instance);
-  if(result != VK_SUCCESS)throw "cannot create instance";
+  VK_CALL(vkCreateInstance,&instanceCreateInfo,nullptr,&res.instance);
   return res;
 }
 
@@ -205,8 +209,8 @@ auto getPhysicalDeviceProperties(VkPhysicalDevice device){
 }
 
 VkPhysicalDevice getPhysicalDevice(VkInstance instance){
-  uint32_t count   = getNofPhysicalDevices(instance);
-  auto     devices = getPhysicalDevices(instance,count);
+  auto count   = getNofPhysicalDevices(instance);
+  auto devices = getPhysicalDevices(instance,count);
 
   for(uint32_t i=0;i<count;++i){
     auto device = devices[i];
@@ -216,6 +220,7 @@ VkPhysicalDevice getPhysicalDevice(VkInstance instance){
       return device;
     }
   }
+  throw "getPhysicalDevice cannot locate descrete GPU";
   return nullptr;
 }
 
@@ -225,65 +230,64 @@ uint32_t getNofQueueFamilyProperties(VkPhysicalDevice dev){
   return count;
 }
 
-uint32_t getQueueFamilyIndex(VkPhysicalDevice physicalDevice,VkQueueFlags req){
-  auto queueFamilyPropertyCount = getNofQueueFamilyProperties(physicalDevice);
-  auto queueFamilyProperties = new VkQueueFamilyProperties[queueFamilyPropertyCount];
-  vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice,&queueFamilyPropertyCount,queueFamilyProperties);
+uint32_t getQueueFamilyIndex(VkPhysicalDevice dev,VkQueueFlags req){
+  auto count = getNofQueueFamilyProperties(dev);
+  auto props = new VkQueueFamilyProperties[count];
+  vkGetPhysicalDeviceQueueFamilyProperties(dev,&count,props);
 
 
-  uint32_t queueFamilyIndex=0;
-  for(;queueFamilyIndex < queueFamilyPropertyCount;++queueFamilyIndex){
-    auto queueFamilyProperty = queueFamilyProperties[queueFamilyIndex];
-    if(queueFamilyProperty.queueCount >= 1 && (queueFamilyProperty.queueFlags & req) == req)break;
-    ++queueFamilyIndex;
+  uint32_t index=0;
+  for(;index < count;++index){
+    auto prop = props[index];
+    if(prop.queueCount >= 1 && (prop.queueFlags & req) == req)break;
+    ++index;
   }
-  if(queueFamilyIndex >= queueFamilyPropertyCount)throw("cannot find queue family");
-  delete[]queueFamilyProperties;
-  return queueFamilyIndex;
+  if(index >= count)throw("cannot find queue family");
+  delete[]props;
+  return index;
 }
 
-uint32_t getMemoryTypeIndex(VkPhysicalDevice physicalDevice,VkMemoryPropertyFlags req){
-  VkPhysicalDeviceMemoryProperties memoryProperties;
-  vkGetPhysicalDeviceMemoryProperties(physicalDevice,&memoryProperties);
+uint32_t getMemoryTypeIndex(VkPhysicalDevice dev,VkMemoryPropertyFlags req){
+  VkPhysicalDeviceMemoryProperties props;
+  vkGetPhysicalDeviceMemoryProperties(dev,&props);
 
-  uint32_t memoryTypeIndex=0;
-  for(auto const&memoryProperty:memoryProperties.memoryTypes){
-    if((memoryProperty.propertyFlags & req) == req)break;
-    ++memoryTypeIndex;
+  uint32_t index=0;
+  for(auto const&prop:props.memoryTypes){
+    if((prop.propertyFlags & req) == req)break;
+    ++index;
   }
-  if(memoryTypeIndex >= memoryProperties.memoryTypeCount)throw("cannot find memory type");
-  return memoryTypeIndex;
+  if(index >= props.memoryTypeCount)throw("cannot find memory type");
+  return index;
 }
 
 VkDevice createDevice(VkPhysicalDevice physicalDevice,uint32_t queueFamilyIndex){
-  float queuePriorities[] = {1.f};
-  VkDeviceQueueCreateInfo deviceQueueCreateInfos[] = {
+  float priorities[] = {1.f};
+  VkDeviceQueueCreateInfo queueInfos[] = {
     VkDeviceQueueCreateInfo{
       .sType            = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
       .pNext            = nullptr                                   ,
       .flags            = 0                                         ,
       .queueFamilyIndex = queueFamilyIndex                          ,
       .queueCount       = 1u                                        ,
-      .pQueuePriorities = queuePriorities                           ,
+      .pQueuePriorities = priorities                                ,
     },
   };
 
   auto deviceCreateInfo = VkDeviceCreateInfo{
-    .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO                          ,
-    .pNext                   = nullptr                                                       ,
-    .flags                   = 0                                                             ,
-    .queueCreateInfoCount    = sizeof(deviceQueueCreateInfos)/sizeof(VkDeviceQueueCreateInfo),
-    .pQueueCreateInfos       = deviceQueueCreateInfos                                        ,
-    .enabledLayerCount       = 0                                                             ,
-    .ppEnabledLayerNames     = nullptr                                                       ,
-    .enabledExtensionCount   = 0                                                             ,
-    .ppEnabledExtensionNames = nullptr                                                       ,
-    .pEnabledFeatures        = nullptr                                                       ,
+    .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO    ,
+    .pNext                   = nullptr                                 ,
+    .flags                   = 0                                       ,
+    .queueCreateInfoCount    = sizeof(queueInfos)/sizeof(queueInfos[0]),
+    .pQueueCreateInfos       = queueInfos                              ,
+    .enabledLayerCount       = 0                                       ,
+    .ppEnabledLayerNames     = nullptr                                 ,
+    .enabledExtensionCount   = 0                                       ,
+    .ppEnabledExtensionNames = nullptr                                 ,
+    .pEnabledFeatures        = nullptr                                 ,
 
   };
   VkDevice device;
-  auto result = vkCreateDevice(physicalDevice,&deviceCreateInfo,nullptr,&device);
-  if(result != VK_SUCCESS)throw "cannot create device";
+  VK_CALL(vkCreateDevice,physicalDevice,&deviceCreateInfo,nullptr,&device);
 
   return device;
 }
@@ -303,50 +307,48 @@ DevMem allocateMemory(VkDevice device,size_t size,uint32_t memoryTypeIndex){
     .allocationSize  = size                                  ,
     .memoryTypeIndex = memoryTypeIndex                       ,
   };
-  auto result = vkAllocateMemory(device,&memoryAllocationInfo,nullptr,&res.memory);
-  if(result != VK_SUCCESS)throw "cannot allocate memory";
+  VK_CALL(vkAllocateMemory,device,&memoryAllocationInfo,nullptr,&res.memory);
   return res;
 }
 
 
 VkCommandPool createCommandPool(VkDevice device,uint32_t queueFamilyIndex){
-  auto commandPoolCreateInfo = VkCommandPoolCreateInfo{
+  auto pool = VkCommandPoolCreateInfo{
     .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
     .pNext            = nullptr                                   ,
     .flags            = 0                                         ,
     .queueFamilyIndex = queueFamilyIndex                          ,
   };
   VkCommandPool commandPool;
-  auto result = vkCreateCommandPool(device,&commandPoolCreateInfo,nullptr,&commandPool);
-  if(result != VK_SUCCESS)throw "cannot create command pool";
+  VK_CALL(vkCreateCommandPool,device,&pool,nullptr,&commandPool);
   return commandPool;
 }
 
 VkDescriptorPool createDescriptorPool(VkDevice device){
-  VkDescriptorPoolSize descriptorPoolSizes[] = {
+  VkDescriptorPoolSize sizes[] = {
     VkDescriptorPoolSize{
       .type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
       .descriptorCount = 5u                               ,
     },
   };
-  auto descriptorPoolCreateInfo = VkDescriptorPoolCreateInfo{
-    .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO           ,
-    .pNext         = nullptr                                                 ,
-    .flags         = 0                                                       ,
-    .maxSets       = 5u                                                      ,
-    .poolSizeCount = sizeof(descriptorPoolSizes)/sizeof(VkDescriptorPoolSize),
-    .pPoolSizes    = descriptorPoolSizes                                     ,
+  auto createInfo = VkDescriptorPoolCreateInfo{
+    .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+    .pNext         = nullptr                                      ,
+    .flags         = 0                                            ,
+    .maxSets       = 5u                                           ,
+    .poolSizeCount = sizeof(sizes)/sizeof(sizes[0])               ,
+    .pPoolSizes    = sizes                                        ,
   };
 
-  VkDescriptorPool descriptorPool;
-  auto result = vkCreateDescriptorPool(device,&descriptorPoolCreateInfo,nullptr,&descriptorPool);
-  if(result != VK_SUCCESS)throw "cannot create descriptor pool";
+  VkDescriptorPool pool;
+  VK_CALL(vkCreateDescriptorPool,device,&createInfo,nullptr,&pool);
 
-  return descriptorPool;
+  return pool;
 }
 
 VkDescriptorSetLayoutBinding descriptorSetLayoutBinding_csbuf(uint32_t b,uint32_t c,VkSampler const*i=nullptr){
-  return VkDescriptorSetLayoutBinding{
+  return
+  VkDescriptorSetLayoutBinding{
     .binding            = b                                ,
     .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
     .descriptorCount    = c                                ,
@@ -367,12 +369,30 @@ VkDescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo(uint32_t c,VkDescr
 
 VkDescriptorSetLayout*createDescriptorSetLayout(VkDevice device,uint32_t*n){
   VkDescriptorSetLayoutBinding dslb1[] = {
-    descriptorSetLayoutBinding_csbuf(0,1),
-    descriptorSetLayoutBinding_csbuf(3,1),
+    VkDescriptorSetLayoutBinding{
+      .binding            = 0                                ,
+      .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+      .descriptorCount    = 1                                ,
+      .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,
+      .pImmutableSamplers = nullptr                          ,
+    },
+    VkDescriptorSetLayoutBinding{
+      .binding            = 3                                ,
+      .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+      .descriptorCount    = 1                                ,
+      .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,
+      .pImmutableSamplers = nullptr                          ,
+    },
   };
 
   VkDescriptorSetLayoutBinding dslb2[] = {
-    descriptorSetLayoutBinding_csbuf(0,1),
+    VkDescriptorSetLayoutBinding{
+      .binding            = 0                                ,
+      .descriptorType     = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+      .descriptorCount    = 1                                ,
+      .stageFlags         = VK_SHADER_STAGE_COMPUTE_BIT      ,
+      .pImmutableSamplers = nullptr                          ,
+    },
   };
 
   VkDescriptorSetLayoutCreateInfo dslci[] = {
@@ -382,55 +402,51 @@ VkDescriptorSetLayout*createDescriptorSetLayout(VkDevice device,uint32_t*n){
   };
 
   *n=sizeof(dslci)/sizeof(dslci[0]);
-  VkDescriptorSetLayout*descriptorSetLayout = new VkDescriptorSetLayout[*n];
+  VkDescriptorSetLayout*layouts = new VkDescriptorSetLayout[*n];
   VkResult result;
-  for(uint32_t i=0;i<*n;++i){
-    result = vkCreateDescriptorSetLayout(device,dslci+i,nullptr,descriptorSetLayout+i);
-    if(result != VK_SUCCESS)throw "cannot create descriptorSetLaoyut";
-  }
+  for(uint32_t i=0;i<*n;++i)
+    VK_CALL(vkCreateDescriptorSetLayout,device,dslci+i,nullptr,layouts+i);
 
-  return descriptorSetLayout;
+  return layouts;
 }
 
-VkDescriptorSet* allocateDescriptorSets(VkDevice device,VkDescriptorPool descriptorPool,VkDescriptorSetLayout*descriptorSetLayout,uint32_t n){
-  auto descriptorSetAllocateInfo = VkDescriptorSetAllocateInfo{
+VkDescriptorSet* allocateDescriptorSets(VkDevice device,VkDescriptorPool pool,VkDescriptorSetLayout*layouts,uint32_t n){
+  auto allocateInfo = VkDescriptorSetAllocateInfo{
     .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
     .pNext              = nullptr                                       ,
-    .descriptorPool     = descriptorPool                                ,
+    .descriptorPool     = pool                                          ,
     .descriptorSetCount = n                                             ,
-    .pSetLayouts        = descriptorSetLayout                           ,
+    .pSetLayouts        = layouts                                       ,
   };
 
-  VkDescriptorSet*descriptorSets = new VkDescriptorSet[n];
-  auto result = vkAllocateDescriptorSets(device,&descriptorSetAllocateInfo,descriptorSets);
-  if(result != VK_SUCCESS)throw "cannot allocate descriptorSets";
+  VkDescriptorSet*sets = new VkDescriptorSet[n];
+  VK_CALL(vkAllocateDescriptorSets,device,&allocateInfo,sets);
 
-  return descriptorSets;
+  return sets;
 }
 
-VkPipelineLayout createPipelineLayout(VkDevice device,uint32_t n,VkDescriptorSetLayout*setLayouts){
-  auto pipelineLayoutCreateInfo = VkPipelineLayoutCreateInfo{
+VkPipelineLayout createPipelineLayout(VkDevice device,uint32_t n,VkDescriptorSetLayout*layouts){
+  auto createInfo = VkPipelineLayoutCreateInfo{
     .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
     .pNext                  = nullptr                                      ,
     .flags                  = 0                                            ,
     .setLayoutCount         = n                                            ,
-    .pSetLayouts            = setLayouts                                   ,
+    .pSetLayouts            = layouts                                      ,
     .pushConstantRangeCount = 0                                            ,
     .pPushConstantRanges    = nullptr                                      ,
   };
   VkPipelineLayout pipelineLayout;
-  auto result = vkCreatePipelineLayout(device,&pipelineLayoutCreateInfo,nullptr,&pipelineLayout);
-  if(result != VK_SUCCESS)throw "cannot create pipelineLayout";
+  VK_CALL(vkCreatePipelineLayout,device,&createInfo,nullptr,&pipelineLayout);
   return pipelineLayout;
 }
 
-VkPipeline createComputePipeline(VkDevice device,VkShaderModule shaderModule,VkPipelineLayout pipelineLayout,char const*entryPoint){
+VkPipeline createComputePipeline(VkDevice device,VkShaderModule module,VkPipelineLayout layout,char const*entryPoint){
   auto pipelineShaderStageCreateInfo = VkPipelineShaderStageCreateInfo{
     .sType               = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
     .pNext               = nullptr                                            ,
     .flags               = 0                                                  ,
     .stage               = VK_SHADER_STAGE_COMPUTE_BIT                        ,
-    .module              = shaderModule                                       ,
+    .module              = module                                             ,
     .pName               = entryPoint                                         ,
     .pSpecializationInfo = nullptr                                            ,
   };
@@ -439,30 +455,27 @@ VkPipeline createComputePipeline(VkDevice device,VkShaderModule shaderModule,VkP
     .pNext              = nullptr                                       ,
     .flags              = 0                                             ,
     .stage              = pipelineShaderStageCreateInfo                 ,
-    .layout             = pipelineLayout                                ,
+    .layout             = layout                                        ,
     .basePipelineHandle = nullptr                                       ,
     .basePipelineIndex  = -1                                            ,
   };
   VkPipeline pipeline;
-  auto result = vkCreateComputePipelines(device,nullptr,1,&computePipelineCreateInfo,nullptr,&pipeline);
-  if(result != VK_SUCCESS)throw "cannot create compute pipeline";
+  VK_CALL(vkCreateComputePipelines,device,nullptr,1,&computePipelineCreateInfo,nullptr,&pipeline);
   return pipeline;
 }
 
 void begin(VkCommandBuffer commandBuffer){
-  auto commandBufferBeginInfo = VkCommandBufferBeginInfo{
+  auto info = VkCommandBufferBeginInfo{
     .sType            = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
     .pNext            = nullptr                                    ,
     .flags            = 0                                          ,
     .pInheritanceInfo = nullptr                                    ,
   };
-  auto res2 = vkBeginCommandBuffer(commandBuffer,&commandBufferBeginInfo);
-  if(res2 != VK_SUCCESS)throw "cannot begin command buffer";
+  VK_CALL(vkBeginCommandBuffer,commandBuffer,&info);
 }
 
 void end(VkCommandBuffer commandBuffer){
-  auto res3 = vkEndCommandBuffer(commandBuffer);
-  if(res3 != VK_SUCCESS)throw "cannot end command buffer";
+  VK_CALL(vkEndCommandBuffer,commandBuffer);
 }
 
 void submit(Vulkan const&vulkan,VkCommandBuffer commandBuffer){
@@ -477,11 +490,11 @@ void submit(Vulkan const&vulkan,VkCommandBuffer commandBuffer){
     .signalSemaphoreCount = 0                            ,
     .pSignalSemaphores    = nullptr                      ,
   };
-  vkQueueSubmit(vulkan.queue,1,&submitInfo,VK_NULL_HANDLE);
+  VK_CALL(vkQueueSubmit,vulkan.queue,1,&submitInfo,VK_NULL_HANDLE);
 }
 
 VkCommandBuffer allocateCommandBuffer(Vulkan const&vulkan){
-  auto commandBufferAllocateInfo = VkCommandBufferAllocateInfo{
+  auto allocateInfo = VkCommandBufferAllocateInfo{
     .sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
     .pNext              = nullptr                                       ,
     .commandPool        = vulkan.commandPool                            ,
@@ -489,8 +502,7 @@ VkCommandBuffer allocateCommandBuffer(Vulkan const&vulkan){
     .commandBufferCount = 1                                             ,
   };
   VkCommandBuffer commandBuffer;
-  auto result = vkAllocateCommandBuffers(vulkan.device,&commandBufferAllocateInfo,&commandBuffer);
-  if(result != VK_SUCCESS)throw "cannot allocate command buffer";
+  VK_CALL(vkAllocateCommandBuffers,vulkan.device,&allocateInfo,&commandBuffer);
   return commandBuffer;
 }
 

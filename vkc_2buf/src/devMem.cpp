@@ -1,4 +1,9 @@
-#include "devMem.hpp"
+#include <devMem.hpp>
+#include <error.hpp>
+
+void DevMem::bind(VkBuffer buffer,size_t offset){
+  VK_CALL(vkBindBufferMemory,device,buffer,memory,offset);
+}
 
 void*DevMem::map(size_t offset,size_t size){
   void*readBuffer = nullptr;

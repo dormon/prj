@@ -1,6 +1,8 @@
 #pragma once
 
+#include<stdio.h>
 #include<vulkan/vulkan.h>
+#include<vulkan/vk_enum_string_helper.h>
 #include"devMem.hpp"
 
 void gpu_task(int argc,char*argv[]);

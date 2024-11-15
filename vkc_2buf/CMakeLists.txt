@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 project(vkc)
 
 SET(CMAKE_CXX_STANDARD 20)
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1 ) 
 
 find_package(Vulkan REQUIRED)
 
@@ -11,6 +12,8 @@ add_executable(${PROJECT_NAME}
   src/main.hpp
   src/devMem.cpp
   src/devMem.hpp
+  src/error.cpp
+  src/error.hpp
   src/createBuffer.cpp
   src/createBuffer.hpp
   src/createShaderModule.cpp
