@@ -273,7 +273,7 @@ VkDevice createDevice(VkPhysicalDevice physicalDevice,uint32_t queueFamilyIndex)
     },
   };
 
-  auto deviceCreateInfo = VkDeviceCreateInfo{
+  auto createInfo = VkDeviceCreateInfo{
     .sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO    ,
     .pNext                   = nullptr                                 ,
     .flags                   = 0                                       ,
@@ -287,7 +287,7 @@ VkDevice createDevice(VkPhysicalDevice physicalDevice,uint32_t queueFamilyIndex)
 
   };
   VkDevice device;
-  VK_CALL(vkCreateDevice,physicalDevice,&deviceCreateInfo,nullptr,&device);
+  VK_CALL(vkCreateDevice,physicalDevice,&createInfo,nullptr,&device);
 
   return device;
 }
@@ -301,13 +301,13 @@ VkQueue getDeviceQueue(VkDevice device,int queueFamilyIndex){
 DevMem allocateMemory(VkDevice device,size_t size,uint32_t memoryTypeIndex){
   DevMem res;
   res.device = device;
-  auto memoryAllocationInfo = VkMemoryAllocateInfo{
+  auto info = VkMemoryAllocateInfo{
     .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
     .pNext           = nullptr                               ,
     .allocationSize  = size                                  ,
     .memoryTypeIndex = memoryTypeIndex                       ,
   };
-  VK_CALL(vkAllocateMemory,device,&memoryAllocationInfo,nullptr,&res.memory);
+  VK_CALL(vkAllocateMemory,device,&info,nullptr,&res.memory);
   return res;
 }
 
