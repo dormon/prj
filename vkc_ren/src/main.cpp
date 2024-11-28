@@ -58,14 +58,19 @@ void work(Vulkan&vulkan){
 
   uint32_t nofDescriptorSetLayouts;
 
+  auto ar = VkAttachmentReference{
+    .attachment = 0                      ,
+    .layout     = VK_IMAGE_LAYOUT_GENERAL,
+  };
+
   VkSubpassDescription sds[] = {
     VkSubpassDescription{
       .flags                   = 0                              ,
       .pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS,
       .inputAttachmentCount    = 0                              ,
       .pInputAttachments       = nullptr                        ,
-      .colorAttachmentCount    = 0                              ,
-      .pColorAttachments       = nullptr                        ,
+      .colorAttachmentCount    = 1                              ,
+      .pColorAttachments       = &ar                            ,
       .pResolveAttachments     = nullptr                        ,
       .pDepthStencilAttachment = nullptr                        ,
       .preserveAttachmentCount = 0                              ,
@@ -430,7 +435,7 @@ void work(Vulkan&vulkan){
   vkCmdBindDescriptorSets(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,renPipelineLayout,0,1,&renDescriptorSet,0,nullptr);
   vkCmdPipelineBarrier   (commandBuffer,VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,0,0,nullptr,0,nullptr,1,&imb);
   vkCmdBeginRenderPass   (commandBuffer,&rpbi,VK_SUBPASS_CONTENTS_INLINE);
-  //vkCmdClearAttachments  (commandBuffer,1,&ca,1,&cr);
+  vkCmdClearAttachments  (commandBuffer,1,&ca,1,&cr);
   vkCmdDraw              (commandBuffer,3,1,0,0);
   vkCmdEndRenderPass(commandBuffer);
   end(commandBuffer);
@@ -449,7 +454,8 @@ void work(Vulkan&vulkan){
   for(int y=0;y<64;++y){
     for(int x=0;x<64;++x){
       int r = (int)((((float)ptr[(y*64+x)*4+0])/255.f)*9.f);
-      fprintf(stderr,"%c",'0'+r);
+      if(r == 0)fprintf(stderr,".");
+      else      fprintf(stderr,"%c",'0'+r);
     }
     fprintf(stderr,"\n");
   }
@@ -474,7 +480,7 @@ Instance createInstance(){
   };
 
   auto applicationInfo = VkApplicationInfo{
-    .apiVersion = VK_MAKE_API_VERSION(0,1,3,0),
+    .apiVersion = VK_MAKE_API_VERSION(0,1,0,0),
   };
   auto instanceCreateInfo = VkInstanceCreateInfo{
     .sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
