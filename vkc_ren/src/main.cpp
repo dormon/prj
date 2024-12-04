@@ -54,10 +54,7 @@ void deinit(Vulkan&vulkan){
   vkDestroyInstance      (vulkan.instance.instance,nullptr);
 }
 
-void work(Vulkan&vulkan){
-
-  uint32_t nofDescriptorSetLayouts;
-
+VkRenderPass createRenderPass(VkDevice device){
   auto ar = VkAttachmentReference{
     .attachment = 0                      ,
     .layout     = VK_IMAGE_LAYOUT_GENERAL,
@@ -77,7 +74,6 @@ void work(Vulkan&vulkan){
       .pPreserveAttachments    = 0                              ,
     },
   };
-
   auto ad = VkAttachmentDescription{
     .flags          = 0                               ,
     .format         = VK_FORMAT_R8G8B8A8_UINT         ,
@@ -102,12 +98,13 @@ void work(Vulkan&vulkan){
     .pDependencies   = nullptr                                  ,
   };
   VkRenderPass renderPass;
-  VK_CALL(vkCreateRenderPass,vulkan.device,&rpci,nullptr,&renderPass);
+  VK_CALL(vkCreateRenderPass,device,&rpci,nullptr,&renderPass);
+  return renderPass;
+}
 
-
-
+VkImage createImage(VkDevice device,uint32_t queueFamilyIndex){
   uint32_t imageQueues[]={
-    vulkan.queueFamilyIndex,
+    queueFamilyIndex,
   };
   auto ici = VkImageCreateInfo{
     .sType                 = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO       ,
@@ -126,11 +123,11 @@ void work(Vulkan&vulkan){
     .pQueueFamilyIndices   = imageQueues                               ,
   };
   VkImage image;
-  VK_CALL(vkCreateImage,vulkan.device,&ici,nullptr,&image);
- 
-  VK_CALL(vkBindImageMemory,vulkan.device,image,vulkan.devMem.memory,0);
+  VK_CALL(vkCreateImage,device,&ici,nullptr,&image);
+  return image;
+}
 
-
+VkImageView createImageView(VkDevice device,VkImage image){
   auto isr = VkImageSubresourceRange{
     .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
     .baseMipLevel   = 0                        ,
@@ -157,10 +154,11 @@ void work(Vulkan&vulkan){
     .subresourceRange = isr                                     ,
   };
   VkImageView imageView;
-  VK_CALL(vkCreateImageView,vulkan.device,&ivci,nullptr,&imageView);
+  VK_CALL(vkCreateImageView,device,&ivci,nullptr,&imageView);
+  return imageView;
+}
 
-  
-
+VkFramebuffer createFramebuffer(VkDevice device,VkRenderPass renderPass,VkImageView imageView){
   auto fci = VkFramebufferCreateInfo{
     .sType           = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
     .pNext           = nullptr                                  ,
@@ -173,24 +171,37 @@ void work(Vulkan&vulkan){
     .layers          = 1                                        ,
   };
   VkFramebuffer framebuffer;
-  VK_CALL(vkCreateFramebuffer,vulkan.device,&fci,nullptr,&framebuffer);
+  VK_CALL(vkCreateFramebuffer,device,&fci,nullptr,&framebuffer);
+  return framebuffer;
+}
 
-
-  auto commandBuffer = allocateCommandBuffer(vulkan);
-
-
-  auto rpbi = VkRenderPassBeginInfo{
-    .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-    .pNext           = nullptr                                 ,
-    .renderPass      = renderPass                              ,
-    .framebuffer     = framebuffer                             ,
-    .renderArea      = VkRect2D{.offset{0,0},.extent{64,64}}   ,
-    .clearValueCount = 0                                       ,
-    .pClearValues    = nullptr                                 ,
+VkDescriptorSetLayout createDescriptorSetLayout(VkDevice device){
+  auto dslci = VkDescriptorSetLayoutCreateInfo{
+    .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+    .pNext        = nullptr                                            ,
+    .flags        = 0                                                  ,
+    .bindingCount = 0                                                  ,
+    .pBindings    = nullptr                                            ,
   };
+  VkDescriptorSetLayout layout;
+  VK_CALL(vkCreateDescriptorSetLayout,device,&dslci,nullptr,&layout);
+  return layout;
+}
 
+VkDescriptorSet allocateDescriptorSet(VkDevice device,VkDescriptorPool pool,VkDescriptorSetLayout layout){
+  auto dsai = VkDescriptorSetAllocateInfo{
+    .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+    .pNext              = nullptr                                       ,
+    .descriptorPool     = pool                                          ,
+    .descriptorSetCount = 1                                             ,
+    .pSetLayouts        = &layout                                       ,
+  };
+  VkDescriptorSet set;
+  VK_CALL(vkAllocateDescriptorSets,device,&dsai,&set);
+  return set;
+}
 
-
+VkPipeline createGraphicsPipelines(VkDevice device,VkShaderModule vs,VkShaderModule fs,VkPipelineLayout layout,VkRenderPass renderPass){
   auto pmsscf = VkPipelineMultisampleStateCreateInfo{
     .sType                 = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
     .pNext                 = nullptr                                                 ,
@@ -202,9 +213,6 @@ void work(Vulkan&vulkan){
     .alphaToCoverageEnable = VK_FALSE                                                ,
     .alphaToOneEnable      = VK_FALSE                                                ,
   };
-
-  auto vs = createShaderModule(vulkan.device,"shaders/vs.spv");
-  auto fs = createShaderModule(vulkan.device,"shaders/fs.spv");
 
   VkPipelineShaderStageCreateInfo pssci[] = {
     VkPipelineShaderStageCreateInfo{
@@ -244,30 +252,6 @@ void work(Vulkan&vulkan){
     .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST                        ,
     .primitiveRestartEnable = VK_FALSE                                                   ,
   };
-
-  auto dslci = VkDescriptorSetLayoutCreateInfo{
-    .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-    .pNext        = nullptr                                            ,
-    .flags        = 0                                                  ,
-    .bindingCount = 0                                                  ,
-    .pBindings    = nullptr                                            ,
-  };
-
-  VkDescriptorSetLayout renDescriptorSetLayout;
-
-  VK_CALL(vkCreateDescriptorSetLayout,vulkan.device,&dslci,nullptr,&renDescriptorSetLayout);
-
-  auto dsai = VkDescriptorSetAllocateInfo{
-    .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-    .pNext              = nullptr                                       ,
-    .descriptorPool     = vulkan.descriptorPool                         ,
-    .descriptorSetCount = 1                                             ,
-    .pSetLayouts        = &renDescriptorSetLayout                       ,
-  };
-  VkDescriptorSet renDescriptorSet;
-  VK_CALL(vkAllocateDescriptorSets,vulkan.device,&dsai,&renDescriptorSet);
-
-  auto renPipelineLayout = createPipelineLayout(vulkan.device,1,&renDescriptorSetLayout);
 
   auto viewport = VkViewport{
     .x        = 0    ,
@@ -384,15 +368,61 @@ void work(Vulkan&vulkan){
     .pMultisampleState   = &pmsscf                                        ,
     .pDepthStencilState  = &pdssci                                        ,
     .pColorBlendState    = &pcbsci                                        ,
-    .layout              = renPipelineLayout                              ,
+    .layout              = layout                                         ,
     .renderPass          = renderPass                                     ,
     .subpass             = 0                                              ,
     .basePipelineHandle  = nullptr                                        ,
     .basePipelineIndex   = 0                                              ,
   };
   VkPipeline renPipeline;
-  VK_CALL(vkCreateGraphicsPipelines,vulkan.device,nullptr,1,&graphicsPipelineCreateInfo,nullptr,&renPipeline);
+  VK_CALL(vkCreateGraphicsPipelines,device,nullptr,1,&graphicsPipelineCreateInfo,nullptr,&renPipeline);
+  return renPipeline;
+}
 
+
+
+
+void work(Vulkan&vulkan){
+
+  uint32_t nofDescriptorSetLayouts;
+
+  auto renderPass = createRenderPass(vulkan.device);
+  auto image      = createImage(vulkan.device,vulkan.queueFamilyIndex);
+
+  VK_CALL(vkBindImageMemory,vulkan.device,image,vulkan.devMem.memory,0);
+
+  auto imageView     = createImageView(vulkan.device,image);
+  auto framebuffer   = createFramebuffer(vulkan.device,renderPass,imageView);
+  auto commandBuffer = allocateCommandBuffer(vulkan);
+
+
+  auto rpbi = VkRenderPassBeginInfo{
+    .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+    .pNext           = nullptr                                 ,
+    .renderPass      = renderPass                              ,
+    .framebuffer     = framebuffer                             ,
+    .renderArea      = VkRect2D{.offset{0,0},.extent{64,64}}   ,
+    .clearValueCount = 0                                       ,
+    .pClearValues    = nullptr                                 ,
+  };
+
+
+  auto vs = createShaderModule(vulkan.device,"shaders/vs.spv");
+  auto fs = createShaderModule(vulkan.device,"shaders/fs.spv");
+
+
+  auto renDescriptorSetLayout = createDescriptorSetLayout(vulkan.device);
+  auto renDescriptorSet       = allocateDescriptorSet    (vulkan.device,vulkan.descriptorPool,renDescriptorSetLayout);
+  auto renPipelineLayout      = createPipelineLayout     (vulkan.device,1,&renDescriptorSetLayout);
+  auto renPipeline            = createGraphicsPipelines  (vulkan.device,vs,fs,renPipelineLayout,renderPass);
+
+  auto isr = VkImageSubresourceRange{
+    .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+    .baseMipLevel   = 0                        ,
+    .levelCount     = 1                        ,
+    .baseArrayLayer = 0                        ,
+    .layerCount     = 1                        ,
+  };
 
   auto imb = VkImageMemoryBarrier{
     .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
@@ -523,7 +553,7 @@ VkPhysicalDevice getPhysicalDevice(VkInstance instance){
   for(uint32_t i=0;i<count;++i){
     auto device = devices[i];
     auto properties = getPhysicalDeviceProperties(device);
-    if(properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU){
+    if(properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU){
       delete[]devices;
       return device;
     }
