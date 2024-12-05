@@ -462,7 +462,7 @@ void work(Vulkan&vulkan){
 
   begin(commandBuffer);
   vkCmdBindPipeline      (commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,renPipeline);
-  vkCmdBindDescriptorSets(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,renPipelineLayout,0,1,&renDescriptorSet,0,nullptr);
+  //vkCmdBindDescriptorSets(commandBuffer,VK_PIPELINE_BIND_POINT_GRAPHICS,renPipelineLayout,0,1,&renDescriptorSet,0,nullptr);
   vkCmdPipelineBarrier   (commandBuffer,VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,0,0,nullptr,0,nullptr,1,&imb);
   vkCmdBeginRenderPass   (commandBuffer,&rpbi,VK_SUBPASS_CONTENTS_INLINE);
   vkCmdClearAttachments  (commandBuffer,1,&ca,1,&cr);

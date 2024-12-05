@@ -6,7 +6,6 @@
 
 #include<main.hpp>
 
-
 int main(int argc,char*argv[]){
   try{
     gpu_task(argc,argv);
@@ -57,8 +56,6 @@ void work(Vulkan&vk){
   endRenderPass  (commandBuffer);
   end            (commandBuffer);
 
-  clearMemory(vk);
-
   submit(vk.queue,commandBuffer);
   vkQueueWaitIdle(vk.queue);
 
@@ -84,14 +81,11 @@ VkInstance createInstance(){
     "VK_LAYER_KHRONOS_validation",
   };
 
-  auto applicationInfo = VkApplicationInfo{
-    .apiVersion = VK_MAKE_API_VERSION(0,1,0,0),
-  };
   auto instanceCreateInfo = VkInstanceCreateInfo{
     .sType                   = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
     .pNext                   = nullptr                               ,
     .flags                   = 0                                     ,
-    .pApplicationInfo        = &applicationInfo                      ,
+    .pApplicationInfo        = nullptr                               ,
     .enabledLayerCount       = sizeof(layers)/sizeof(char const*)    ,
     .ppEnabledLayerNames     = layers                                ,
     .enabledExtensionCount   = 0                                     ,
@@ -128,7 +122,9 @@ VkPhysicalDevice getPhysicalDevice(VkInstance instance){
   for(uint32_t i=0;i<count;++i){
     auto device = devices[i];
     auto properties = getPhysicalDeviceProperties(device);
-    if(properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU){
+    if(
+        properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU ||
+        properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU   ){
       delete[]devices;
       return device;
     }
@@ -224,15 +220,15 @@ VkDeviceMemory allocateMemory(VkDevice device,size_t size,uint32_t memoryTypeInd
 
 
 VkCommandPool createCommandPool(VkDevice device,uint32_t queueFamilyIndex){
-  auto pool = VkCommandPoolCreateInfo{
+  auto info = VkCommandPoolCreateInfo{
     .sType            = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
     .pNext            = nullptr                                   ,
     .flags            = 0                                         ,
     .queueFamilyIndex = queueFamilyIndex                          ,
   };
-  VkCommandPool commandPool;
-  VK_CALL(vkCreateCommandPool,device,&pool,nullptr,&commandPool);
-  return commandPool;
+  VkCommandPool pool;
+  VK_CALL(vkCreateCommandPool,device,&info,nullptr,&pool);
+  return pool;
 }
 
 
@@ -280,9 +276,9 @@ VkRenderPass createRenderPass(VkDevice device){
     .dependencyCount = 0                                        ,
     .pDependencies   = nullptr                                  ,
   };
-  VkRenderPass renderPass;
-  VK_CALL(vkCreateRenderPass,device,&rpci,nullptr,&renderPass);
-  return renderPass;
+  VkRenderPass pass;
+  VK_CALL(vkCreateRenderPass,device,&rpci,nullptr,&pass);
+  return pass;
 }
 
 VkImage createImage(VkDevice device,uint32_t queueFamilyIndex){
@@ -380,7 +376,7 @@ void clear(VkCommandBuffer commandBuffer){
     .colorAttachment = 0                        ,
     .clearValue      = cv                       ,
   };
-  vkCmdClearAttachments  (commandBuffer,1,&ca,1,&cr);
+  vkCmdClearAttachments(commandBuffer,1,&ca,1,&cr);
 }
 
 void beginRenderPass(VkCommandBuffer commandBuffer,VkRenderPass renderPass,VkFramebuffer framebuffer){
@@ -393,19 +389,11 @@ void beginRenderPass(VkCommandBuffer commandBuffer,VkRenderPass renderPass,VkFra
     .clearValueCount = 0                                       ,
     .pClearValues    = nullptr                                 ,
   };
-  vkCmdBeginRenderPass   (commandBuffer,&rpbi,VK_SUBPASS_CONTENTS_INLINE);
+  vkCmdBeginRenderPass(commandBuffer,&rpbi,VK_SUBPASS_CONTENTS_INLINE);
 }
 
 void endRenderPass(VkCommandBuffer commandBuffer){
   vkCmdEndRenderPass(commandBuffer);
-}
-
-void clearMemory(Vulkan&vulkan){
-  auto p = (uint32_t*)map(vulkan.device,vulkan.deviceMemory,0,VK_WHOLE_SIZE);
-  for(uint32_t i=0;i<1024*16*sizeof(uint32_t);++i)
-    p[i] = 0;
-  flush(vulkan.device,vulkan.deviceMemory,0,VK_WHOLE_SIZE);
-  unmap(vulkan.device,vulkan.deviceMemory);
 }
 
 void printMemory(Vulkan&vulkan){
@@ -415,7 +403,7 @@ void printMemory(Vulkan&vulkan){
     for(int x=0;x<64;++x){
       int r = (int)((((float)ptr[(y*64+x)*4+0])/255.f)*9.f);
       if(r == 0)fprintf(stderr,".");
-      else      fprintf(stderr,"%c",'0'+r);
+      else      fprintf(stderr,"%i",r);
     }
     fprintf(stderr,"\n");
   }
@@ -445,9 +433,6 @@ void barrier(VkCommandBuffer commandBuffer,uint32_t queueFamilyIndex,VkImage ima
   };
   vkCmdPipelineBarrier   (commandBuffer,VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,0,0,nullptr,0,nullptr,1,&imb);
 }
-
-
-
 
 
 void begin(VkCommandBuffer commandBuffer){
@@ -504,17 +489,6 @@ void*map(VkDevice device,VkDeviceMemory memory,size_t offset,size_t size){
 
 void unmap(VkDevice device,VkDeviceMemory memory){
   vkUnmapMemory(device,memory);
-}
-
-void flush(VkDevice device,VkDeviceMemory memory,size_t offset,size_t size){
-  auto range = VkMappedMemoryRange{
-    .sType  = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
-    .pNext  = nullptr                              ,
-    .memory = memory                               ,
-    .offset = offset                               ,
-    .size   = size                                 ,
-  };
-  VK_CALL(vkFlushMappedMemoryRanges,device,1,&range);
 }
 
 void invalidate(VkDevice device,VkDeviceMemory memory,size_t offset,size_t size){
