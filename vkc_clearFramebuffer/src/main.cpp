@@ -139,21 +139,40 @@ uint32_t getNofQueueFamilyProperties(VkPhysicalDevice dev){
   return count;
 }
 
+
+
 uint32_t getQueueFamilyIndex(VkPhysicalDevice dev,VkQueueFlags req){
-  auto count = getNofQueueFamilyProperties(dev);
-  auto props = new VkQueueFamilyProperties[count];
-  vkGetPhysicalDeviceQueueFamilyProperties(dev,&count,props);
-
-
-  uint32_t index=0;
-  for(;index < count;++index){
-    auto prop = props[index];
-    if(prop.queueCount >= 1 && (prop.queueFlags & req) == req)break;
-    ++index;
-  }
-  if(index >= count)VK_ERROR("cannot find queue family");
+  uint32_t count;
+  auto props = getQueueFamilyProperties(dev,&count);
+  auto index = loopQueuesAndFindIndex(count,props,req);
+  throwErrorIfQueueIndexOutOfRange(index,count);
   delete[]props;
   return index;
+}
+
+VkQueueFamilyProperties*getQueueFamilyProperties(VkPhysicalDevice dev,uint32_t*count){
+  *count = getNofQueueFamilyProperties(dev);
+  auto props = new VkQueueFamilyProperties[*count];
+  vkGetPhysicalDeviceQueueFamilyProperties(dev,count,props);
+  return props;
+}
+
+uint32_t loopQueuesAndFindIndex(uint32_t count,VkQueueFamilyProperties*props,VkQueueFlags req){
+  uint32_t index=0;
+  for(;index < count;++index){
+    if(isQueueOK(props[index],req))break;
+    ++index;
+  }
+  return index;
+}
+
+void throwErrorIfQueueIndexOutOfRange(uint32_t index,uint32_t count){
+  if(index < count)return;
+  VK_ERROR("cannot find queue family");
+}
+
+bool isQueueOK(VkQueueFamilyProperties prop,VkQueueFlags req){
+  return prop.queueCount >= 1 && (prop.queueFlags & req) == req;
 }
 
 uint32_t getMemoryTypeIndex(VkPhysicalDevice dev,VkMemoryPropertyFlags req){
